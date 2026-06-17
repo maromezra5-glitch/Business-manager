@@ -716,7 +716,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-17g';
+var APP_VERSION  = '2026-06-17h';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } */
   { v: '2026-06-17e', t: '⏱ שעות נוספות — כותרות רגיל / 125% / 150% בשבועי מופיעות רק כשיש שעות נוספות מופעלות' },
@@ -777,6 +777,7 @@ var fcWithVat = false;
 var editEmpRoles = [];
 var tipsRoleFilter = '';
 var hoursRoleFilter = '';
+var hoursNameSearch = '';
 
 function getEmpRoles(emp) {
   if (emp.roles && emp.roles.length) return emp.roles;
@@ -929,6 +930,12 @@ function getTimePickerVal(id) {
 function setHoursRoleFilter(role) {
   hoursRoleFilter = role;
   renderHours();
+}
+function setHoursNameSearch(val) {
+  hoursNameSearch = val;
+  renderHours();
+  var inp = document.getElementById('hours-name-search');
+  if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
 }
 function setTipsRoleFilter(role, ds) {
   tipsRoleFilter = role;
@@ -1574,16 +1581,20 @@ function renderHoursWeekly() {
       '<span style="font-size:11px;color:var(--text-muted)">· ניתן לשנות לכל עובד בנפרד</span>' +
     '</div>';
 
-  var filtered = hoursRoleFilter ? emps.filter(function(e){ return empHasRole(e, hoursRoleFilter); }) : emps;
-  var roleFilterBar = '';
+  var filtered = emps.filter(function(e) {
+    if (hoursRoleFilter && !empHasRole(e, hoursRoleFilter)) return false;
+    if (hoursNameSearch && e.name.toLowerCase().indexOf(hoursNameSearch.toLowerCase()) < 0) return false;
+    return true;
+  });
   var anyHasOT = filtered.some(function(e){ return !e.noOT; });
+  var rfInner = '<input type="text" id="hours-name-search" placeholder="🔍 חיפוש עובד..." value="' + escHtml(hoursNameSearch) + '" oninput="setHoursNameSearch(this.value)" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;min-width:130px;direction:rtl">' +
+    (hoursNameSearch ? '<button onclick="setHoursNameSearch(\'\')" style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid #d1d5db;background:#f3f4f6;cursor:pointer;color:#6b7280;font-weight:700">✕ נקה</button>' : '');
   if (S.roles && S.roles.length) {
-    var rfOpts = '<button class="btn ' + (!hoursRoleFilter?'btn-primary':'btn-secondary') + ' btn-sm" onclick="setHoursRoleFilter(\'\')">כולם</button>';
-    S.roles.forEach(function(r) {
-      rfOpts += '<button class="btn ' + (hoursRoleFilter===r?'btn-primary':'btn-secondary') + ' btn-sm" onclick="setHoursRoleFilter(\'' + escHtml(r) + '\')">' + escHtml(r) + '</button>';
-    });
-    roleFilterBar = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;margin-bottom:16px"><span style="font-size:12px;font-weight:800;color:var(--text-muted)">סנן לפי תפקיד:</span>' + rfOpts + '</div>';
+    rfInner += '<span style="font-size:12px;font-weight:800;color:var(--text-muted)"> · סנן:</span>';
+    rfInner += '<button class="btn ' + (!hoursRoleFilter?'btn-primary':'btn-secondary') + ' btn-sm" onclick="setHoursRoleFilter(\'\')">כולם</button>';
+    S.roles.forEach(function(r) { rfInner += '<button class="btn ' + (hoursRoleFilter===r?'btn-primary':'btn-secondary') + ' btn-sm" onclick="setHoursRoleFilter(\'' + escHtml(r) + '\')">' + escHtml(r) + '</button>'; });
   }
+  var roleFilterBar = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;margin-bottom:16px">' + rfInner + '</div>';
 
   var thead = '<thead><tr style="border-bottom:2px solid var(--border)">' +
     '<th style="min-width:170px;padding:14px 16px;text-align:right;position:sticky;right:0;background:#fff;z-index:2;border-left:2px solid var(--border);font-size:12px;color:var(--text-muted);font-weight:700">👤 שם עובד</th>';
@@ -1772,22 +1783,21 @@ function renderHoursDaily() {
   var dayRecs = S.dailyHours[ds] || {};
   var workedToday = 0, totalHrsToday = 0;
 
-  // Role filter bar
-  var roleFilterBar = '';
-  if (S.roles && S.roles.length) {
-    var rfOpts = '<button class="btn ' + (!hoursRoleFilter?'btn-primary':'btn-secondary') + ' btn-sm" onclick="setHoursRoleFilter(\'\')">כולם</button>';
-    S.roles.forEach(function(r) {
-      rfOpts += '<button class="btn ' + (hoursRoleFilter===r?'btn-primary':'btn-secondary') + ' btn-sm" onclick="setHoursRoleFilter(\'' + escHtml(r) + '\')">' + escHtml(r) + '</button>';
-    });
-    roleFilterBar = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);margin-bottom:14px">' +
-      '<span style="font-size:12px;font-weight:800;color:var(--text-muted)">סנן לפי תפקיד:</span>' + rfOpts + '</div>';
-  }
-
-  // Filter and group employees by role
-  var filtered = hoursRoleFilter
-    ? emps.filter(function(e){ return empHasRole(e, hoursRoleFilter); })
-    : emps;
+  // Filter bar (name search + role filter)
+  var filtered = emps.filter(function(e) {
+    if (hoursRoleFilter && !empHasRole(e, hoursRoleFilter)) return false;
+    if (hoursNameSearch && e.name.toLowerCase().indexOf(hoursNameSearch.toLowerCase()) < 0) return false;
+    return true;
+  });
   var anyHasOT = filtered.some(function(e){ return !e.noOT; });
+  var rfInner2 = '<input type="text" id="hours-name-search" placeholder="🔍 חיפוש עובד..." value="' + escHtml(hoursNameSearch) + '" oninput="setHoursNameSearch(this.value)" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;min-width:130px;direction:rtl">' +
+    (hoursNameSearch ? '<button onclick="setHoursNameSearch(\'\')" style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid #d1d5db;background:#f3f4f6;cursor:pointer;color:#6b7280;font-weight:700">✕ נקה</button>' : '');
+  if (S.roles && S.roles.length) {
+    rfInner2 += '<span style="font-size:12px;font-weight:800;color:var(--text-muted)"> · סנן:</span>';
+    rfInner2 += '<button class="btn ' + (!hoursRoleFilter?'btn-primary':'btn-secondary') + ' btn-sm" onclick="setHoursRoleFilter(\'\')">כולם</button>';
+    S.roles.forEach(function(r) { rfInner2 += '<button class="btn ' + (hoursRoleFilter===r?'btn-primary':'btn-secondary') + ' btn-sm" onclick="setHoursRoleFilter(\'' + escHtml(r) + '\')">' + escHtml(r) + '</button>'; });
+  }
+  var roleFilterBar = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);margin-bottom:14px">' + rfInner2 + '</div>';
 
   // Build grouped rows — each employee appears in ALL their role groups
   var tbody = '';
@@ -1803,7 +1813,7 @@ function renderHoursDaily() {
   });
   // Only keep roles that have employees
   var roleOrder = groupOrder.filter(function(r){ return groupMap[r]; });
-  var showGroups = !hoursRoleFilter && roleOrder.length > 1;
+  var showGroups = !hoursRoleFilter && !hoursNameSearch && roleOrder.length > 1;
   var countedIds = {}; // to avoid double-counting in summary
 
   roleOrder.forEach(function(role) {
@@ -1865,21 +1875,21 @@ function renderHoursMonthly() {
     return;
   }
 
-  // Role filter bar
-  var roleFilterBar = '';
-  if (S.roles && S.roles.length) {
-    var rfOpts = '<button class="btn ' + (!hoursRoleFilter?'btn-primary':'btn-secondary') + ' btn-sm" onclick="setHoursRoleFilter(\'\')">כולם</button>';
-    S.roles.forEach(function(r) {
-      rfOpts += '<button class="btn ' + (hoursRoleFilter===r?'btn-primary':'btn-secondary') + ' btn-sm" onclick="setHoursRoleFilter(\'' + escHtml(r) + '\')">' + escHtml(r) + '</button>';
-    });
-    roleFilterBar = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);margin-bottom:14px">' +
-      '<span style="font-size:12px;font-weight:800;color:var(--text-muted)">סנן לפי תפקיד:</span>' + rfOpts + '</div>';
-  }
-
-  var filtered = hoursRoleFilter
-    ? emps.filter(function(e){ return empHasRole(e, hoursRoleFilter); })
-    : emps;
+  // Filter bar (name search + role filter)
+  var filtered = emps.filter(function(e) {
+    if (hoursRoleFilter && !empHasRole(e, hoursRoleFilter)) return false;
+    if (hoursNameSearch && e.name.toLowerCase().indexOf(hoursNameSearch.toLowerCase()) < 0) return false;
+    return true;
+  });
   var anyHasOT = filtered.some(function(e){ return !e.noOT; });
+  var rfInner3 = '<input type="text" id="hours-name-search" placeholder="🔍 חיפוש עובד..." value="' + escHtml(hoursNameSearch) + '" oninput="setHoursNameSearch(this.value)" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;min-width:130px;direction:rtl">' +
+    (hoursNameSearch ? '<button onclick="setHoursNameSearch(\'\')" style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid #d1d5db;background:#f3f4f6;cursor:pointer;color:#6b7280;font-weight:700">✕ נקה</button>' : '');
+  if (S.roles && S.roles.length) {
+    rfInner3 += '<span style="font-size:12px;font-weight:800;color:var(--text-muted)"> · סנן:</span>';
+    rfInner3 += '<button class="btn ' + (!hoursRoleFilter?'btn-primary':'btn-secondary') + ' btn-sm" onclick="setHoursRoleFilter(\'\')">כולם</button>';
+    S.roles.forEach(function(r) { rfInner3 += '<button class="btn ' + (hoursRoleFilter===r?'btn-primary':'btn-secondary') + ' btn-sm" onclick="setHoursRoleFilter(\'' + escHtml(r) + '\')">' + escHtml(r) + '</button>'; });
+  }
+  var roleFilterBar = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);margin-bottom:14px">' + rfInner3 + '</div>';
 
   // Group by role — each employee appears in ALL their role groups
   var groupMap = {};
@@ -1893,7 +1903,7 @@ function renderHoursMonthly() {
     });
   });
   var roleOrder = groupOrder.filter(function(r){ return groupMap[r]; });
-  var showGroups = !hoursRoleFilter && roleOrder.length > 1;
+  var showGroups = !hoursRoleFilter && !hoursNameSearch && roleOrder.length > 1;
 
   var tbody = '';
   roleOrder.forEach(function(role) {
