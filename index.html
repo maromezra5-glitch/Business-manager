@@ -1826,10 +1826,14 @@ function renderHoursDaily() {
         (showGroups ? '<div style="font-size:11px;color:var(--primary-dark)">' + escHtml(role) + '</div>' : (getEmpRoleStr(emp) ? '<div style="font-size:11px;color:var(--text-muted)">' + escHtml(getEmpRoleStr(emp)) + '</div>' : '')) +
       '</td>';
       [{k:'regHours'},{k:'ot125'},{k:'ot150'}].forEach(function(f) {
-        tbody += '<td><input type="number" class="ti ti-w70" min="0" max="24" step=".5"' +
-          ' data-deid="' + emp.id + '" data-ds="' + ds + '" data-key="' + f.k + '"' +
-          ' value="' + (toNum(r[f.k]) || '') + '" placeholder="0"' +
-          ' oninput="saveDayField(this)"></td>';
+        if (emp.noOT && f.k !== 'regHours') {
+          tbody += '<td style="text-align:center;color:var(--text-muted);background:#f9fafb;font-size:13px">—</td>';
+        } else {
+          tbody += '<td><input type="number" class="ti ti-w70" min="0" max="24" step=".5"' +
+            ' data-deid="' + emp.id + '" data-ds="' + ds + '" data-key="' + f.k + '"' +
+            ' value="' + (toNum(r[f.k]) || '') + '" placeholder="0"' +
+            ' oninput="saveDayField(this)"></td>';
+        }
       });
       tbody += '<td style="text-align:center;color:' + (h>0?'var(--success)':'var(--text-muted)') + ';font-size:13px;font-weight:700">' + (h>0?'✓ אוטו':'—') + '</td>';
       tbody += '</tr>';
@@ -1908,8 +1912,8 @@ function renderHoursMonthly() {
         (showGroups ? '<div style="font-size:11px;color:var(--primary-dark)">' + escHtml(role) + '</div>' : (getEmpRoleStr(emp) ? '<div style="font-size:11px;color:var(--text-muted)">' + escHtml(getEmpRoleStr(emp)) + '</div>' : '')) + '</td>';
       tbody += '<td style="text-align:center;font-weight:700">' + (agg.workDays || '—') + '</td>';
       tbody += '<td style="text-align:center">' + (agg.regHours > 0 ? agg.regHours.toFixed(1) : '—') + '</td>';
-      tbody += '<td style="text-align:center">' + (agg.ot125 > 0 ? agg.ot125.toFixed(1) : '—') + '</td>';
-      tbody += '<td style="text-align:center">' + (agg.ot150 > 0 ? agg.ot150.toFixed(1) : '—') + '</td>';
+      tbody += '<td style="text-align:center' + (emp.noOT ? ';background:#f9fafb;color:var(--text-muted)' : '') + '">' + (emp.noOT ? '—' : (agg.ot125 > 0 ? agg.ot125.toFixed(1) : '—')) + '</td>';
+      tbody += '<td style="text-align:center' + (emp.noOT ? ';background:#f9fafb;color:var(--text-muted)' : '') + '">' + (emp.noOT ? '—' : (agg.ot150 > 0 ? agg.ot150.toFixed(1) : '—')) + '</td>';
       tbody += '<td style="text-align:center">' + (agg.travelDays || '—') + '</td>';
       tbody += '<td>' +
         '<input type="number" class="ti ti-w80" min="0" data-meid="' + emp.id + '" data-mkey="bonus" value="' + (monthly.bonus||'') + '" placeholder="0" oninput="saveMonthExtra(this,\'' + ym + '\')">' +
