@@ -1485,21 +1485,6 @@ function saveDayField(inp) {
   persist();
 }
 
-function toggleTravel(ds, empId) {
-  if (!S.dailyHours[ds])        S.dailyHours[ds] = {};
-  if (!S.dailyHours[ds][empId]) S.dailyHours[ds][empId] = {};
-  var cur = toNum(S.dailyHours[ds][empId].travel);
-  S.dailyHours[ds][empId].travel = cur > 0 ? 0 : 1;
-  persist();
-  var hasTrav = S.dailyHours[ds][empId].travel > 0;
-  var btn = document.getElementById('trav-' + empId);
-  if (btn) {
-    btn.textContent       = hasTrav ? '✓' : '—';
-    btn.style.background  = hasTrav ? 'var(--success)' : 'var(--surface)';
-    btn.style.color       = hasTrav ? '#fff' : 'var(--text-sec)';
-    btn.style.borderColor = hasTrav ? 'var(--success)' : 'var(--border)';
-  }
-}
 
 function saveMonthExtra(inp, ym) {
   var empId = inp.dataset.meid;
@@ -3425,22 +3410,6 @@ function removeFixedCat(key) {
   toast('קטגוריה הוסרה');
 }
 
-function hideFixedRow(key) {
-  var ym = document.getElementById('ctrl-month').value;
-  saveControl();
-  if (!S.control[ym]) S.control[ym] = {};
-  if (!S.control[ym].hiddenFixed) S.control[ym].hiddenFixed = [];
-  if (S.control[ym].hiddenFixed.indexOf(key) < 0) S.control[ym].hiddenFixed.push(key);
-  persist();
-  renderControl();
-}
-
-function showAllFixedRows() {
-  var ym = document.getElementById('ctrl-month').value;
-  if (S.control[ym]) S.control[ym].hiddenFixed = [];
-  persist();
-  renderControl();
-}
 
 function addExtra() {
   saveControl();
@@ -3492,17 +3461,20 @@ function exportPayroll() {
   var fmtD  = function(ds) { if (!ds) return ''; var p=ds.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; };
 
   // Sheet 1 — summary
+  var tipsRptXl = getDetailedSupplementReport(ym);
   var data = [
     ['דוח משכורות — ' + mn],
     [],
-    ['שם עובד','סוג','שעות','שכר בסיס','ש"נ','נסיעות','תוספת','תאריך תוספת','סיבת תוספת','מפרעה','תאריך מפרעה','הערות','סה"כ לתשלום']
+    ['שם עובד','סוג','שעות','שכר בסיס','ש"נ','נסיעות','תוספת','תאריך תוספת','סיבת תוספת','מפרעה','תאריך מפרעה','השלמת טיפים','הערות','סה"כ לתשלום']
   ];
   var grand = 0;
   emps.forEach(function(emp) {
     var agg     = aggregateMonth(emp.id, ym);
     var s       = calcSalary(emp, agg);
     var monthly = (S.monthlyData[ym] || {})[emp.id] || {};
-    grand += s.total;
+    var suppl   = (tipsRptXl[emp.id] || {}).totalSuppl || 0;
+    var total   = s.total + suppl;
+    grand += total;
     data.push([
       emp.name,
       emp.type === 'hourly' ? 'שעתי' : 'חודשי',
@@ -3515,11 +3487,12 @@ function exportPayroll() {
       s.bonus > 0  ? (monthly.bonusNote || '')   : '',
       s.advance > 0 ? +s.advance.toFixed(2)     : '',
       s.advance > 0 ? fmtD(monthly.advanceDate) : '',
+      suppl > 0 ? +suppl.toFixed(2) : '',
       monthly.notes || '',
-      +s.total.toFixed(2)
+      +total.toFixed(2)
     ]);
   });
-  data.push([], ['', '', '', '', '', '', '', '', '', '', 'סה"כ:', +grand.toFixed(2)]);
+  data.push([], ['', '', '', '', '', '', '', '', '', '', '', 'סה"כ:', +grand.toFixed(2)]);
 
   // Sheet 2 — per-employee detail
   var detail = [['פירוט עובדים — ' + mn], []];
