@@ -1368,7 +1368,7 @@ function renderEmps() {
         '</div>' +
       '</div>' +
       ((emp.idNum||emp.num) ? '<div class="emp-info" style="font-weight:700">🪪 ת"ז: ' + escHtml(emp.idNum||emp.num) + '</div>' : '') +
-      (emp.empNum ? '<div class="emp-info">👤 מספר עובד: ' + escHtml(emp.empNum) + '</div>' : '') +
+      (emp.empNum ? '<div class="emp-info">👤 מספר עובד: <strong>' + escHtml(emp.empNum) + '</strong></div>' : '') +
       (emp.phone   ? '<div class="emp-info">📞 ' + escHtml(emp.phone)   + '</div>' : '') +
       (emp.address ? '<div class="emp-info">📍 ' + escHtml(emp.address) + '</div>' : '') +
       (dobStr      ? '<div class="emp-info">🎂 ' + dobStr               + '</div>' : '') +
