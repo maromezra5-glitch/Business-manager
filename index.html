@@ -1540,7 +1540,6 @@ function renderHoursWeekly() {
     return;
   }
 
-  // Build 7 day-strings for this week (Sunday → Saturday)
   var days = [];
   for (var i = 0; i < 7; i++) {
     var d = new Date(selectedWeekStart + 'T12:00:00');
@@ -1548,139 +1547,173 @@ function renderHoursWeekly() {
     var ds = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
     days.push({ ds: ds, dow: d.getDay(), dd: String(d.getDate()).padStart(2,'0'), mm: String(d.getMonth()+1).padStart(2,'0') });
   }
-
-  var weekEnd  = days[6].ds;
-  var today    = curDate();
-  var isThisWeek = days[0].ds <= today && today <= weekEnd;
-
-  // Week nav bar
+  var today      = curDate();
+  var isThisWeek = days[0].ds <= today && today <= days[6].ds;
   var p0 = days[0], p6 = days[6];
+  var dayShort   = ['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'];
+
   var navBar =
-    '<div style="display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 18px;margin-bottom:18px;flex-wrap:wrap">' +
-      '<button class="btn btn-secondary btn-sm" onclick="stepWeek(-1)">→ שבוע קודם</button>' +
-      '<div style="flex:1;text-align:center;font-size:16px;font-weight:800">' +
-        'שבוע ' + p0.dd + '/' + p0.mm + ' — ' + p6.dd + '/' + p6.mm +
+    '<div style="display:flex;align-items:center;gap:12px;background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:14px 22px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.07)">' +
+      '<button class="btn btn-secondary" onclick="stepWeek(-1)" style="padding:10px 20px;font-size:16px;border-radius:10px;font-weight:700">→</button>' +
+      '<div style="flex:1;text-align:center">' +
+        '<div style="font-size:21px;font-weight:900;color:var(--text);letter-spacing:-.3px">' +
+          p0.dd + '/' + p0.mm + ' — ' + p6.dd + '/' + p6.mm +
+        '</div>' +
+        (isThisWeek
+          ? '<div style="font-size:12px;font-weight:700;color:var(--success);margin-top:5px">✅ השבוע הנוכחי</div>'
+          : '<button class="btn btn-sm" onclick="selectedWeekStart=_weekStartOf(\'' + today + '\');renderHoursWeekly()" style="margin-top:6px;font-size:12px;padding:5px 14px;border-radius:8px">📅 לשבוע הנוכחי</button>'
+        ) +
       '</div>' +
-      (!isThisWeek ? '<button class="btn btn-secondary btn-sm" onclick="selectedWeekStart=_weekStartOf(\'' + today + '\');renderHoursWeekly()">📅 השבוע</button>' : '<span style="font-size:12px;color:var(--success);font-weight:700">✅ השבוע הנוכחי</span>') +
-      '<button class="btn btn-secondary btn-sm" onclick="stepWeek(1)">שבוע הבא ←</button>' +
+      '<button class="btn btn-secondary" onclick="stepWeek(1)" style="padding:10px 20px;font-size:16px;border-radius:10px;font-weight:700">←</button>' +
     '</div>';
 
-  // Filter employees
   var filtered = hoursRoleFilter
     ? emps.filter(function(e){ return empHasRole(e, hoursRoleFilter); })
     : emps;
 
-  // Role filter bar
   var roleFilterBar = '';
   if (S.roles && S.roles.length) {
-    var rfOpts = '<button class="btn ' + (!hoursRoleFilter?'btn-primary':'btn-secondary') + ' btn-sm" onclick="setHoursRoleFilter(\'\')">כולם</button>';
+    var rfOpts = '<button class="btn ' + (!hoursRoleFilter?'btn-primary':'btn-secondary') + ' btn-sm" onclick="setHoursRoleFilter(\'\\'+'\\''+'\')">כולם</button>';
     S.roles.forEach(function(r) {
-      rfOpts += '<button class="btn ' + (hoursRoleFilter===r?'btn-primary':'btn-secondary') + ' btn-sm" onclick="setHoursRoleFilter(\'' + escHtml(r) + '\')">' + escHtml(r) + '</button>';
+      rfOpts += '<button class="btn ' + (hoursRoleFilter===r?'btn-primary':'btn-secondary') + ' btn-sm" onclick="setHoursRoleFilter(\\'' + escHtml(r) + '\\'+'\')">' + escHtml(r) + '</button>';
     });
-    roleFilterBar = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);margin-bottom:14px">' +
-      '<span style="font-size:12px;font-weight:800;color:var(--text-muted)">סנן לפי תפקיד:</span>' + rfOpts + '</div>';
+    roleFilterBar = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;margin-bottom:16px"><span style="font-size:12px;font-weight:800;color:var(--text-muted)">סנן לפי תפקיד:</span>' + rfOpts + '</div>';
   }
 
-  // Table header
-  var FRIDAY = 5, SATURDAY = 6;
-  var thead = '<thead><tr>' +
-    '<th class="sticky-col" style="min-width:140px">עובד</th>';
+  var thead = '<thead>' +
+    '<tr style="border-bottom:2px solid var(--border)">' +
+      '<th style="min-width:165px;padding:14px 16px;text-align:right;position:sticky;right:0;background:#fff;z-index:2;font-size:12px;color:var(--text-muted);font-weight:700;border-left:2px solid var(--border)">👤 שם עובד</th>';
+
   days.forEach(function(day) {
-    var isSat  = day.dow === SATURDAY;
-    var isFri  = day.dow === FRIDAY;
+    var isSat   = day.dow === 6;
+    var isFri   = day.dow === 5;
     var isToday = day.ds === today;
-    var col = (isSat ? 'color:var(--error)' : (isFri ? 'color:var(--warning)' : ''));
-    var todayMark = isToday ? ' style="background:rgba(217,119,87,.10)"' : '';
-    thead += '<th' + todayMark + '>' +
-      '<div style="font-weight:800;font-size:13px;' + col + '">' + DHE[day.dow] + '</div>' +
-      '<div style="font-size:12px;color:var(--text-muted)">' + day.dd + '/' + day.mm + '</div>' +
+    var hdrBg   = isToday ? 'background:var(--primary);color:#fff'
+                : isSat   ? 'background:#fff1f2;color:#dc2626'
+                : isFri   ? 'background:#fffbeb;color:#b45309'
+                :            'background:#fafafa;color:var(--text)';
+    thead += '<th style="' + hdrBg + ';padding:10px 6px;text-align:center;min-width:120px;border-left:1px solid var(--border)">' +
+      '<div style="font-size:17px;font-weight:900">' + dayShort[day.dow] + '</div>' +
+      '<div style="font-size:13px;font-weight:600;margin-top:3px;opacity:.9">' + day.dd + '/' + day.mm + '</div>' +
+      (isToday ? '<div style="font-size:10px;margin-top:2px;opacity:.85;font-weight:600">היום</div>' : '') +
     '</th>';
   });
-  thead += '<th style="min-width:70px">סה"כ</th></tr>' +
-    '<tr style="background:var(--surface);font-size:11px;color:var(--text-muted)">' +
-    '<th class="sticky-col"></th>';
+
+  thead +=
+    '<th style="background:#f8fafc;padding:10px 10px;text-align:center;min-width:80px;border-left:2px solid var(--border);font-size:12px;color:var(--text-muted)">סה"כ<br>שעות</th></tr>' +
+    '<tr style="background:#f5f5f5;border-bottom:1.5px solid var(--border)">' +
+      '<th style="position:sticky;right:0;background:#f5f5f5;z-index:2;padding:5px 16px;text-align:right;font-size:10px;color:var(--text-muted);border-left:2px solid var(--border)">רגיל / 125% / 150%</th>';
   days.forEach(function() {
-    thead += '<th><div style="display:flex;gap:2px;justify-content:center;font-size:10px">' +
-      '<span style="color:var(--text-muted)" title="שעות רגילות">רגיל</span>' +
-      '<span style="color:var(--text-muted)">·</span>' +
-      '<span style="color:#b45309" title="ש״נ 125%">125</span>' +
-      '<span style="color:var(--text-muted)">·</span>' +
-      '<span style="color:#b91c1c" title="ש״נ 150%">150</span>' +
-    '</div></th>';
+    thead += '<th style="border-left:1px solid var(--border);padding:5px 4px">' +
+      '<div style="display:flex;gap:3px;justify-content:center">' +
+        '<span style="padding:2px 6px;border-radius:4px;background:#e0f2fe;color:#0369a1;font-size:10px;font-weight:700">רגיל</span>' +
+        '<span style="padding:2px 6px;border-radius:4px;background:#fef3c7;color:#92400e;font-size:10px;font-weight:700">125%</span>' +
+        '<span style="padding:2px 6px;border-radius:4px;background:#fee2e2;color:#991b1b;font-size:10px;font-weight:700">150%</span>' +
+      '</div>' +
+    '</th>';
   });
-  thead += '<th></th></tr></thead>';
+  thead += '<th style="background:#f5f5f5"></th></tr></thead>';
 
-  // Table body
   var tbody = '';
-  var weekTotals = {}; // ds → total hours
-  days.forEach(function(day) { weekTotals[day.ds] = 0; });
+  var dayTotals = {};
+  days.forEach(function(day) { dayTotals[day.ds] = 0; });
+  var avatarColors = ['#D97757','#3b82f6','#10b981','#8b5cf6','#f59e0b','#ef4444','#06b6d4','#ec4899','#84cc16'];
 
-  filtered.forEach(function(emp) {
+  filtered.forEach(function(emp, idx) {
     var empTotal = 0;
-    var cells = '';
+    var cells    = '';
     days.forEach(function(day) {
-      var r = (S.dailyHours[day.ds] || {})[emp.id] || {};
-      var reg = toNum(r.regHours), ot1 = toNum(r.ot125), ot2 = toNum(r.ot150);
+      var r      = (S.dailyHours[day.ds] || {})[emp.id] || {};
+      var reg    = toNum(r.regHours), ot1 = toNum(r.ot125), ot2 = toNum(r.ot150);
       var daySum = reg + ot1 + ot2;
-      empTotal += daySum;
-      weekTotals[day.ds] += daySum;
+      empTotal          += daySum;
+      dayTotals[day.ds] += daySum;
+
+      var isSat   = day.dow === 6;
       var isToday = day.ds === today;
-      var isSat   = day.dow === SATURDAY;
-      var cellBg  = isToday ? 'background:rgba(217,119,87,.07)' : (isSat ? 'background:rgba(220,38,38,.04)' : '');
-      var hasBg   = daySum > 0 ? 'background:#f0fff4' : '';
-      cells += '<td style="padding:4px 3px;' + (hasBg || cellBg) + '">' +
-        '<div style="display:flex;gap:2px;justify-content:center;align-items:center">' +
+      var cellBg  = daySum > 0 ? '#f0fdf4'
+                  : isToday    ? 'rgba(217,119,87,.06)'
+                  : isSat      ? '#fff5f5'
+                  : idx % 2 === 0 ? '#fcfcfc' : '#fff';
+
+      cells += '<td style="padding:7px 4px;background:' + cellBg + ';border-left:1px solid var(--border)">' +
+        '<div style="display:flex;flex-direction:column;align-items:center;gap:4px">' +
           '<input type="number" class="ti" min="0" max="24" step=".5"' +
             ' data-deid="' + emp.id + '" data-ds="' + day.ds + '" data-key="regHours"' +
-            ' value="' + (reg || '') + '" placeholder="—"' +
+            ' value="' + (reg||'') + '" placeholder="—"' +
             ' oninput="saveDayField(this);renderWeeklyTotals()"' +
-            ' style="width:38px;font-size:13px;padding:3px 2px;text-align:center">' +
-          '<input type="number" class="ti" min="0" max="24" step=".5"' +
-            ' data-deid="' + emp.id + '" data-ds="' + day.ds + '" data-key="ot125"' +
-            ' value="' + (ot1 || '') + '" placeholder="—"' +
-            ' oninput="saveDayField(this);renderWeeklyTotals()"' +
-            ' style="width:32px;font-size:11px;padding:3px 2px;text-align:center;background:#fef3c7">' +
-          '<input type="number" class="ti" min="0" max="24" step=".5"' +
-            ' data-deid="' + emp.id + '" data-ds="' + day.ds + '" data-key="ot150"' +
-            ' value="' + (ot2 || '') + '" placeholder="—"' +
-            ' oninput="saveDayField(this);renderWeeklyTotals()"' +
-            ' style="width:32px;font-size:11px;padding:3px 2px;text-align:center;background:#fee2e2">' +
+            ' style="width:62px;height:42px;font-size:20px;font-weight:800;text-align:center;border:2px solid ' + (reg>0?'#16a34a':'#d1d5db') + ';border-radius:10px;background:' + (reg>0?'#f0fdf4':'#fff') + ';color:' + (reg>0?'#15803d':'var(--text)') + ';transition:all .15s">' +
+          '<div style="display:flex;gap:3px">' +
+            '<input type="number" class="ti" min="0" max="24" step=".5"' +
+              ' data-deid="' + emp.id + '" data-ds="' + day.ds + '" data-key="ot125"' +
+              ' value="' + (ot1||'') + '" placeholder="—"' +
+              ' oninput="saveDayField(this);renderWeeklyTotals()"' +
+              ' style="width:40px;height:27px;font-size:12px;font-weight:700;text-align:center;border:1.5px solid ' + (ot1>0?'#d97706':'#e5e7eb') + ';border-radius:6px;background:' + (ot1>0?'#fef3c7':'#fffdf0') + ';color:#92400e">' +
+            '<input type="number" class="ti" min="0" max="24" step=".5"' +
+              ' data-deid="' + emp.id + '" data-ds="' + day.ds + '" data-key="ot150"' +
+              ' value="' + (ot2||'') + '" placeholder="—"' +
+              ' oninput="saveDayField(this);renderWeeklyTotals()"' +
+              ' style="width:40px;height:27px;font-size:12px;font-weight:700;text-align:center;border:1.5px solid ' + (ot2>0?'#dc2626':'#e5e7eb') + ';border-radius:6px;background:' + (ot2>0?'#fee2e2':'#fff5f5') + ';color:#991b1b">' +
+          '</div>' +
         '</div>' +
       '</td>';
     });
 
-    tbody += '<tr>' +
-      '<td class="sticky-col"><strong>' + escHtml(emp.name) + '</strong>' +
-        (getEmpRoleStr(emp) ? '<div style="font-size:11px;color:var(--text-muted)">' + escHtml(getEmpRoleStr(emp)) + '</div>' : '') +
-      '</td>' +
-      cells +
-      '<td style="text-align:center;font-weight:800;font-size:14px;color:' + (empTotal>0?'var(--success)':'var(--text-muted)') + '" class="wk-emp-' + emp.id + '">' +
-        (empTotal > 0 ? empTotal.toFixed(1) : '—') +
-      '</td>' +
-    '</tr>';
+    var initials    = emp.name.trim().split(/\s+/).slice(0,2).map(function(w){ return w.charAt(0); }).join('');
+    var avatarColor = avatarColors[idx % avatarColors.length];
+    var rowBg       = idx % 2 === 0 ? '#fcfcfc' : '#fff';
+
+    var empCell = '<td style="padding:10px 14px;background:' + rowBg + ';position:sticky;right:0;z-index:1;border-left:2px solid var(--border)">' +
+      '<div style="display:flex;align-items:center;gap:10px">' +
+        '<div style="width:40px;height:40px;border-radius:50%;background:' + avatarColor + ';color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;flex-shrink:0;box-shadow:0 2px 6px rgba(0,0,0,.18)">' + escHtml(initials) + '</div>' +
+        '<div>' +
+          '<div style="font-weight:800;font-size:14px;color:var(--text);white-space:nowrap">' + escHtml(emp.name) + '</div>' +
+          (getEmpRoleStr(emp) ? '<div style="font-size:11px;color:var(--text-muted)">' + escHtml(getEmpRoleStr(emp)) + '</div>' : '') +
+        '</div>' +
+      '</div>' +
+    '</td>';
+
+    var totalCell = '<td style="text-align:center;padding:8px 6px;background:#f8fafc;border-left:2px solid var(--border)" class="wk-emp-' + emp.id + '">' +
+      (empTotal > 0
+        ? '<div style="font-weight:900;font-size:18px;color:#15803d">' + empTotal.toFixed(1) + '</div><div style="font-size:10px;color:var(--text-muted)">שע׳</div>'
+        : '<div style="font-size:16px;color:var(--text-muted)">—</div>'
+      ) +
+    '</td>';
+
+    tbody += '<tr style="border-bottom:1px solid var(--border)">' + empCell + cells + totalCell + '</tr>';
   });
 
-  // Footer totals row
-  var footerCells = '<td class="sticky-col" style="font-weight:800;font-size:13px">סה"כ ביום</td>';
-  var grandTotal = 0;
+  var grandTotal  = 0;
+  var footerCells = '<td style="position:sticky;right:0;z-index:1;background:var(--surface);padding:13px 16px;font-weight:800;font-size:13px;color:var(--text-muted);border-left:2px solid var(--border)">סה"כ ביום</td>';
   days.forEach(function(day) {
-    var t = weekTotals[day.ds] || 0;
+    var t = dayTotals[day.ds] || 0;
     grandTotal += t;
-    footerCells += '<td style="text-align:center;font-weight:700;font-size:13px;color:' + (t>0?'var(--primary)':'var(--text-muted)') + '" class="wk-day-' + day.ds + '">' + (t>0?t.toFixed(1):'—') + '</td>';
+    footerCells += '<td style="text-align:center;padding:11px 4px;background:var(--surface);border-left:1px solid var(--border)" class="wk-day-' + day.ds + '">' +
+      (t > 0
+        ? '<div style="font-weight:800;font-size:16px;color:var(--primary)">' + t.toFixed(1) + '</div><div style="font-size:10px;color:var(--text-muted)">שע׳</div>'
+        : '<div style="font-size:14px;color:var(--text-muted)">—</div>'
+      ) +
+    '</td>';
   });
-  footerCells += '<td style="text-align:center;font-weight:900;font-size:15px;color:var(--primary)" class="wk-grand">' + (grandTotal>0?grandTotal.toFixed(1):'—') + '</td>';
+  footerCells += '<td style="text-align:center;padding:11px;background:var(--surface);border-left:2px solid var(--border)" class="wk-grand">' +
+    (grandTotal > 0
+      ? '<div style="font-weight:900;font-size:20px;color:var(--primary)">' + grandTotal.toFixed(1) + '</div><div style="font-size:10px;color:var(--text-muted)">שעות השבוע</div>'
+      : '<div style="font-size:16px;color:var(--text-muted)">—</div>'
+    ) +
+  '</td>';
 
   cont.innerHTML =
     navBar + roleFilterBar +
-    '<div class="table-wrap"><table>' +
-      thead +
-      '<tbody>' + tbody + '</tbody>' +
-      '<tfoot><tr style="background:var(--surface);border-top:2px solid var(--border)">' + footerCells + '</tr></tfoot>' +
+    '<div class="table-wrap" style="border:1.5px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.08)">' +
+    '<table style="border-collapse:collapse;width:100%">' +
+      thead + '<tbody>' + tbody + '</tbody>' +
+      '<tfoot><tr style="border-top:2px solid var(--border)">' + footerCells + '</tr></tfoot>' +
     '</table></div>' +
-    '<div style="margin-top:10px;font-size:12px;color:var(--text-muted)">' +
-      '💡 נשמר אוטומטית · ' +
-      '<span style="background:#fef3c7;padding:1px 5px;border-radius:4px;font-size:11px">125%</span> שעות נוספות 125 · ' +
-      '<span style="background:#fee2e2;padding:1px 5px;border-radius:4px;font-size:11px">150%</span> שעות נוספות 150' +
+    '<div style="margin-top:14px;display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-muted);align-items:center">' +
+      '<span>💡 נשמר אוטומטית</span>' +
+      '<span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:14px;border-radius:3px;background:#fef3c7;border:1px solid #d97706;display:inline-block"></span>שע"נ 125%</span>' +
+      '<span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:14px;border-radius:3px;background:#fee2e2;border:1px solid #dc2626;display:inline-block"></span>שע"נ 150%</span>' +
+      '<span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:14px;border-radius:3px;background:#f0fdf4;border:1.5px solid #16a34a;display:inline-block"></span>יום עם שעות</span>' +
     '</div>';
 }
 
@@ -1692,7 +1725,7 @@ function renderWeeklyTotals() {
     d.setDate(d.getDate() + i);
     days.push(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'));
   }
-  var emps = S.employees.filter(function(e){ return e.active; });
+  var emps  = S.employees.filter(function(e){ return e.active; });
   var grand = 0;
   days.forEach(function(ds) {
     var t = 0;
@@ -1702,7 +1735,9 @@ function renderWeeklyTotals() {
     });
     grand += t;
     var el = document.querySelector('.wk-day-' + ds);
-    if (el) { el.textContent = t > 0 ? t.toFixed(1) : '—'; el.style.color = t > 0 ? 'var(--primary)' : 'var(--text-muted)'; }
+    if (el) el.innerHTML = t > 0
+      ? '<div style="font-weight:800;font-size:16px;color:var(--primary)">' + t.toFixed(1) + '</div><div style="font-size:10px;color:var(--text-muted)">שע׳</div>'
+      : '<div style="font-size:14px;color:var(--text-muted)">—</div>';
   });
   emps.forEach(function(emp) {
     var et = 0;
@@ -1711,10 +1746,14 @@ function renderWeeklyTotals() {
       et += toNum(r.regHours) + toNum(r.ot125) + toNum(r.ot150);
     });
     var el = document.querySelector('.wk-emp-' + emp.id);
-    if (el) { el.textContent = et > 0 ? et.toFixed(1) : '—'; el.style.color = et > 0 ? 'var(--success)' : 'var(--text-muted)'; }
+    if (el) el.innerHTML = et > 0
+      ? '<div style="font-weight:900;font-size:18px;color:#15803d">' + et.toFixed(1) + '</div><div style="font-size:10px;color:var(--text-muted)">שע׳</div>'
+      : '<div style="font-size:16px;color:var(--text-muted)">—</div>';
   });
   var gel = document.querySelector('.wk-grand');
-  if (gel) { gel.textContent = grand > 0 ? grand.toFixed(1) : '—'; }
+  if (gel) gel.innerHTML = grand > 0
+    ? '<div style="font-weight:900;font-size:20px;color:var(--primary)">' + grand.toFixed(1) + '</div><div style="font-size:10px;color:var(--text-muted)">שעות השבוע</div>'
+    : '<div style="font-size:16px;color:var(--text-muted)">—</div>';
 }
 
 function renderHoursDaily() {
