@@ -710,10 +710,12 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-17';
+var APP_VERSION  = '2026-06-17b';
 var UPDATE_NOTES = [
-  '💾 גיבוי אוטומטי — הגיבויים נשמרים עכשיו ישירות לתיקייה קבועה',
-  '📂 שחזור חכם — רשימת כל הגיבויים מופיעה אוטומטית בלחיצה אחת'
+  '🔐 סיסמה — המערכת מוגנת עכשיו עם סיסמה אישית',
+  '📱 נייד — המערכת עובדת עכשיו גם על טלפון',
+  '☁️ סנכרון ענן — ניתן לגבות אוטומטית לענן',
+  '🎂 תאריך לידה — הזנה נוחה עם בחירת יום/חודש/שנה'
 ];
 /* ──────────────────────────────────────────────────── */
 
@@ -959,15 +961,6 @@ function toNum(x) {
   return parseFloat(x) || 0;
 }
 
-function fmt(amount) {
-  return 'ILS ' + toNum(amount).toLocaleString('he-IL', {minimumFractionDigits:0, maximumFractionDigits:2});
-}
-
-function fmtShekel(amount) {
-  return '₪ ' + toNum(amount).toLocaleString('he-IL', {minimumFractionDigits:0, maximumFractionDigits:2});
-}
-
-// Use shekel sign
 function ILS(amount) {
   var n = toNum(amount);
   if (n === 0) return '₪ 0';
@@ -1056,14 +1049,47 @@ function calcSalary(emp, rec) {
 /* ================================================================
    EMPLOYEE MODAL
 ================================================================ */
+function buildDobSelects(dob) {
+  var parts = dob ? dob.split('-') : ['', '', ''];
+  var y = parts[0] || '', m = parts[1] || '', d = parts[2] || '';
+
+  var dayOpts = '<option value="">יום</option>';
+  for (var di = 1; di <= 31; di++) dayOpts += '<option value="' + String(di).padStart(2,'0') + '"' + (d === String(di).padStart(2,'0') ? ' selected' : '') + '>' + di + '</option>';
+
+  var months = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  var moOpts = '<option value="">חודש</option>';
+  months.forEach(function(mn, i) {
+    var mv = String(i+1).padStart(2,'0');
+    moOpts += '<option value="' + mv + '"' + (m === mv ? ' selected' : '') + '>' + mn + '</option>';
+  });
+
+  var curYear = new Date().getFullYear();
+  var yrOpts = '<option value="">שנה</option>';
+  for (var yi = curYear - 16; yi >= 1940; yi--) yrOpts += '<option value="' + yi + '"' + (y === String(yi) ? ' selected' : '') + '>' + yi + '</option>';
+
+  var sel = 'style="flex:1;padding:9px 8px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:14px;background:var(--surface);outline:none;cursor:pointer"';
+  return '<select id="m-dob-d" ' + sel + '>' + dayOpts + '</select>' +
+         '<select id="m-dob-m" ' + sel + '>' + moOpts  + '</select>' +
+         '<select id="m-dob-y" ' + sel + '>' + yrOpts  + '</select>';
+}
+
+function getDobValue() {
+  var d = document.getElementById('m-dob-d').value;
+  var m = document.getElementById('m-dob-m').value;
+  var y = document.getElementById('m-dob-y').value;
+  if (!d || !m || !y) return '';
+  return y + '-' + m + '-' + d;
+}
+
 function openEmpModal(id) {
   id = id || null;
   editEmpId = id;
   var emp = id ? S.employees.find(function(x){ return x.id === id; }) : null;
   var isEdit = !!emp;
 
-  var hourlyDisplay  = (emp && emp.type === 'monthly') ? 'display:none' : '';
-  var monthlyDisplay = (emp && emp.type !== 'monthly') ? 'display:none' : '';
+  var isMonthlyEmp   = emp && emp.type === 'monthly';
+  var hourlyDisplay  = isMonthlyEmp ? 'display:none' : '';
+  var monthlyDisplay = isMonthlyEmp ? '' : 'display:none';
 
   editEmpRoles = getEmpRoles(emp || {}).slice();
   var chips = (S.roles || []).map(function(r) {
@@ -1096,7 +1122,9 @@ function openEmpModal(id) {
       '</div>' +
       '<div class="form-group">' +
         '<label class="form-label">🎂 תאריך לידה</label>' +
-        '<input class="form-control" id="m-dob" type="date" value="' + escHtml(emp ? emp.dob || '' : '') + '">' +
+        '<div style="display:flex;gap:8px">' +
+          buildDobSelects(emp ? emp.dob || '' : '') +
+        '</div>' +
       '</div>' +
     '</div>' +
     '<div class="form-group">' +
@@ -1148,7 +1176,7 @@ function saveEmp() {
   var type           = document.getElementById('m-type').value;
   var num            = document.getElementById('m-num').value.trim();
   var phone          = document.getElementById('m-phone').value.trim();
-  var dob            = document.getElementById('m-dob').value;
+  var dob            = getDobValue();
   var address        = document.getElementById('m-address').value.trim();
   var hourlyRate     = toNum(document.getElementById('m-rate').value);
   var monthlySalary  = toNum(document.getElementById('m-sal').value);
@@ -1206,7 +1234,6 @@ function closeModal() {
   editEmpId = null;
 }
 
-function pickRole(r) { toggleRole(r); }
 
 function filterByRole(role) {
   empRoleFilter = role;
@@ -3205,7 +3232,6 @@ function renderControl() {
   var isProfit = pl >= 0;
   var isProfitNoVat = plNoVat >= 0;
 
-  var hiddenFixed = []; // kept for compat but not used in card rendering
   var fixedCats = getFixedExp();
   var fixedCards = fixedCats.map(function(e){
     var amt      = ctrl[e.k] || 0;
@@ -4468,8 +4494,11 @@ function openSyncModal() {
   var lastStr  = lastSync ? 'סנכרון אחרון: ' + new Date(lastSync).toLocaleString('he-IL') : 'טרם בוצע סנכרון';
   var html = '<h2 class="modal-title">☁️ סנכרון ענן</h2>' +
     '<p style="font-size:14px;color:var(--text-sec);margin-bottom:18px">שמור גיבוי אוטומטי בענן — הנתונים ישמרו ב-GitHub ותוכל לשחזר ממכשיר אחר.</p>' +
-    '<div style="background:var(--warning-bg);border:1px solid var(--warning);border-radius:10px;padding:12px;font-size:13px;margin-bottom:18px">' +
+    '<div style="background:var(--warning-bg);border:1px solid var(--warning);border-radius:10px;padding:12px;font-size:13px;margin-bottom:10px">' +
     '💡 <strong>איך מגדירים:</strong> עבור ל-github.com ← Settings ← Developer Settings ← Personal Access Tokens ← צור טוקן עם הרשאת <code>repo</code>' +
+    '</div>' +
+    '<div style="background:var(--error-bg);border:1px solid rgba(192,57,43,.3);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--error);margin-bottom:18px">' +
+    '🔒 <strong>שים לב:</strong> הטוקן נשמר על המחשב שלך בלבד. לא לשתף אותו עם אחרים ולא להכניס אותו בדפדפן של אנשים אחרים.' +
     '</div>' +
     '<label style="font-weight:700;font-size:14px;display:block;margin-bottom:6px">GitHub Token:</label>' +
     '<input type="password" id="sync-token-inp" value="' + token + '" placeholder="ghp_..." ' +
