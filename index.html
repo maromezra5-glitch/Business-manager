@@ -496,6 +496,13 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
     <div class="panel-header">
       <h1 class="panel-title">👥 ניהול עובדים</h1>
       <div class="panel-actions">
+        <div style="position:relative;display:flex;align-items:center">
+          <span style="position:absolute;right:12px;font-size:16px;pointer-events:none;z-index:1">🔍</span>
+          <input type="text" id="emp-search-inp" placeholder="חיפוש לפי שם..."
+            style="padding:8px 40px 8px 14px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:14px;font-weight:600;outline:none;width:210px;color:var(--text);background:var(--surface);transition:border-color .15s"
+            onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--border)'"
+            oninput="filterByName(this.value)">
+        </div>
         <button class="btn btn-primary" onclick="openEmpModal()">➕ הוסף עובד</button>
       </div>
     </div>
@@ -524,7 +531,6 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
       <div class="panel-actions">
         <div class="month-sel"><label>חודש:</label><select id="payroll-month" onchange="renderPayroll()"></select></div>
         <button class="btn btn-secondary" onclick="exportPayroll()">📥 ייצוא לאקסל (לרו"ח)</button>
-        <button class="btn btn-secondary" onclick="window.print()">🖨️ הדפסה / שמור PDF</button>
       </div>
     </div>
     <div id="payroll-content"></div>
@@ -1081,6 +1087,16 @@ function toggleEmpActive(id) {
   toast(emp.active ? '✅ עובד הופעל' : '⏸ עובד הוקפא', emp.active ? 'ok' : '');
 }
 
+function deleteEmp(id) {
+  var emp = S.employees.find(function(x){ return x.id === id; });
+  if (!emp) return;
+  if (!confirm('מחיקת עובד: ' + emp.name + '\n\nהשעות וההיסטוריה של העובד יישמרו בנתונים אך העובד לא יופיע יותר.\n\nהאם למחוק?')) return;
+  S.employees = S.employees.filter(function(x){ return x.id !== id; });
+  persist();
+  renderEmps();
+  toast('🗑️ ' + emp.name + ' נמחק', 'err');
+}
+
 function closeModal() {
   document.getElementById('modal').classList.add('hidden');
   editEmpId = null;
@@ -1094,7 +1110,7 @@ function filterByRole(role) {
 }
 
 function filterByName(q) {
-  empNameSearch = (q || '').trim().toLowerCase();
+  empNameSearch = (q || '').toLowerCase();
   renderEmps();
 }
 
@@ -1117,16 +1133,7 @@ function confirmReset() {
 function renderEmps() {
   var c = document.getElementById('emp-list');
 
-  // ── Search bar ──
-  var searchBar =
-    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);padding:10px 16px">' +
-      '<span style="font-size:18px">🔍</span>' +
-      '<input type="text" id="emp-search-inp" placeholder="חיפוש עובד לפי שם..." ' +
-        'style="flex:1;border:none;background:none;font-size:15px;font-weight:600;outline:none;color:var(--text);direction:rtl" ' +
-        'value="' + escHtml(empNameSearch) + '" ' +
-        'oninput="filterByName(this.value)">' +
-      (empNameSearch ? '<button onclick="filterByName(\'\');document.getElementById(\'emp-search-inp\').value=\'\'" style="background:none;border:none;cursor:pointer;font-size:16px;color:var(--text-muted);padding:0 4px" title="נקה חיפוש">✕</button>' : '') +
-    '</div>';
+  // Search input is static in HTML — no dynamic rebuild needed
 
   // ── Role filter chips ──
   var roleFilterBar = '';
@@ -1150,7 +1157,34 @@ function renderEmps() {
   var iact = filtered.filter(function(e){ return !e.active; });
 
   if (!S.employees.length) {
-    c.innerHTML = searchBar + roleFilterBar + '<div class="empty"><div class="empty-icon">👥</div><div class="empty-title">טרם הוספת עובדים</div><div class="empty-text">לחץ על "הוסף עובד" כדי להתחיל</div></div>';
+    c.innerHTML =
+      '<div style="max-width:620px;margin:40px auto;text-align:center;animation:slideUp .3s ease both">' +
+        '<div style="font-size:64px;margin-bottom:16px;animation:floatCoffee 4s ease-in-out infinite">☕</div>' +
+        '<h2 style="font-size:26px;font-weight:900;color:var(--text);margin-bottom:8px">ברוך הבא למנהל בית הקפה</h2>' +
+        '<p style="font-size:15px;color:var(--text-sec);margin-bottom:32px;line-height:1.7">מערכת ניהול עסקית מלאה — שעות, משכורות, דוח Z, קניות, טיפים ורווחיות.<br>רוצה לראות איך זה עובד? טען נתוני דוגמה.</p>' +
+        '<div style="display:flex;flex-direction:column;align-items:center;gap:14px">' +
+          '<button class="btn btn-primary" style="font-size:17px;padding:14px 36px;border-radius:12px;box-shadow:0 6px 24px rgba(217,119,87,.35)" onclick="loadDemoData()">🎭 טען נתוני דוגמה — נסה את המערכת</button>' +
+          '<span style="font-size:13px;color:var(--text-muted)">— או —</span>' +
+          '<button class="btn btn-secondary" style="font-size:15px;padding:11px 28px" onclick="openEmpModal()">➕ הוסף עובד ראשון</button>' +
+        '</div>' +
+        '<div style="margin-top:40px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px;text-align:right">' +
+          '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:16px">' +
+            '<div style="font-size:24px;margin-bottom:6px">👥</div>' +
+            '<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:3px">ניהול עובדים</div>' +
+            '<div style="font-size:12px;color:var(--text-muted)">שעות, משכורות, תלושי שכר</div>' +
+          '</div>' +
+          '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:16px">' +
+            '<div style="font-size:24px;margin-bottom:6px">📊</div>' +
+            '<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:3px">דוח Z ומכירות</div>' +
+            '<div style="font-size:12px;color:var(--text-muted)">מזומן, אשראי, וולט, הקפה</div>' +
+          '</div>' +
+          '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:16px">' +
+            '<div style="font-size:24px;margin-bottom:6px">📋</div>' +
+            '<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:3px">רווח והפסד</div>' +
+            '<div style="font-size:12px;color:var(--text-muted)">Food cost, Labor cost, P&L</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
     return;
   }
 
@@ -1185,12 +1219,13 @@ function renderEmps() {
         '<button class="btn btn-' + (emp.active?'danger':'success') + ' btn-sm" onclick="toggleEmpActive(\'' + emp.id + '\')">' +
           (emp.active ? '⏸ הקפא' : '▶ הפעל') +
         '</button>' +
+        '<button class="btn btn-danger btn-sm" onclick="deleteEmp(\'' + emp.id + '\')" title="מחק עובד לצמיתות" style="opacity:.6;font-size:13px">🗑️</button>' +
       '</div>' +
     '</div>';
   }
 
   var noResults = (empRoleFilter || empNameSearch) && !filtered.length;
-  var html = searchBar + roleFilterBar;
+  var html = roleFilterBar;
   if (noResults) {
     html += '<div class="empty"><div class="empty-icon">🔍</div><div class="empty-title">לא נמצאו עובדים</div><div class="empty-text">נסה חיפוש אחר</div></div>';
   } else {
@@ -2336,7 +2371,13 @@ function renderShiftSection(ds, shift) {
             '<div style="font-size:12px">לחץ "הוסף עובד" כדי להתחיל לחלק טיפים</div>' +
           '</div>'
         : workerCards) +
-      '<button class="btn btn-secondary btn-sm" style="width:100%;margin-top:6px;padding:11px;font-size:13.5px;font-weight:700;border-style:dashed" onclick="addTipsWorker(\'' + ds + '\',\'' + shift + '\')">➕ הוסף עובד למשמרת</button>' +
+      '<div style="display:flex;gap:8px;margin-top:8px">' +
+        '<button class="btn btn-secondary btn-sm" style="flex:1;padding:11px;font-size:13.5px;font-weight:700;border-style:dashed" onclick="addTipsWorker(\'' + ds + '\',\'' + shift + '\')">➕ הוסף עובד</button>' +
+        (((S.settings || {}).shiftTemplates || {})[shift]
+          ? '<button class="btn btn-secondary btn-sm" style="padding:11px 14px;font-size:13px;font-weight:700" onclick="loadShiftTemplate(\'' + ds + '\',\'' + shift + '\')" title="טען עובדים קבועים מהתבנית">⚡ טען תבנית</button>'
+          : '') +
+        '<button class="btn btn-secondary btn-sm" style="padding:11px 14px;font-size:13px;font-weight:700" onclick="saveShiftTemplate(\'' + ds + '\',\'' + shift + '\')" title="שמור עובדים אלו כתבנית קבועה">💾 שמור תבנית</button>' +
+      '</div>' +
     '</div>' +
   '</div>';
 }
@@ -2487,6 +2528,39 @@ function removeTipsWorker(ds, shift, idx) {
   persist();
   var c = document.getElementById('shift-section-' + shift);
   if (c) c.innerHTML = renderShiftSection(ds, shift);
+}
+
+function saveShiftTemplate(ds, shift) {
+  var sr = (S.tips[ds] || {})[shift];
+  if (!sr || !sr.workers || !sr.workers.length) { toast('אין עובדים במשמרת לשמירה', 'err'); return; }
+  var workers = sr.workers.filter(function(w){ return w.empId; });
+  if (!workers.length) { toast('בחר עובדים לפני השמירה', 'err'); return; }
+  if (!S.settings) S.settings = {};
+  if (!S.settings.shiftTemplates) S.settings.shiftTemplates = {};
+  S.settings.shiftTemplates[shift] = workers.map(function(w){ return {empId:w.empId, from:w.from, to:w.to}; });
+  persist();
+  toast('✅ תבנית נשמרה — ' + workers.length + ' עובדים', 'ok');
+}
+
+function loadShiftTemplate(ds, shift) {
+  var tmpl = ((S.settings || {}).shiftTemplates || {})[shift];
+  if (!tmpl || !tmpl.length) { toast('אין תבנית שמורה למשמרת זו', 'err'); return; }
+  if (!S.tips[ds]) S.tips[ds] = {};
+  var sr = S.tips[ds][shift];
+  if (!sr || typeof sr === 'number') S.tips[ds][shift] = {amount: toNum(sr), workers: []};
+  var existing = S.tips[ds][shift].workers.map(function(w){ return w.empId; });
+  var added = 0;
+  tmpl.forEach(function(t) {
+    if (t.empId && existing.indexOf(t.empId) < 0) {
+      S.tips[ds][shift].workers.push({empId:t.empId, from:t.from, to:t.to, adjust:0, adjustNote:''});
+      added++;
+    }
+  });
+  if (!added) { toast('כל עובדי התבנית כבר במשמרת', 'ok'); return; }
+  persist();
+  var c = document.getElementById('shift-section-' + shift);
+  if (c) c.innerHTML = renderShiftSection(ds, shift);
+  toast('✅ נטענו ' + added + ' עובדים מהתבנית', 'ok');
 }
 
 function stepTime(ds, shift, idx, field, deltaMins) {
