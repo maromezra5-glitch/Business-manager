@@ -1573,9 +1573,9 @@ function renderHoursWeekly() {
 
   var roleFilterBar = '';
   if (S.roles && S.roles.length) {
-    var rfOpts = '<button class="btn ' + (!hoursRoleFilter?'btn-primary':'btn-secondary') + ' btn-sm" onclick="setHoursRoleFilter(\'\\'+'\\''+'\')">כולם</button>';
+    var rfOpts = '<button class="btn ' + (!hoursRoleFilter?'btn-primary':'btn-secondary') + ' btn-sm" onclick="setHoursRoleFilter(\'\')">כולם</button>';
     S.roles.forEach(function(r) {
-      rfOpts += '<button class="btn ' + (hoursRoleFilter===r?'btn-primary':'btn-secondary') + ' btn-sm" onclick="setHoursRoleFilter(\\'' + escHtml(r) + '\\'+'\')">' + escHtml(r) + '</button>';
+      rfOpts += '<button class="btn ' + (hoursRoleFilter===r?'btn-primary':'btn-secondary') + ' btn-sm" onclick="setHoursRoleFilter(\'' + escHtml(r) + '\')">' + escHtml(r) + '</button>';
     });
     roleFilterBar = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;margin-bottom:16px"><span style="font-size:12px;font-weight:800;color:var(--text-muted)">סנן לפי תפקיד:</span>' + rfOpts + '</div>';
   }
