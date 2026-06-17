@@ -716,15 +716,17 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-17e';
+var APP_VERSION  = '2026-06-17f';
 var UPDATE_NOTES = [
-  '📋 שבועי — תצוגת שעות שבועית עם כל הימים והעובדים בטבלה אחת',
-  '🖼️ רקע כותרת — אפשר להעלות תמונת רקע לכותרת מהמחשב',
-  '😀 אימוגי חכם — בהוצאות קבועות, האימוגי נבחר אוטומטית לפי מה שכתבת',
-  '🔐 סיסמה — המערכת מוגנת עכשיו עם סיסמה אישית',
-  '📱 נייד — המערכת עובדת עכשיו גם על טלפון',
-  '☁️ סנכרון ענן — ניתן לגבות אוטומטית לענן',
-  '🎂 תאריך לידה — הזנה נוחה עם בחירת יום/חודש/שנה'
+  /* הכי חדש למעלה — { v: גרסה, t: טקסט } */
+  { v: '2026-06-17e', t: '⏱ שעות נוספות — כותרות רגיל / 125% / 150% בשבועי מופיעות רק כשיש שעות נוספות מופעלות' },
+  { v: '2026-06-17d', t: '⏱ שעות נוספות — כשמבטלים, עמודות 125% ו-150% נעלמות לגמרי מכל התצוגות' },
+  { v: '2026-06-17c', t: '⏱ שעות נוספות — כפתורי הפעל / בטל לכולם + סנכרון בין יומי / שבועי / חודשי' },
+  { v: '2026-06-17b', t: '📋 שבועי — עיצוב הטבלה השבועית שודרג לקריא וצבעוני יותר' },
+  { v: '2026-06-17a', t: '😀 אימוגי חכם — בהוצאות קבועות, האימוגי נבחר אוטומטית לפי מה שכתבת' },
+  { v: '2026-06-15',  t: '📋 שבועי — תצוגת שעות שבועית חדשה עם כל הימים והעובדים בטבלה אחת' },
+  { v: '2026-06-14',  t: '🖼️ רקע כותרת — ניתן להעלות תמונת רקע לכותרת מהמחשב' },
+  { v: '2026-06-10',  t: '🔐 סיסמה · 📱 נייד · ☁️ סנכרון ענן · 🎂 תאריך לידה' }
 ];
 /* ──────────────────────────────────────────────────── */
 
@@ -4363,15 +4365,21 @@ function handleImport(input) {
 }
 
 function checkForUpdate() {
-  var seen = localStorage.getItem('cafeManager_seenVersion');
+  var seen = localStorage.getItem('cafeManager_seenVersion') || '';
   if (seen === APP_VERSION) return;
-  var items = UPDATE_NOTES.map(function(n) {
-    return '<li style="margin-bottom:8px">' + n + '</li>';
+  var toShow = seen
+    ? UPDATE_NOTES.filter(function(n) { return n.v > seen; })
+    : UPDATE_NOTES.slice(0, 4);
+  if (!toShow.length) { localStorage.setItem('cafeManager_seenVersion', APP_VERSION); return; }
+  if (toShow.length > 6) toShow = toShow.slice(0, 6);
+  var items = toShow.map(function(n) {
+    return '<li style="margin-bottom:8px">' + n.t + '</li>';
   }).join('');
+  var updateTitle = seen ? 'מה חדש מאז הפעם האחרונה?' : 'המערכת עודכנה!';
   var html = '<div id="update-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;direction:rtl">' +
     '<div style="background:#fff;border-radius:20px;padding:32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:right">' +
     '<div style="font-size:36px;margin-bottom:8px">🎉</div>' +
-    '<h2 style="margin:0 0 6px;font-size:22px;color:#1A1A1A">המערכת עודכנה!</h2>' +
+    '<h2 style="margin:0 0 6px;font-size:22px;color:#1A1A1A">' + updateTitle + '</h2>' +
     '<div style="font-size:13px;color:#9ca3af;margin-bottom:20px">' + APP_VERSION + '</div>' +
     '<ul style="margin:0 0 24px;padding-right:20px;color:#374151;font-size:15px;line-height:1.7">' + items + '</ul>' +
     '<button onclick="document.getElementById(\'update-modal\').remove();localStorage.setItem(\'cafeManager_seenVersion\',\'' + APP_VERSION + '\')" ' +
