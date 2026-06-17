@@ -716,7 +716,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-17f';
+var APP_VERSION  = '2026-06-17g';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } */
   { v: '2026-06-17e', t: '⏱ שעות נוספות — כותרות רגיל / 125% / 150% בשבועי מופיעות רק כשיש שעות נוספות מופעלות' },
@@ -4369,9 +4369,9 @@ function checkForUpdate() {
   if (seen === APP_VERSION) return;
   var toShow = seen
     ? UPDATE_NOTES.filter(function(n) { return n.v > seen; })
-    : UPDATE_NOTES.slice(0, 4);
+    : UPDATE_NOTES.slice();
   if (!toShow.length) { localStorage.setItem('cafeManager_seenVersion', APP_VERSION); return; }
-  if (toShow.length > 6) toShow = toShow.slice(0, 6);
+  
   var items = toShow.map(function(n) {
     return '<li style="margin-bottom:8px">' + n.t + '</li>';
   }).join('');
