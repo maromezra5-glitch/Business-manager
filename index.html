@@ -3699,20 +3699,77 @@ function exportPurchases() {
 }
 
 /* ================================================================
-   BACKUP / RESTORE
+   BACKUP / RESTORE  — File System Access API
 ================================================================ */
-function exportBackup() {
+
+function _idbBackupDir(mode, handle) {
+  return new Promise(function(resolve) {
+    var req = indexedDB.open('cafeManagerFS', 1);
+    req.onupgradeneeded = function(e) { e.target.result.createObjectStore('handles'); };
+    req.onsuccess = function(e) {
+      var db    = e.target.result;
+      var tx    = db.transaction('handles', mode === 'write' ? 'readwrite' : 'readonly');
+      var store = tx.objectStore('handles');
+      if (mode === 'write') {
+        store.put(handle, 'backupDir');
+        tx.oncomplete = function() { resolve(true); };
+        tx.onerror    = function() { resolve(false); };
+      } else {
+        var g = store.get('backupDir');
+        g.onsuccess = function() { resolve(g.result || null); };
+        g.onerror   = function() { resolve(null); };
+      }
+    };
+    req.onerror = function() { resolve(null); };
+  });
+}
+
+async function _getBackupDir() {
+  var h = await _idbBackupDir('read');
+  if (!h) return null;
   try {
-    var data = JSON.stringify(S, null, 2);
+    var p = await h.queryPermission({ mode: 'readwrite' });
+    if (p === 'granted') return h;
+    var p2 = await h.requestPermission({ mode: 'readwrite' });
+    if (p2 === 'granted') return h;
+  } catch(e) {}
+  return null;
+}
+
+async function exportBackup() {
+  var d        = new Date();
+  var ts       = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + '_' + String(d.getHours()).padStart(2,'0') + '-' + String(d.getMinutes()).padStart(2,'0');
+  var filename = 'גיבוי-' + ts + '.json';
+  var data     = JSON.stringify(S, null, 2);
+
+  if (window.showDirectoryPicker) {
+    try {
+      var dirHandle = await _getBackupDir();
+      if (!dirHandle) {
+        toast('📁 בחר תיקייה לשמירת הגיבויים (פעם אחת בלבד)', 'ok');
+        dirHandle = await window.showDirectoryPicker({ id: 'cafe-backups', mode: 'readwrite', startIn: 'desktop' });
+        await _idbBackupDir('write', dirHandle);
+      }
+      var fh  = await dirHandle.getFileHandle(filename, { create: true });
+      var wr  = await fh.createWritable();
+      await wr.write('﻿' + data);
+      await wr.close();
+      localStorage.setItem('cafeManager_lastBackup', new Date().toISOString());
+      dismissBanner();
+      toast('✅ גיבוי נשמר אוטומטית: ' + filename, 'ok');
+      return;
+    } catch(e) {
+      if (e.name === 'AbortError') return;
+    }
+  }
+
+  // Fallback: regular download
+  try {
     var blob = new Blob(['﻿' + data], {type: 'application/json;charset=utf-8'});
     var url  = URL.createObjectURL(blob);
     var a    = document.createElement('a');
-    a.href = url;
-    var d = new Date();
-    a.download = 'cafe-backup-' + d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + '.json';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
     localStorage.setItem('cafeManager_lastBackup', new Date().toISOString());
     dismissBanner();
@@ -3722,8 +3779,71 @@ function exportBackup() {
   }
 }
 
-function triggerImport() {
+async function triggerImport() {
+  if (window.showDirectoryPicker) {
+    var dirHandle = await _getBackupDir();
+    if (dirHandle) {
+      try {
+        var files = [];
+        for await (var entry of dirHandle.values()) {
+          if (entry.kind === 'file' && entry.name.endsWith('.json')) files.push(entry);
+        }
+        files.sort(function(a, b) { return b.name.localeCompare(a.name); });
+        if (files.length > 0) { showRestoreModal(files); return; }
+        toast('תיקיית הגיבויים ריקה — בחר קובץ ידנית', 'ok');
+      } catch(e) {}
+    }
+  }
   document.getElementById('backup-file-input').click();
+}
+
+function showRestoreModal(files) {
+  var ex = document.getElementById('restore-modal');
+  if (ex) ex.remove();
+  var rows = '';
+  files.forEach(function(f, i) {
+    var name  = f.name.replace(/\.json$/, '').replace(/^גיבוי-/, '');
+    var parts = name.split('_');
+    var dStr  = parts[0] || name;
+    var tStr  = parts[1] ? parts[1].replace('-', ':') : '';
+    rows += '<div style="border:1px solid #e5e7eb;border-radius:10px;padding:12px 16px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center" ' +
+      'onmouseover="this.style.background=\'#f9fafb\'" onmouseout="this.style.background=\'\'" onclick="doRestore(window._rfHandles[' + i + '])">' +
+      '<div><div style="font-weight:600;font-size:15px">' + dStr + (tStr ? ' בשעה ' + tStr : '') + '</div>' +
+      '<div style="font-size:12px;color:#6b7280;margin-top:2px">' + f.name + '</div></div>' +
+      '<span style="font-size:22px">↩️</span></div>';
+  });
+  var html = '<div id="restore-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;direction:rtl" onclick="if(event.target===this)this.remove()">' +
+    '<div style="background:#fff;border-radius:16px;padding:28px;max-width:460px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)">' +
+    '<h3 style="margin:0 0 6px;font-size:20px">📂 בחר גיבוי לשחזור</h3>' +
+    '<div style="margin-bottom:16px;font-size:13px;color:#888">' + files.length + ' גיבויים • החדש ביותר ראשון</div>' +
+    rows +
+    '<div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">' +
+    '<button onclick="document.getElementById(\'restore-modal\').remove()" style="padding:8px 20px;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;font-size:14px">ביטול</button>' +
+    '<button onclick="document.getElementById(\'backup-file-input\').click();document.getElementById(\'restore-modal\').remove()" style="padding:8px 20px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;cursor:pointer;font-size:14px">📁 קובץ אחר</button>' +
+    '</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+  window._rfHandles = files;
+}
+
+async function doRestore(fileEntry) {
+  if (!confirm('⚠️ שחזור גיבוי\n\nהפעולה תחליף את כל הנתונים הקיימים.\nהאם להמשיך?')) return;
+  var modal = document.getElementById('restore-modal');
+  if (modal) modal.remove();
+  try {
+    var file = await fileEntry.getFile();
+    var raw  = await file.text();
+    if (raw.charCodeAt(0) === 0xFEFF) raw = raw.slice(1);
+    var data = JSON.parse(raw);
+    if (!data || !Array.isArray(data.employees)) { toast('קובץ גיבוי לא תקין', 'err'); return; }
+    ['roles','dailyHours','monthlyData','timeRecords','zReports','tips','suppliers','purchases','control','settings'].forEach(function(k) {
+      if (!data[k]) data[k] = S[k];
+    });
+    S = data; persist();
+    toast('✅ גיבוי יובא — טוען מחדש...', 'ok');
+    setTimeout(function() { location.reload(); }, 900);
+  } catch(e) {
+    toast('שגיאה בשחזור: ' + e.message, 'err');
+  }
 }
 
 function handleImport(input) {
