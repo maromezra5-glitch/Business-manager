@@ -1165,7 +1165,7 @@ function openEmpModal(id) {
       '</div>' +
       '<div class="form-group" style="flex:1;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:2px solid #4ade80;border-radius:12px;padding:12px 14px">' +
         '<label class="form-label" style="font-size:13px;font-weight:900;color:#166534;margin-bottom:6px"># מספר עובד</label>' +
-        '<input class="form-control" id="m-empnum" type="text" value="' + escHtml(emp ? emp.empNum || '' : '') + '" placeholder="לדוגמה: 42" style="font-size:18px;font-weight:800;letter-spacing:2px;text-align:center;border:none;background:transparent;color:#14532d">' +
+        '<input class="form-control" id="m-empnum" type="text" inputmode="numeric" pattern="[0-9]*" value="' + escHtml(emp ? emp.empNum || '' : '') + '" placeholder="לדוגמה: 42" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')" style="font-size:18px;font-weight:800;letter-spacing:2px;text-align:center;border:none;background:transparent;color:#14532d">' +
       '</div>' +
     '</div>' +
     '<div class="form-group">' +
