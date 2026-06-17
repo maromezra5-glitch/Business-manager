@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>☕ מנהל בית הקפה</title>
+<title>מנהל העסק</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root {
@@ -528,8 +528,8 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 <!-- ═══ AUTH SCREEN ═══ -->
 <div id="auth-screen" style="display:none">
   <div class="auth-box">
-    <div class="auth-logo">☕</div>
-    <div class="auth-title">מנהל בית הקפה</div>
+    <div class="auth-logo" id="auth-logo-wrap"><img id="auth-logo-img" style="display:none;height:56px;width:56px;object-fit:contain;border-radius:10px;margin-bottom:4px"><span id="auth-logo-emoji">🏢</span></div>
+    <div class="auth-title" id="auth-biz-title">מנהל העסק</div>
     <div class="auth-sub" id="auth-sub">הכנס סיסמה לכניסה</div>
     <input type="password" id="auth-pw" class="auth-inp" placeholder="••••••••" maxlength="50"
            onkeydown="if(event.key==='Enter')authNext()">
@@ -544,11 +544,14 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 <div id="app" style="display:none">
 
 <!-- ═══ HEADER ═══ -->
-<header class="app-header">
-  <div class="logo">
-    <span class="logo-coffee">☕</span>
+<header class="app-header" id="app-header">
+  <div class="logo" style="cursor:pointer" onclick="openBizSettings()" title="הגדרות עסק">
+    <div id="hdr-logo-wrap" style="display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:10px;overflow:hidden;background:rgba(255,255,255,.1);flex-shrink:0">
+      <img id="hdr-logo-img" style="display:none;width:44px;height:44px;object-fit:contain">
+      <span id="hdr-logo-emoji" class="logo-coffee">🏢</span>
+    </div>
     <div>
-      <div style="letter-spacing:-.5px;font-size:22px"><span class="accent">מנהל</span> בית הקפה</div>
+      <div style="letter-spacing:-.5px;font-size:22px" id="hdr-biz-name"><span class="accent">מנהל</span> העסק</div>
       <div class="logo-sub">מערכת ניהול עסקית מתקדמת · Pro</div>
     </div>
   </div>
@@ -557,11 +560,13 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
     <div class="header-date" id="hdate"></div>
     <button class="hdr-btn green" onclick="exportBackup()" title="גיבוי כל הנתונים לקובץ JSON">💾 גיבוי</button>
     <button class="hdr-btn" onclick="triggerImport()" title="שחזור נתונים מקובץ גיבוי">📂 שחזור</button>
-    <button class="hdr-btn" id="sync-btn" onclick="openSyncModal()" title="סנכרון ענן — שמור גיבוי אוטומטי לענן" style="display:none">☁️ <span id="sync-label">ענן</span></button>
+    <button class="hdr-btn" id="sync-btn" onclick="openSyncModal()" title="סנכרון ענן" style="display:none">☁️ <span id="sync-label">ענן</span></button>
+    <button class="hdr-btn" onclick="openBizSettings()" title="הגדרות עסק">⚙️</button>
     <button class="hdr-btn" onclick="loadDemoData()" title="טען נתוני דוגמה לבדיקה">🎭 דוגמה</button>
     <button class="hdr-btn" onclick="confirmReset()" title="מחק את כל הנתונים" style="border-color:rgba(220,38,38,.25);color:rgba(220,120,100,.7)">🗑️ איפוס</button>
   </div>
 </header>
+<input type="file" id="biz-logo-input" accept="image/*" style="display:none" onchange="handleLogoUpload(this)">
 <input type="file" id="backup-file-input" accept=".json" style="display:none" onchange="handleImport(this)">
 
 <!-- ═══ BACKUP BANNER ═══ -->
@@ -4526,6 +4531,166 @@ document.addEventListener('DOMContentLoaded', function() {
   authInit();
 });
 
+/* ================================================================
+   BUSINESS SETTINGS
+================================================================ */
+function applyBizSettings() {
+  var biz = (S.settings && S.settings.biz) || {};
+  var name    = biz.name    || '';
+  var logo    = biz.logo    || '';
+  var bgColor = biz.bgColor || '';
+  var accent  = biz.accent  || '';
+
+  // כותרת — שם עסק
+  var hdrName = document.getElementById('hdr-biz-name');
+  if (hdrName) hdrName.innerHTML = name ? '<span class="accent">' + escHtml(name) + '</span>' : '<span class="accent">מנהל</span> העסק';
+
+  var authTitle = document.getElementById('auth-biz-title');
+  if (authTitle) authTitle.textContent = name || 'מנהל העסק';
+
+  document.title = name || 'מנהל העסק';
+
+  // לוגו
+  var hdrImg   = document.getElementById('hdr-logo-img');
+  var hdrEmoji = document.getElementById('hdr-logo-emoji');
+  var authImg  = document.getElementById('auth-logo-img');
+  var authEmoji= document.getElementById('auth-logo-emoji');
+  if (logo) {
+    if (hdrImg)   { hdrImg.src = logo; hdrImg.style.display = ''; }
+    if (hdrEmoji) hdrEmoji.style.display = 'none';
+    if (authImg)  { authImg.src = logo; authImg.style.display = ''; }
+    if (authEmoji)authEmoji.style.display = 'none';
+  } else {
+    if (hdrImg)   hdrImg.style.display = 'none';
+    if (hdrEmoji) hdrEmoji.style.display = '';
+    if (authImg)  authImg.style.display = 'none';
+    if (authEmoji)authEmoji.style.display = '';
+  }
+
+  // צבע כותרת
+  var header = document.getElementById('app-header');
+  if (header && bgColor) {
+    header.style.background = bgColor;
+    header.style.borderBottomColor = bgColor;
+  } else if (header) {
+    header.style.background = '';
+    header.style.borderBottomColor = '';
+  }
+
+  // צבע ראשי
+  if (accent) document.documentElement.style.setProperty('--primary', accent);
+  else        document.documentElement.style.removeProperty('--primary');
+}
+
+function openBizSettings() {
+  var biz     = (S.settings && S.settings.biz) || {};
+  var html =
+    '<h2 class="modal-title">⚙️ הגדרות עסק</h2>' +
+    '<div class="form-group"><label class="form-label">🏢 שם העסק</label>' +
+    '<input class="form-control" id="biz-name-inp" value="' + escHtml(biz.name || '') + '" placeholder="שם העסק שלך" maxlength="60"></div>' +
+
+    '<div class="form-group"><label class="form-label">🌐 אתר האינטרנט (למציאת לוגו אוטומטית)</label>' +
+    '<div style="display:flex;gap:8px">' +
+    '<input class="form-control" id="biz-url-inp" value="' + escHtml(biz.url || '') + '" placeholder="https://www.mysite.co.il" style="flex:1">' +
+    '<button class="btn btn-primary" onclick="fetchBizLogo()" style="white-space:nowrap;flex-shrink:0">🔍 מצא לוגו</button>' +
+    '</div></div>' +
+
+    '<div class="form-group"><label class="form-label">🖼️ לוגו</label>' +
+    '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
+    '<div id="biz-logo-preview" style="width:64px;height:64px;border:2px dashed var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#f9f9f9">' +
+    (biz.logo ? '<img src="' + biz.logo + '" style="max-width:100%;max-height:100%;object-fit:contain">' : '<span style="font-size:28px">🏢</span>') +
+    '</div>' +
+    '<div style="display:flex;flex-direction:column;gap:8px">' +
+    '<button class="btn" onclick="document.getElementById(\'biz-logo-input\').click()">📁 העלה מהמחשב</button>' +
+    (biz.logo ? '<button class="btn" onclick="clearBizLogo()" style="color:var(--error)">🗑️ הסר לוגו</button>' : '') +
+    '</div></div>' +
+    '<div id="biz-logo-status" style="font-size:13px;color:var(--text-muted);margin-top:6px"></div></div>' +
+
+    '<div style="display:flex;gap:16px;flex-wrap:wrap">' +
+    '<div class="form-group" style="flex:1;min-width:140px"><label class="form-label">🎨 צבע כותרת</label>' +
+    '<div style="display:flex;gap:8px;align-items:center">' +
+    '<input type="color" id="biz-bg-inp" value="' + (biz.bgColor || '#18100D') + '" style="width:44px;height:36px;border:none;cursor:pointer;border-radius:8px;padding:2px">' +
+    '<button class="btn" onclick="document.getElementById(\'biz-bg-inp\').value=\'#18100D\'" style="font-size:12px">איפוס</button></div></div>' +
+
+    '<div class="form-group" style="flex:1;min-width:140px"><label class="form-label">✨ צבע ראשי</label>' +
+    '<div style="display:flex;gap:8px;align-items:center">' +
+    '<input type="color" id="biz-accent-inp" value="' + (biz.accent || '#D97757') + '" style="width:44px;height:36px;border:none;cursor:pointer;border-radius:8px;padding:2px">' +
+    '<button class="btn" onclick="document.getElementById(\'biz-accent-inp\').value=\'#D97757\'" style="font-size:12px">איפוס</button></div></div>' +
+    '</div>' +
+
+    '<div class="modal-footer">' +
+    '<button class="btn" onclick="closeModal()">ביטול</button>' +
+    '<button class="btn btn-primary" onclick="saveBizSettings()">💾 שמור</button>' +
+    '</div>';
+
+  document.getElementById('modal-box').innerHTML = html;
+  document.getElementById('modal').classList.remove('hidden');
+}
+
+function fetchBizLogo() {
+  var url = (document.getElementById('biz-url-inp').value || '').trim();
+  if (!url) { toast('הכנס כתובת אתר', 'err'); return; }
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  var domain = url.replace(/^https?:\/\//i, '').replace(/^www\./i, '').split('/')[0];
+  var status = document.getElementById('biz-logo-status');
+  status.textContent = '🔍 מחפש לוגו...';
+
+  var clearbit = 'https://logo.clearbit.com/' + domain;
+  var img = new Image();
+  img.onload = function() {
+    _setBizLogoPreview(clearbit);
+    status.textContent = '✅ לוגו נמצא!';
+  };
+  img.onerror = function() {
+    var fallback = 'https://www.google.com/s2/favicons?domain=' + domain + '&sz=128';
+    _setBizLogoPreview(fallback);
+    status.textContent = '✅ נמצא סמל אתר';
+  };
+  img.src = clearbit;
+}
+
+function _setBizLogoPreview(src) {
+  var preview = document.getElementById('biz-logo-preview');
+  if (preview) preview.innerHTML = '<img src="' + src + '" style="max-width:100%;max-height:100%;object-fit:contain" id="biz-logo-tmp">';
+  window._bizLogoTmp = src;
+}
+
+function handleLogoUpload(input) {
+  var file = input.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    _setBizLogoPreview(e.target.result);
+    document.getElementById('biz-logo-status').textContent = '✅ לוגו הועלה';
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+function clearBizLogo() {
+  window._bizLogoTmp = '';
+  var preview = document.getElementById('biz-logo-preview');
+  if (preview) preview.innerHTML = '<span style="font-size:28px">🏢</span>';
+  document.getElementById('biz-logo-status').textContent = 'הלוגו יוסר לאחר שמירה';
+}
+
+function saveBizSettings() {
+  if (!S.settings) S.settings = {};
+  var logo = window._bizLogoTmp !== undefined ? window._bizLogoTmp : ((S.settings.biz || {}).logo || '');
+  S.settings.biz = {
+    name:    (document.getElementById('biz-name-inp').value   || '').trim(),
+    url:     (document.getElementById('biz-url-inp').value    || '').trim(),
+    logo:    logo,
+    bgColor: document.getElementById('biz-bg-inp').value     || '',
+    accent:  document.getElementById('biz-accent-inp').value || ''
+  };
+  window._bizLogoTmp = undefined;
+  persist();
+  closeModal();
+  applyBizSettings();
+  toast('✅ הגדרות העסק נשמרו', 'ok');
+}
+
 function appStart() {
   loadState();
   selectedHoursDate = curDate();
@@ -4536,6 +4701,7 @@ function appStart() {
   showBackupBannerIfNeeded();
   checkForUpdate();
   initSyncBtn();
+  applyBizSettings();
 }
 
 document.addEventListener('keydown', function(e) {
