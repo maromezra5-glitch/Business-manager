@@ -3424,6 +3424,32 @@ function _emojiForExpense(name) {
   return '📌';
 }
 
+function _emojiFromAI(name, callback) {
+  var key = (S.settings && S.settings.anthropicKey) || '';
+  if (!key) { callback(_emojiForExpense(name)); return; }
+  fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 10,
+      messages: [{ role: 'user', content: 'Choose ONE emoji that best fits this business expense: "' + name + '". Reply with only the single emoji, nothing else.' }]
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    var text = ((data.content || [])[0] || {}).text || '';
+    var m = text.trim().match(/\p{Extended_Pictographic}/u);
+    callback(m ? m[0] : _emojiForExpense(name));
+  })
+  .catch(function() { callback(_emojiForExpense(name)); });
+}
+
 function addFixedCat() {
   var nameEl = document.getElementById('new-fixed-name');
   if (!nameEl) return;
@@ -3431,13 +3457,16 @@ function addFixedCat() {
   if (!raw) { toast('הקלד שם להוצאה קבועה', 'err'); return; }
   if (!S.settings) S.settings = {};
   if (!S.settings.fixedCats) S.settings.fixedCats = getFixedExp().slice();
-  var k = 'custom_' + Date.now();
-  var l = _emojiForExpense(raw) + ' ' + raw;
-  S.settings.fixedCats.push({k: k, l: l});
-  persist();
   nameEl.value = '';
-  renderControl();
-  toast('✅ קטגוריה נוספה');
+  var hasAI = !!(S.settings.anthropicKey);
+  if (hasAI) toast('🤖 בוחר אימוגי...', 'ok');
+  _emojiFromAI(raw, function(emoji) {
+    var k = 'custom_' + Date.now();
+    S.settings.fixedCats.push({ k: k, l: emoji + ' ' + raw });
+    persist();
+    renderControl();
+    toast('✅ קטגוריה נוספה');
+  });
 }
 
 function removeFixedCat(key) {
@@ -4679,6 +4708,11 @@ function openBizSettings() {
     '<input type="color" id="biz-accent-inp" value="' + (biz.accent||'#D97757') + '" style="width:44px;height:36px;border:none;cursor:pointer;border-radius:8px;padding:2px">' +
     '<button class="btn" onclick="document.getElementById(\'biz-accent-inp\').value=\'#D97757\'" style="font-size:12px">איפוס לכתום</button></div></div>' +
 
+    '<div class="form-group" style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">' +
+    '<label class="form-label">🤖 מפתח AI (לאימוגי חכם)</label>' +
+    '<input class="form-control" id="biz-ai-key-inp" type="password" value="' + escHtml(S.settings && S.settings.anthropicKey || '') + '" placeholder="sk-ant-..." autocomplete="off" style="font-family:monospace;font-size:13px">' +
+    '<div style="font-size:12px;color:var(--text-muted);margin-top:4px">מפתח Anthropic API — נשמר רק במכשיר זה. <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--primary)">קבל מפתח</a></div></div>' +
+
     '<div class="modal-footer">' +
     '<button class="btn" onclick="closeModal()">ביטול</button>' +
     '<button class="btn btn-primary" onclick="saveBizSettings()">💾 שמור</button>' +
@@ -4819,6 +4853,9 @@ function saveBizSettings() {
     bgColor: (document.getElementById('biz-bg-color-inp') || {}).value || '#18100D',
     accent:  document.getElementById('biz-accent-inp').value     || ''
   };
+  var aiKey = (document.getElementById('biz-ai-key-inp') || {}).value || '';
+  if (aiKey) S.settings.anthropicKey = aiKey.trim();
+  else delete S.settings.anthropicKey;
   window._bizLogoTmp = undefined;
   window._bizBgTmp   = undefined;
   persist();
