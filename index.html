@@ -716,7 +716,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-17c';
+var APP_VERSION  = '2026-06-17d';
 var UPDATE_NOTES = [
   '📋 שבועי — תצוגת שעות שבועית עם כל הימים והעובדים בטבלה אחת',
   '🖼️ רקע כותרת — אפשר להעלות תמונת רקע לכותרת מהמחשב',
@@ -1593,18 +1593,7 @@ function renderHoursWeekly() {
       (isToday?'<div style="font-size:10px;margin-top:2px;opacity:.85;font-weight:600">היום</div>':'') +
     '</th>';
   });
-  thead += '<th style="background:#f8fafc;padding:10px;text-align:center;min-width:80px;border-left:2px solid var(--border);font-size:12px;color:var(--text-muted)">סה"כ<br>שעות</th></tr>' +
-    '<tr style="background:#f5f5f5;border-bottom:1.5px solid var(--border)">' +
-      '<th style="position:sticky;right:0;background:#f5f5f5;z-index:2;padding:5px 16px;border-left:2px solid var(--border);font-size:10px;color:var(--text-muted);text-align:right">שעות / ש"נ לפי עובד</th>';
-  days.forEach(function() {
-    thead += '<th style="border-left:1px solid var(--border);padding:5px 4px">' +
-      '<div style="display:flex;gap:3px;justify-content:center">' +
-        '<span style="padding:2px 7px;border-radius:4px;background:#e0f2fe;color:#0369a1;font-size:10px;font-weight:700">רגיל</span>' +
-        '<span style="padding:2px 7px;border-radius:4px;background:#fef3c7;color:#92400e;font-size:10px;font-weight:700">125%</span>' +
-        '<span style="padding:2px 7px;border-radius:4px;background:#fee2e2;color:#991b1b;font-size:10px;font-weight:700">150%</span>' +
-      '</div></th>';
-  });
-  thead += '<th style="background:#f5f5f5"></th></tr></thead>';
+  thead += '<th style="background:#f8fafc;padding:10px;text-align:center;min-width:80px;border-left:2px solid var(--border);font-size:12px;color:var(--text-muted)">סה"כ<br>שעות</th></tr></thead>';
 
   var tbody = '';
   var dayTotals = {};
@@ -1793,6 +1782,7 @@ function renderHoursDaily() {
   var filtered = hoursRoleFilter
     ? emps.filter(function(e){ return empHasRole(e, hoursRoleFilter); })
     : emps;
+  var anyHasOT = filtered.some(function(e){ return !e.noOT; });
 
   // Build grouped rows — each employee appears in ALL their role groups
   var tbody = '';
@@ -1813,7 +1803,7 @@ function renderHoursDaily() {
 
   roleOrder.forEach(function(role) {
     if (showGroups) {
-      tbody += '<tr><td colspan="5" style="background:var(--primary-light);font-weight:800;font-size:12.5px;color:var(--primary-dark);padding:7px 14px;letter-spacing:.3px">' + escHtml(role) + '</td></tr>';
+      tbody += '<tr><td colspan="' + (anyHasOT ? 5 : 3) + '" style="background:var(--primary-light);font-weight:800;font-size:12.5px;color:var(--primary-dark);padding:7px 14px;letter-spacing:.3px">' + escHtml(role) + '</td></tr>';
     }
     groupMap[role].forEach(function(emp) {
       var r = dayRecs[emp.id] || {};
@@ -1825,7 +1815,7 @@ function renderHoursDaily() {
         '<strong>' + escHtml(emp.name) + '</strong>' +
         (showGroups ? '<div style="font-size:11px;color:var(--primary-dark)">' + escHtml(role) + '</div>' : (getEmpRoleStr(emp) ? '<div style="font-size:11px;color:var(--text-muted)">' + escHtml(getEmpRoleStr(emp)) + '</div>' : '')) +
       '</td>';
-      [{k:'regHours'},{k:'ot125'},{k:'ot150'}].forEach(function(f) {
+      [{k:'regHours'}].concat(anyHasOT ? [{k:'ot125'},{k:'ot150'}] : []).forEach(function(f) {
         if (emp.noOT && f.k !== 'regHours') {
           tbody += '<td style="text-align:center;color:var(--text-muted);background:#f9fafb;font-size:13px">—</td>';
         } else {
@@ -1851,8 +1841,8 @@ function renderHoursDaily() {
       '<thead><tr>' +
         '<th class="sticky-col" style="min-width:150px">שם עובד</th>' +
         '<th style="min-width:90px">שעות רגילות</th>' +
-        '<th style="min-width:75px">ש"נ 125%</th>' +
-        '<th style="min-width:75px">ש"נ 150%</th>' +
+        (anyHasOT ? '<th style="min-width:75px">ש"נ 125%</th>' : '') +
+        (anyHasOT ? '<th style="min-width:75px">ש"נ 150%</th>' : '') +
         '<th style="min-width:70px">🚌 נסיעה</th>' +
       '</tr></thead>' +
       '<tbody>' + tbody + '</tbody>' +
@@ -1884,6 +1874,7 @@ function renderHoursMonthly() {
   var filtered = hoursRoleFilter
     ? emps.filter(function(e){ return empHasRole(e, hoursRoleFilter); })
     : emps;
+  var anyHasOT = filtered.some(function(e){ return !e.noOT; });
 
   // Group by role — each employee appears in ALL their role groups
   var groupMap = {};
@@ -1902,7 +1893,7 @@ function renderHoursMonthly() {
   var tbody = '';
   roleOrder.forEach(function(role) {
     if (showGroups) {
-      tbody += '<tr><td colspan="9" style="background:var(--primary-light);font-weight:800;font-size:12.5px;color:var(--primary-dark);padding:7px 14px;letter-spacing:.3px">' + escHtml(role) + '</td></tr>';
+      tbody += '<tr><td colspan="' + (anyHasOT ? 9 : 7) + '" style="background:var(--primary-light);font-weight:800;font-size:12.5px;color:var(--primary-dark);padding:7px 14px;letter-spacing:.3px">' + escHtml(role) + '</td></tr>';
     }
     groupMap[role].forEach(function(emp) {
       var agg     = aggregateMonth(emp.id, ym);
@@ -1912,8 +1903,8 @@ function renderHoursMonthly() {
         (showGroups ? '<div style="font-size:11px;color:var(--primary-dark)">' + escHtml(role) + '</div>' : (getEmpRoleStr(emp) ? '<div style="font-size:11px;color:var(--text-muted)">' + escHtml(getEmpRoleStr(emp)) + '</div>' : '')) + '</td>';
       tbody += '<td style="text-align:center;font-weight:700">' + (agg.workDays || '—') + '</td>';
       tbody += '<td style="text-align:center">' + (agg.regHours > 0 ? agg.regHours.toFixed(1) : '—') + '</td>';
-      tbody += '<td style="text-align:center' + (emp.noOT ? ';background:#f9fafb;color:var(--text-muted)' : '') + '">' + (emp.noOT ? '—' : (agg.ot125 > 0 ? agg.ot125.toFixed(1) : '—')) + '</td>';
-      tbody += '<td style="text-align:center' + (emp.noOT ? ';background:#f9fafb;color:var(--text-muted)' : '') + '">' + (emp.noOT ? '—' : (agg.ot150 > 0 ? agg.ot150.toFixed(1) : '—')) + '</td>';
+      if (anyHasOT) tbody += '<td style="text-align:center' + (emp.noOT ? ';background:#f9fafb;color:var(--text-muted)' : '') + '">' + (emp.noOT ? '—' : (agg.ot125 > 0 ? agg.ot125.toFixed(1) : '—')) + '</td>';
+      if (anyHasOT) tbody += '<td style="text-align:center' + (emp.noOT ? ';background:#f9fafb;color:var(--text-muted)' : '') + '">' + (emp.noOT ? '—' : (agg.ot150 > 0 ? agg.ot150.toFixed(1) : '—')) + '</td>';
       tbody += '<td style="text-align:center">' + (agg.travelDays || '—') + '</td>';
       tbody += '<td>' +
         '<input type="number" class="ti ti-w80" min="0" data-meid="' + emp.id + '" data-mkey="bonus" value="' + (monthly.bonus||'') + '" placeholder="0" oninput="saveMonthExtra(this,\'' + ym + '\')">' +
@@ -1935,7 +1926,7 @@ function renderHoursMonthly() {
     '<div class="table-wrap"><table>' +
       '<thead><tr>' +
         '<th class="sticky-col" style="min-width:150px">שם עובד</th>' +
-        '<th>ימי עבודה</th><th>שעות רגילות</th><th>ש"נ 125%</th><th>ש"נ 150%</th><th>ימי נסיעה</th>' +
+        '<th>ימי עבודה</th><th>שעות רגילות</th>' + (anyHasOT ? '<th>ש"נ 125%</th><th>ש"נ 150%</th>' : '') + '<th>ימי נסיעה</th>' +
         '<th style="min-width:155px">תוספת ₪ + תאריך + סיבה</th><th style="min-width:140px">מפרעה ₪ + תאריך</th><th>הערות</th>' +
       '</tr></thead>' +
       '<tbody>' + tbody + '</tbody>' +
