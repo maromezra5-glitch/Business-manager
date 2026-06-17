@@ -561,6 +561,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
     <button class="hdr-btn green" onclick="exportBackup()" title="גיבוי כל הנתונים לקובץ JSON">💾 גיבוי</button>
     <button class="hdr-btn" onclick="triggerImport()" title="שחזור נתונים מקובץ גיבוי">📂 שחזור</button>
     <button class="hdr-btn" id="sync-btn" onclick="openSyncModal()" title="סנכרון ענן" style="display:none">☁️ <span id="sync-label">ענן</span></button>
+    <button class="hdr-btn" onclick="openWhatsNew()" title="מה חדש במערכת?" style="font-size:13px;font-weight:800">🆕 מה חדש?</button>
     <button class="hdr-btn" onclick="openBizSettings()" title="הגדרות עסק">⚙️</button>
     <button class="hdr-btn" onclick="loadDemoData()" title="טען נתוני דוגמה לבדיקה">🎭 דוגמה</button>
     <button class="hdr-btn" onclick="confirmReset()" title="מחק את כל הנתונים" style="border-color:rgba(220,38,38,.25);color:rgba(220,120,100,.7)">🗑️ איפוס</button>
@@ -716,7 +717,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-17j';
+var APP_VERSION  = '2026-06-17k';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
   { v: '2026-06-17j', t: '🪪 כרטיס עובד — מספר עובד מוצג כתג ירוק בולט' },
@@ -4385,28 +4386,35 @@ function handleImport(input) {
   reader.readAsText(file, 'UTF-8');
 }
 
+function _buildUpdateHTML(notes, title) {
+  var items = notes.map(function(n) {
+    return '<li style="margin-bottom:8px">' + n.t + '</li>';
+  }).join('');
+  return '<div id="update-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;direction:rtl">' +
+    '<div style="background:#fff;border-radius:20px;padding:32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:right;max-height:85vh;overflow-y:auto">' +
+    '<div style="font-size:36px;margin-bottom:8px">🎉</div>' +
+    '<h2 style="margin:0 0 6px;font-size:22px;color:#1A1A1A">' + title + '</h2>' +
+    '<div style="font-size:13px;color:#9ca3af;margin-bottom:20px">' + APP_VERSION + '</div>' +
+    '<ul style="margin:0 0 24px;padding-right:20px;color:#374151;font-size:15px;line-height:1.7">' + items + '</ul>' +
+    '<button onclick="document.getElementById(\'update-modal\').remove();localStorage.setItem(\'cafeManager_seenVersion\',\'' + APP_VERSION + '\')" ' +
+    'style="width:100%;padding:13px;background:#D97757;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer">הבנתי, תודה!</button>' +
+    '</div></div>';
+}
 function checkForUpdate() {
   var seen = localStorage.getItem('cafeManager_seenVersion') || '';
   if (seen === APP_VERSION) return;
   var toShow = seen
     ? UPDATE_NOTES.filter(function(n) { return n.v > seen; })
     : UPDATE_NOTES.slice();
-  if (!toShow.length) { localStorage.setItem('cafeManager_seenVersion', APP_VERSION); return; }
-  
-  var items = toShow.map(function(n) {
-    return '<li style="margin-bottom:8px">' + n.t + '</li>';
-  }).join('');
-  var updateTitle = seen ? 'מה חדש מאז הפעם האחרונה?' : 'המערכת עודכנה!';
-  var html = '<div id="update-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;direction:rtl">' +
-    '<div style="background:#fff;border-radius:20px;padding:32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:right">' +
-    '<div style="font-size:36px;margin-bottom:8px">🎉</div>' +
-    '<h2 style="margin:0 0 6px;font-size:22px;color:#1A1A1A">' + updateTitle + '</h2>' +
-    '<div style="font-size:13px;color:#9ca3af;margin-bottom:20px">' + APP_VERSION + '</div>' +
-    '<ul style="margin:0 0 24px;padding-right:20px;color:#374151;font-size:15px;line-height:1.7">' + items + '</ul>' +
-    '<button onclick="document.getElementById(\'update-modal\').remove();localStorage.setItem(\'cafeManager_seenVersion\',\'' + APP_VERSION + '\')" ' +
-    'style="width:100%;padding:13px;background:#D97757;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer">הבנתי, תודה!</button>' +
-    '</div></div>';
-  setTimeout(function() { document.body.insertAdjacentHTML('beforeend', html); }, 600);
+  // אם אין עדכונים ספציפיים — הצג 3 האחרונים בכל מקרה
+  if (!toShow.length) toShow = UPDATE_NOTES.slice(0, 3);
+  var title = seen ? 'מה חדש מאז הפעם האחרונה?' : 'המערכת עודכנה!';
+  setTimeout(function() { document.body.insertAdjacentHTML('beforeend', _buildUpdateHTML(toShow, title)); }, 600);
+}
+function openWhatsNew() {
+  var ex = document.getElementById('update-modal');
+  if (ex) ex.remove();
+  document.body.insertAdjacentHTML('beforeend', _buildUpdateHTML(UPDATE_NOTES, 'כל עדכוני המערכת'));
 }
 
 function dismissBanner() {
