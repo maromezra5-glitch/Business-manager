@@ -614,6 +614,15 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
    CONSTANTS
 ================================================================ */
 var KEY = 'cafeManager_v4';
+
+/* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
+var APP_VERSION  = '2026-06-17';
+var UPDATE_NOTES = [
+  '💾 גיבוי אוטומטי — הגיבויים נשמרים עכשיו ישירות לתיקייה קבועה',
+  '📂 שחזור חכם — רשימת כל הגיבויים מופיעה אוטומטית בלחיצה אחת'
+];
+/* ──────────────────────────────────────────────────── */
+
 var MHE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
 var DHE = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
 var DS  = ['א','ב','ג','ד','ה','ו','ש'];
@@ -3880,6 +3889,24 @@ function handleImport(input) {
   reader.readAsText(file, 'UTF-8');
 }
 
+function checkForUpdate() {
+  var seen = localStorage.getItem('cafeManager_seenVersion');
+  if (seen === APP_VERSION) return;
+  var items = UPDATE_NOTES.map(function(n) {
+    return '<li style="margin-bottom:8px">' + n + '</li>';
+  }).join('');
+  var html = '<div id="update-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;direction:rtl">' +
+    '<div style="background:#fff;border-radius:20px;padding:32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:right">' +
+    '<div style="font-size:36px;margin-bottom:8px">🎉</div>' +
+    '<h2 style="margin:0 0 6px;font-size:22px;color:#1A1A1A">המערכת עודכנה!</h2>' +
+    '<div style="font-size:13px;color:#9ca3af;margin-bottom:20px">' + APP_VERSION + '</div>' +
+    '<ul style="margin:0 0 24px;padding-right:20px;color:#374151;font-size:15px;line-height:1.7">' + items + '</ul>' +
+    '<button onclick="document.getElementById(\'update-modal\').remove();localStorage.setItem(\'cafeManager_seenVersion\',\'' + APP_VERSION + '\')" ' +
+    'style="width:100%;padding:13px;background:#D97757;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer">הבנתי, תודה!</button>' +
+    '</div></div>';
+  setTimeout(function() { document.body.insertAdjacentHTML('beforeend', html); }, 600);
+}
+
 function dismissBanner() {
   var b = document.getElementById('backup-banner');
   if (b) b.style.display = 'none';
@@ -4189,6 +4216,7 @@ document.addEventListener('DOMContentLoaded', function() {
   updateHeaderDate();
   renderEmps();
   showBackupBannerIfNeeded();
+  checkForUpdate();
 });
 
 document.addEventListener('keydown', function(e) {
