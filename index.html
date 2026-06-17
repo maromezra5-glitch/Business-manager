@@ -716,7 +716,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-17d';
+var APP_VERSION  = '2026-06-17e';
 var UPDATE_NOTES = [
   '📋 שבועי — תצוגת שעות שבועית עם כל הימים והעובדים בטבלה אחת',
   '🖼️ רקע כותרת — אפשר להעלות תמונת רקע לכותרת מהמחשב',
@@ -1574,6 +1574,7 @@ function renderHoursWeekly() {
 
   var filtered = hoursRoleFilter ? emps.filter(function(e){ return empHasRole(e, hoursRoleFilter); }) : emps;
   var roleFilterBar = '';
+  var anyHasOT = filtered.some(function(e){ return !e.noOT; });
   if (S.roles && S.roles.length) {
     var rfOpts = '<button class="btn ' + (!hoursRoleFilter?'btn-primary':'btn-secondary') + ' btn-sm" onclick="setHoursRoleFilter(\'\')">כולם</button>';
     S.roles.forEach(function(r) {
@@ -1593,7 +1594,9 @@ function renderHoursWeekly() {
       (isToday?'<div style="font-size:10px;margin-top:2px;opacity:.85;font-weight:600">היום</div>':'') +
     '</th>';
   });
-  thead += '<th style="background:#f8fafc;padding:10px;text-align:center;min-width:80px;border-left:2px solid var(--border);font-size:12px;color:var(--text-muted)">סה"כ<br>שעות</th></tr></thead>';
+  thead += '<th style="background:#f8fafc;padding:10px;text-align:center;min-width:80px;border-left:2px solid var(--border);font-size:12px;color:var(--text-muted)">סה"כ<br>שעות</th></tr>';
+  if (anyHasOT) { thead += '<tr style="background:#f5f5f5;border-bottom:1.5px solid var(--border)"><th style="position:sticky;right:0;background:#f5f5f5;z-index:2;padding:5px 16px;border-left:2px solid var(--border);font-size:10px;color:var(--text-muted);text-align:right">שעות / ש"נ לפי עובד</th>'; days.forEach(function() { thead += '<th style="border-left:1px solid var(--border);padding:5px 4px"><div style="display:flex;gap:3px;justify-content:center"><span style="padding:2px 7px;border-radius:4px;background:#e0f2fe;color:#0369a1;font-size:10px;font-weight:700">רגיל</span><span style="padding:2px 7px;border-radius:4px;background:#fef3c7;color:#92400e;font-size:10px;font-weight:700">125%</span><span style="padding:2px 7px;border-radius:4px;background:#fee2e2;color:#991b1b;font-size:10px;font-weight:700">150%</span></div></th>'; }); thead += '<th style="background:#f5f5f5"></th></tr>'; }
+  thead += '</thead>';
 
   var tbody = '';
   var dayTotals = {};
