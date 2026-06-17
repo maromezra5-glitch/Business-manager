@@ -4567,14 +4567,27 @@ function applyBizSettings() {
     if (authEmoji)authEmoji.style.display = '';
   }
 
-  // צבע כותרת
-  var header = document.getElementById('app-header');
-  if (header && bgColor) {
-    header.style.background = bgColor;
-    header.style.borderBottomColor = bgColor;
-  } else if (header) {
-    header.style.background = '';
-    header.style.borderBottomColor = '';
+  // רקע כותרת — תמונה גוברת על צבע
+  var bgImage = biz.bgImage || '';
+  var header  = document.getElementById('app-header');
+  if (header) {
+    if (bgImage) {
+      header.style.backgroundImage   = 'linear-gradient(rgba(0,0,0,0.52),rgba(0,0,0,0.52)), url("' + bgImage + '")';
+      header.style.backgroundSize     = 'cover';
+      header.style.backgroundPosition = 'center';
+      header.style.backgroundColor    = '';
+    } else if (bgColor) {
+      header.style.backgroundImage    = '';
+      header.style.backgroundSize     = '';
+      header.style.backgroundPosition = '';
+      header.style.backgroundColor    = bgColor;
+    } else {
+      header.style.backgroundImage    = '';
+      header.style.backgroundSize     = '';
+      header.style.backgroundPosition = '';
+      header.style.backgroundColor    = '';
+    }
+    header.style.borderBottomColor = bgImage ? 'transparent' : (bgColor || '');
   }
 
   // צבע ראשי
@@ -4583,40 +4596,57 @@ function applyBizSettings() {
 }
 
 function openBizSettings() {
-  var biz     = (S.settings && S.settings.biz) || {};
+  var biz = (S.settings && S.settings.biz) || {};
+  window._bizLogoTmp = undefined;
+  window._bizBgTmp   = undefined;
+
+  var bgPreview = biz.bgImage
+    ? 'background-image:url(' + biz.bgImage + ');background-size:cover;background-position:center'
+    : 'background:' + (biz.bgColor || '#18100D');
+
   var html =
     '<h2 class="modal-title">⚙️ הגדרות עסק</h2>' +
+
     '<div class="form-group"><label class="form-label">🏢 שם העסק</label>' +
-    '<input class="form-control" id="biz-name-inp" value="' + escHtml(biz.name || '') + '" placeholder="שם העסק שלך" maxlength="60"></div>' +
+    '<input class="form-control" id="biz-name-inp" value="' + escHtml(biz.name||'') + '" placeholder="שם העסק שלך" maxlength="60"></div>' +
 
-    '<div class="form-group"><label class="form-label">🌐 אתר האינטרנט (למציאת לוגו אוטומטית)</label>' +
+    '<div class="form-group"><label class="form-label">🌐 אתר האינטרנט</label>' +
     '<div style="display:flex;gap:8px">' +
-    '<input class="form-control" id="biz-url-inp" value="' + escHtml(biz.url || '') + '" placeholder="https://www.mysite.co.il" style="flex:1">' +
-    '<button class="btn btn-primary" onclick="fetchBizLogo()" style="white-space:nowrap;flex-shrink:0">🔍 מצא לוגו</button>' +
+    '<input class="form-control" id="biz-url-inp" value="' + escHtml(biz.url||'') + '" placeholder="https://www.mysite.co.il" style="flex:1">' +
+    '<button class="btn btn-primary" onclick="fetchBizAuto()" style="white-space:nowrap;flex-shrink:0">🔍 מצא לוגו + רקע</button>' +
     '</div></div>' +
-
-    '<div class="form-group"><label class="form-label">🖼️ לוגו</label>' +
-    '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
-    '<div id="biz-logo-preview" style="width:64px;height:64px;border:2px dashed var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#f9f9f9">' +
-    (biz.logo ? '<img src="' + biz.logo + '" style="max-width:100%;max-height:100%;object-fit:contain">' : '<span style="font-size:28px">🏢</span>') +
-    '</div>' +
-    '<div style="display:flex;flex-direction:column;gap:8px">' +
-    '<button class="btn" onclick="document.getElementById(\'biz-logo-input\').click()">📁 העלה מהמחשב</button>' +
-    (biz.logo ? '<button class="btn" onclick="clearBizLogo()" style="color:var(--error)">🗑️ הסר לוגו</button>' : '') +
-    '</div></div>' +
-    '<div id="biz-logo-status" style="font-size:13px;color:var(--text-muted);margin-top:6px"></div></div>' +
 
     '<div style="display:flex;gap:16px;flex-wrap:wrap">' +
-    '<div class="form-group" style="flex:1;min-width:140px"><label class="form-label">🎨 צבע כותרת</label>' +
-    '<div style="display:flex;gap:8px;align-items:center">' +
-    '<input type="color" id="biz-bg-inp" value="' + (biz.bgColor || '#18100D') + '" style="width:44px;height:36px;border:none;cursor:pointer;border-radius:8px;padding:2px">' +
-    '<button class="btn" onclick="document.getElementById(\'biz-bg-inp\').value=\'#18100D\'" style="font-size:12px">איפוס</button></div></div>' +
 
-    '<div class="form-group" style="flex:1;min-width:140px"><label class="form-label">✨ צבע ראשי</label>' +
-    '<div style="display:flex;gap:8px;align-items:center">' +
-    '<input type="color" id="biz-accent-inp" value="' + (biz.accent || '#D97757') + '" style="width:44px;height:36px;border:none;cursor:pointer;border-radius:8px;padding:2px">' +
-    '<button class="btn" onclick="document.getElementById(\'biz-accent-inp\').value=\'#D97757\'" style="font-size:12px">איפוס</button></div></div>' +
+    '<div class="form-group" style="flex:1;min-width:160px"><label class="form-label">🖼️ לוגו</label>' +
+    '<div style="display:flex;align-items:center;gap:10px">' +
+    '<div id="biz-logo-preview" style="width:56px;height:56px;border:2px dashed var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#f9f9f9;flex-shrink:0">' +
+    (biz.logo ? '<img src="' + biz.logo + '" style="max-width:100%;max-height:100%;object-fit:contain">' : '<span style="font-size:26px">🏢</span>') +
     '</div>' +
+    '<div style="display:flex;flex-direction:column;gap:6px">' +
+    '<button class="btn" style="font-size:12px" onclick="document.getElementById(\'biz-logo-input\').click()">📁 העלה</button>' +
+    (biz.logo ? '<button class="btn" style="font-size:12px;color:var(--error)" onclick="clearBizLogo()">🗑️ הסר</button>' : '') +
+    '</div></div>' +
+    '<div id="biz-logo-status" style="font-size:12px;color:var(--text-muted);margin-top:4px"></div></div>' +
+
+    '<div class="form-group" style="flex:1;min-width:160px"><label class="form-label">🎨 רקע כותרת</label>' +
+    '<div id="biz-bg-preview" style="width:100%;height:56px;border-radius:10px;border:2px dashed var(--border);overflow:hidden;position:relative;cursor:pointer;' + bgPreview + '" onclick="document.getElementById(\'biz-bg-input\').click()">' +
+    '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);color:#fff;font-size:12px;font-weight:600">לחץ להעלאת תמונה</div>' +
+    '</div>' +
+    '<input type="file" id="biz-bg-input" accept="image/*" style="display:none" onchange="handleBgUpload(this)">' +
+    '<div style="display:flex;gap:6px;margin-top:6px;align-items:center">' +
+    '<input type="color" id="biz-bg-color-inp" value="' + (biz.bgColor||'#18100D') + '" style="width:36px;height:28px;border:none;cursor:pointer;border-radius:6px;padding:1px" title="או בחר צבע">' +
+    '<span style="font-size:12px;color:var(--text-muted)">או צבע</span>' +
+    (biz.bgImage ? '<button class="btn" style="font-size:11px;margin-right:auto;color:var(--error)" onclick="clearBizBg()">🗑️ הסר תמונה</button>' : '') +
+    '</div>' +
+    '<div id="biz-bg-status" style="font-size:12px;color:var(--text-muted);margin-top:4px"></div></div>' +
+
+    '</div>' +
+
+    '<div class="form-group"><label class="form-label">✨ צבע ראשי</label>' +
+    '<div style="display:flex;gap:8px;align-items:center">' +
+    '<input type="color" id="biz-accent-inp" value="' + (biz.accent||'#D97757') + '" style="width:44px;height:36px;border:none;cursor:pointer;border-radius:8px;padding:2px">' +
+    '<button class="btn" onclick="document.getElementById(\'biz-accent-inp\').value=\'#D97757\'" style="font-size:12px">איפוס לכתום</button></div></div>' +
 
     '<div class="modal-footer">' +
     '<button class="btn" onclick="closeModal()">ביטול</button>' +
@@ -4627,27 +4657,53 @@ function openBizSettings() {
   document.getElementById('modal').classList.remove('hidden');
 }
 
-function fetchBizLogo() {
+function fetchBizAuto() {
   var url = (document.getElementById('biz-url-inp').value || '').trim();
   if (!url) { toast('הכנס כתובת אתר', 'err'); return; }
   if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
   var domain = url.replace(/^https?:\/\//i, '').replace(/^www\./i, '').split('/')[0];
-  var status = document.getElementById('biz-logo-status');
-  status.textContent = '🔍 מחפש לוגו...';
 
+  var logoStatus = document.getElementById('biz-logo-status');
+  var bgStatus   = document.getElementById('biz-bg-status');
+  logoStatus.textContent = '🔍 מחפש לוגו...';
+  bgStatus.textContent   = '🔍 מחפש תמונת רקע...';
+
+  // לוגו — Clearbit → Google favicon fallback
   var clearbit = 'https://logo.clearbit.com/' + domain;
-  var img = new Image();
-  img.onload = function() {
+  var logoImg = new Image();
+  logoImg.onload = function() {
     _setBizLogoPreview(clearbit);
-    status.textContent = '✅ לוגו נמצא!';
+    logoStatus.textContent = '✅ לוגו נמצא!';
   };
-  img.onerror = function() {
+  logoImg.onerror = function() {
     var fallback = 'https://www.google.com/s2/favicons?domain=' + domain + '&sz=128';
     _setBizLogoPreview(fallback);
-    status.textContent = '✅ נמצא סמל אתר';
+    logoStatus.textContent = '✅ נמצא סמל אתר';
   };
-  img.src = clearbit;
+  logoImg.src = clearbit;
+
+  // תמונת רקע — נסה לטעון og:image דרך פרוקסי CORS ציבורי
+  var proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
+  fetch(proxyUrl, { signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined })
+    .then(function(r) { return r.text(); })
+    .then(function(html) {
+      var match = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+                || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+      if (match && match[1]) {
+        var imgSrc = match[1];
+        if (!/^https?:\/\//i.test(imgSrc)) imgSrc = 'https://' + domain + (imgSrc.charAt(0)==='/' ? '' : '/') + imgSrc;
+        _setBizBgPreview(imgSrc);
+        bgStatus.textContent = '✅ תמונת רקע נמצאה!';
+      } else {
+        bgStatus.textContent = 'לא נמצאה תמונת רקע — אפשר להעלות ידנית';
+      }
+    })
+    .catch(function() {
+      bgStatus.textContent = 'לא ניתן לאחזר — אפשר להעלות ידנית';
+    });
 }
+
+function fetchBizLogo() { fetchBizAuto(); }
 
 function _setBizLogoPreview(src) {
   var preview = document.getElementById('biz-logo-preview');
@@ -4674,17 +4730,54 @@ function clearBizLogo() {
   document.getElementById('biz-logo-status').textContent = 'הלוגו יוסר לאחר שמירה';
 }
 
+function handleBgUpload(input) {
+  var file = input.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    _setBizBgPreview(e.target.result);
+    document.getElementById('biz-bg-status').textContent = '✅ תמונה הועלתה';
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+function _setBizBgPreview(src) {
+  var preview = document.getElementById('biz-bg-preview');
+  if (preview) {
+    preview.style.backgroundImage   = 'url(' + src + ')';
+    preview.style.backgroundSize    = 'cover';
+    preview.style.backgroundPosition= 'center';
+  }
+  window._bizBgTmp = src;
+}
+
+function clearBizBg() {
+  window._bizBgTmp = '';
+  var preview = document.getElementById('biz-bg-preview');
+  if (preview) {
+    var col = (document.getElementById('biz-bg-color-inp') || {}).value || '#18100D';
+    preview.style.backgroundImage = '';
+    preview.style.background = col;
+  }
+  document.getElementById('biz-bg-status').textContent = 'תמונת הרקע תוסר לאחר שמירה';
+}
+
 function saveBizSettings() {
   if (!S.settings) S.settings = {};
-  var logo = window._bizLogoTmp !== undefined ? window._bizLogoTmp : ((S.settings.biz || {}).logo || '');
+  var oldBiz  = S.settings.biz || {};
+  var logo    = window._bizLogoTmp  !== undefined ? window._bizLogoTmp  : (oldBiz.logo    || '');
+  var bgImage = window._bizBgTmp    !== undefined ? window._bizBgTmp    : (oldBiz.bgImage || '');
   S.settings.biz = {
-    name:    (document.getElementById('biz-name-inp').value   || '').trim(),
-    url:     (document.getElementById('biz-url-inp').value    || '').trim(),
+    name:    (document.getElementById('biz-name-inp').value      || '').trim(),
+    url:     (document.getElementById('biz-url-inp').value       || '').trim(),
     logo:    logo,
-    bgColor: document.getElementById('biz-bg-inp').value     || '',
-    accent:  document.getElementById('biz-accent-inp').value || ''
+    bgImage: bgImage,
+    bgColor: (document.getElementById('biz-bg-color-inp') || {}).value || '#18100D',
+    accent:  document.getElementById('biz-accent-inp').value     || ''
   };
   window._bizLogoTmp = undefined;
+  window._bizBgTmp   = undefined;
   persist();
   closeModal();
   applyBizSettings();
