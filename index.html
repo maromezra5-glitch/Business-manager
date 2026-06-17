@@ -716,7 +716,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-17h';
+var APP_VERSION  = '2026-06-17i';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } */
   { v: '2026-06-17e', t: '⏱ שעות נוספות — כותרות רגיל / 125% / 150% בשבועי מופיעות רק כשיש שעות נוספות מופעלות' },
@@ -1150,18 +1150,22 @@ function openEmpModal(id) {
       '<label class="form-label">📍 כתובת מגורים</label>' +
       '<input class="form-control" id="m-address" type="text" value="' + escHtml(emp ? emp.address || '' : '') + '" placeholder="רחוב + מספר, עיר">' +
     '</div>' +
-    '<div class="form-row">' +
-      '<div class="form-group">' +
-        '<label class="form-label">ת"ז / מספר עובד</label>' +
-        '<input class="form-control" id="m-num" type="text" value="' + escHtml(emp ? emp.num || '' : '') + '" placeholder="אופציונלי">' +
+    '<div class="form-row" style="gap:12px">' +
+      '<div class="form-group" style="flex:1;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:2px solid #38bdf8;border-radius:12px;padding:12px 14px">' +
+        '<label class="form-label" style="font-size:13px;font-weight:900;color:#0369a1;margin-bottom:6px">🪪 תעודת זהות</label>' +
+        '<input class="form-control" id="m-idnum" type="text" inputmode="numeric" maxlength="9" value="' + escHtml(emp ? emp.idNum || emp.num || '' : '') + '" placeholder="9 ספרות" style="font-size:18px;font-weight:800;letter-spacing:2px;text-align:center;border:none;background:transparent;color:#0c4a6e">' +
       '</div>' +
-      '<div class="form-group">' +
-        '<label class="form-label">סוג שכר *</label>' +
-        '<select class="form-control" id="m-type" onchange="toggleSalType()">' +
-          '<option value="hourly"'  + ((!emp || emp.type === 'hourly')  ? ' selected' : '') + '>⏱ שעתי</option>' +
-          '<option value="monthly"' + (( emp && emp.type === 'monthly') ? ' selected' : '') + '>📅 חודשי</option>' +
-        '</select>' +
+      '<div class="form-group" style="flex:1;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:2px solid #4ade80;border-radius:12px;padding:12px 14px">' +
+        '<label class="form-label" style="font-size:13px;font-weight:900;color:#166534;margin-bottom:6px"># מספר עובד</label>' +
+        '<input class="form-control" id="m-empnum" type="text" value="' + escHtml(emp ? emp.empNum || '' : '') + '" placeholder="לדוגמה: 42" style="font-size:18px;font-weight:800;letter-spacing:2px;text-align:center;border:none;background:transparent;color:#14532d">' +
       '</div>' +
+    '</div>' +
+    '<div class="form-group">' +
+      '<label class="form-label">סוג שכר *</label>' +
+      '<select class="form-control" id="m-type" onchange="toggleSalType()">' +
+        '<option value="hourly"'  + ((!emp || emp.type === 'hourly')  ? ' selected' : '') + '>⏱ שעתי</option>' +
+        '<option value="monthly"' + (( emp && emp.type === 'monthly') ? ' selected' : '') + '>📅 חודשי</option>' +
+      '</select>' +
     '</div>' +
     '<div id="m-hourly" class="form-group" style="' + hourlyDisplay + '">' +
       '<label class="form-label">תעריף לשעה (₪) *</label>' +
@@ -1193,7 +1197,8 @@ function toggleSalType() {
 function saveEmp() {
   var name           = document.getElementById('m-name').value.trim();
   var type           = document.getElementById('m-type').value;
-  var num            = document.getElementById('m-num').value.trim();
+  var idNum          = document.getElementById('m-idnum').value.trim();
+  var empNum         = document.getElementById('m-empnum').value.trim();
   var phone          = document.getElementById('m-phone').value.trim();
   var dob            = getDobValue();
   var address        = document.getElementById('m-address').value.trim();
@@ -1209,7 +1214,7 @@ function saveEmp() {
   if (type === 'monthly' && monthlySalary > 50000) { if (!confirm('משכורת ₪' + monthlySalary + ' — האם זה נכון?')) return; }
 
   editEmpRoles.forEach(function(r) { if (S.roles.indexOf(r) === -1) S.roles.push(r); });
-  var empData = {name:name, type:type, num:num, roles:editEmpRoles.slice(), role:editEmpRoles[0]||'', phone:phone, dob:dob, address:address, hourlyRate:hourlyRate, monthlySalary:monthlySalary, travelPerDay:travelPerDay, active:true};
+  var empData = {name:name, type:type, idNum:idNum, empNum:empNum, roles:editEmpRoles.slice(), role:editEmpRoles[0]||'', phone:phone, dob:dob, address:address, hourlyRate:hourlyRate, monthlySalary:monthlySalary, travelPerDay:travelPerDay, active:true};
 
   if (editEmpId) {
     var idx = S.employees.findIndex(function(e){ return e.id === editEmpId; });
@@ -1357,7 +1362,8 @@ function renderEmps() {
           '</div>' +
         '</div>' +
       '</div>' +
-      (emp.num     ? '<div class="emp-info">🪪 ' + escHtml(emp.num)     + '</div>' : '') +
+      ((emp.idNum||emp.num) ? '<div class="emp-info" style="font-weight:700">🪪 ת"ז: ' + escHtml(emp.idNum||emp.num) + '</div>' : '') +
+      (emp.empNum ? '<div class="emp-info" style="font-weight:700"># עובד: ' + escHtml(emp.empNum) + '</div>' : '') +
       (emp.phone   ? '<div class="emp-info">📞 ' + escHtml(emp.phone)   + '</div>' : '') +
       (emp.address ? '<div class="emp-info">📍 ' + escHtml(emp.address) + '</div>' : '') +
       (dobStr      ? '<div class="emp-info">🎂 ' + dobStr               + '</div>' : '') +
@@ -4499,7 +4505,8 @@ function printPayslip(empId, ym) {
   html += '<div class="ps-emp">';
   html += '<div class="ps-row"><span class="ps-lbl">שם העובד:</span><span class="ps-val">' + escHtml(emp.name) + '</span></div>';
   html += '<div class="ps-row"><span class="ps-lbl">תאריך הפקה:</span><span class="ps-val">' + todayStr + '</span></div>';
-  if (emp.num) html += '<div class="ps-row"><span class="ps-lbl">מ"ז / ת"ז:</span><span class="ps-val">' + escHtml(emp.num) + '</span></div>';
+  if (emp.idNum||emp.num) html += '<div class="ps-row"><span class="ps-lbl">תעודת זהות:</span><span class="ps-val">' + escHtml(emp.idNum||emp.num) + '</span></div>';
+  if (emp.empNum) html += '<div class="ps-row"><span class="ps-lbl">מספר עובד:</span><span class="ps-val">' + escHtml(emp.empNum) + '</span></div>';
   if (rolesStr) html += '<div class="ps-row"><span class="ps-lbl">תפקיד:</span><span class="ps-val">' + escHtml(rolesStr) + '</span></div>';
   html += '<div class="ps-row"><span class="ps-lbl">סוג שכר:</span><span class="ps-val">' + typeStr + '</span></div>';
   if (agg.workDays) html += '<div class="ps-row"><span class="ps-lbl">ימי עבודה:</span><span class="ps-val">' + agg.workDays + ' ימים</span></div>';
