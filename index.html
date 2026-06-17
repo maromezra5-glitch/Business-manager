@@ -717,9 +717,11 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-17k';
+var APP_VERSION  = '2026-06-17l';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-17l', t: '🔔 עדכוני מערכת — הפופאפ מופיע בכניסה הראשונה אחרי כל עדכון (פעם אחת בלבד לכל כניסה)' },
+  { v: '2026-06-17k', t: '🆕 עדכוני מערכת — נוסף כפתור "מה חדש?" בכותרת + תיקון הצגת עדכונים' },
   { v: '2026-06-17j', t: '🪪 כרטיס עובד — מספר עובד מוצג כתג ירוק בולט' },
   { v: '2026-06-17i', t: '🪪 כרטיס עובד — שדות נפרדים לתעודת זהות ומספר עובד' },
   { v: '2026-06-17h', t: '🔍 חיפוש עובד בלשונית שעות — חיפוש לפי שם בכל 3 התצוגות' },
@@ -4403,10 +4405,12 @@ function _buildUpdateHTML(notes, title) {
 function checkForUpdate() {
   var seen = localStorage.getItem('cafeManager_seenVersion') || '';
   if (seen === APP_VERSION) return;
+  // הצג פעם אחת בלבד לכל כניסה — גם אם הדף נטען מחדש באותה כניסה
+  if (sessionStorage.getItem('updateShownThisSession') === APP_VERSION) return;
+  sessionStorage.setItem('updateShownThisSession', APP_VERSION);
   var toShow = seen
     ? UPDATE_NOTES.filter(function(n) { return n.v > seen; })
     : UPDATE_NOTES.slice();
-  // אם אין עדכונים ספציפיים — הצג 3 האחרונים בכל מקרה
   if (!toShow.length) toShow = UPDATE_NOTES.slice(0, 3);
   var title = seen ? 'מה חדש מאז הפעם האחרונה?' : 'המערכת עודכנה!';
   setTimeout(function() { document.body.insertAdjacentHTML('beforeend', _buildUpdateHTML(toShow, title)); }, 600);
