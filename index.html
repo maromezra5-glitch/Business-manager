@@ -3500,6 +3500,7 @@ function exportPayroll() {
     var agg     = aggregateMonth(emp.id, ym);
     var s       = calcSalary(emp, agg);
     var monthly = (S.monthlyData[ym] || {})[emp.id] || {};
+    var supplD  = (tipsRptXl[emp.id] || {}).totalSuppl || 0;
     detail.push([emp.name]);
     detail.push(['סוג שכר', emp.type === 'hourly' ? 'שעתי' : 'חודשי']);
     detail.push(['תעריף', emp.type === 'hourly' ? emp.hourlyRate : emp.monthlySalary]);
@@ -3517,8 +3518,9 @@ function exportPayroll() {
       if (monthly.bonusNote) detail.push(['סיבת תוספת', monthly.bonusNote]);
     }
     if (s.advance > 0) detail.push(['מפרעה (ניכוי)' + (monthly.advanceDate ? ' (' + fmtD(monthly.advanceDate) + ')' : ''), -s.advance]);
+    if (supplD > 0)    detail.push(['השלמת טיפים', +supplD.toFixed(2)]);
     if (monthly.notes) detail.push(['הערות', monthly.notes]);
-    detail.push(['סה"כ לתשלום', +s.total.toFixed(2)]);
+    detail.push(['סה"כ לתשלום', +(s.total + supplD).toFixed(2)]);
     detail.push([]);
   });
 
