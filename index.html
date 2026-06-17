@@ -445,10 +445,103 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
   .tab-nav, .app-header, .btn, .panel-actions { display: none !important; }
   .tab-panel.active { display: block !important; }
 }
+
+/* ══════════════════════════════════════════
+   AUTH SCREEN
+══════════════════════════════════════════ */
+#auth-screen {
+  position: fixed; inset: 0; z-index: 10000;
+  background: linear-gradient(135deg, #18100D 0%, #2A1A10 50%, #1E130E 100%);
+  display: flex; align-items: center; justify-content: center; direction: rtl;
+}
+.auth-box {
+  background: #fff; border-radius: 24px; padding: 40px 36px;
+  width: 360px; max-width: calc(100vw - 32px); text-align: center;
+  box-shadow: 0 24px 80px rgba(0,0,0,.5); animation: slideUp .3s ease;
+}
+.auth-logo  { font-size: 52px; margin-bottom: 8px; }
+.auth-title { font-size: 22px; font-weight: 800; color: #1A1514; margin-bottom: 4px; }
+.auth-sub   { font-size: 14px; color: #9C9490; margin-bottom: 24px; line-height: 1.5; }
+.auth-inp {
+  width: 100%; padding: 13px 16px; font-size: 20px; text-align: center;
+  border: 2px solid #E2DAD4; border-radius: 12px; outline: none;
+  letter-spacing: 4px; margin-bottom: 10px; transition: border-color .15s;
+  direction: ltr; font-family: monospace;
+}
+.auth-inp:focus { border-color: #D97757; box-shadow: 0 0 0 3px rgba(217,119,87,.15); }
+.auth-btn-main {
+  width: 100%; padding: 13px; background: #D97757; color: #fff;
+  border: none; border-radius: 12px; font-size: 16px; font-weight: 700;
+  cursor: pointer; margin-top: 6px; transition: background .15s, transform .1s;
+}
+.auth-btn-main:hover { background: #B85E3E; transform: translateY(-1px); }
+.auth-err  { color: #C0392B; font-size: 13px; margin-top: 10px; min-height: 18px; }
+.auth-link { background: none; border: none; color: #9C9490; font-size: 12px; cursor: pointer; text-decoration: underline; margin-top: 14px; display: inline-block; }
+
+/* ══════════════════════════════════════════
+   MOBILE RESPONSIVE (≤ 720px)
+══════════════════════════════════════════ */
+@media (max-width: 720px) {
+  .app-header {
+    padding: 10px 14px; flex-direction: column; align-items: stretch; gap: 8px;
+  }
+  .logo { gap: 8px; }
+  .logo-sub { display: none; }
+  .header-live { display: none; }
+  .header-date { font-size: 12px; }
+  .app-header > div:last-child { justify-content: flex-start; flex-wrap: wrap; gap: 6px; }
+  .hdr-btn { padding: 5px 9px; font-size: 12px; gap: 3px; }
+
+  .tab-nav { padding: 0 4px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; gap: 0; }
+  .tab-nav::-webkit-scrollbar { display: none; }
+  .tab-btn  { padding: 10px 11px 8px; font-size: 12px; white-space: nowrap; flex-shrink: 0; gap: 4px; }
+  .tab-icon { font-size: 14px; }
+
+  .tab-contents { padding: 10px 8px; }
+
+  .panel-header { flex-direction: column; align-items: flex-start; gap: 10px; margin-bottom: 14px; }
+  .panel-title  { font-size: 18px; }
+  .panel-actions { width: 100%; flex-wrap: wrap; gap: 8px; }
+  .panel-actions input[type=text] { width: 100%; }
+
+  .emp-grid { grid-template-columns: 1fr; }
+  .summary-grid { grid-template-columns: 1fr 1fr; }
+
+  .modal-box {
+    width: 98%; max-width: 98%; padding: 18px 14px;
+    max-height: 94vh; border-radius: 14px; margin: 0 4px;
+  }
+  .modal-title { font-size: 17px; margin-bottom: 16px; }
+  .modal-footer { flex-direction: column-reverse; }
+  .modal-footer .btn { width: 100%; text-align: center; }
+
+  .table-wrap { max-height: calc(100vh - 160px); }
+  table { min-width: 540px; }
+
+  .btn { padding: 9px 14px; font-size: 13px; }
+  .btn-primary { font-size: 14px; }
+}
 </style>
 </head>
 <body>
-<div id="app">
+
+<!-- ═══ AUTH SCREEN ═══ -->
+<div id="auth-screen" style="display:none">
+  <div class="auth-box">
+    <div class="auth-logo">☕</div>
+    <div class="auth-title">מנהל בית הקפה</div>
+    <div class="auth-sub" id="auth-sub">הכנס סיסמה לכניסה</div>
+    <input type="password" id="auth-pw" class="auth-inp" placeholder="••••••••" maxlength="50"
+           onkeydown="if(event.key==='Enter')authNext()">
+    <input type="password" id="auth-pw2" class="auth-inp" placeholder="אשר סיסמה" maxlength="50"
+           style="display:none" onkeydown="if(event.key==='Enter')authNext()">
+    <button class="auth-btn-main" onclick="authNext()" id="auth-btn">כניסה</button>
+    <div class="auth-err" id="auth-err"></div>
+    <button class="auth-link" id="auth-reset-link" onclick="authReset()" style="display:none">שכחתי סיסמה — איפוס</button>
+  </div>
+</div>
+
+<div id="app" style="display:none">
 
 <!-- ═══ HEADER ═══ -->
 <header class="app-header">
@@ -464,6 +557,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
     <div class="header-date" id="hdate"></div>
     <button class="hdr-btn green" onclick="exportBackup()" title="גיבוי כל הנתונים לקובץ JSON">💾 גיבוי</button>
     <button class="hdr-btn" onclick="triggerImport()" title="שחזור נתונים מקובץ גיבוי">📂 שחזור</button>
+    <button class="hdr-btn" id="sync-btn" onclick="openSyncModal()" title="סנכרון ענן — שמור גיבוי אוטומטי לענן" style="display:none">☁️ <span id="sync-label">ענן</span></button>
     <button class="hdr-btn" onclick="loadDemoData()" title="טען נתוני דוגמה לבדיקה">🎭 דוגמה</button>
     <button class="hdr-btn" onclick="confirmReset()" title="מחק את כל הנתונים" style="border-color:rgba(220,38,38,.25);color:rgba(220,120,100,.7)">🗑️ איפוס</button>
   </div>
@@ -851,6 +945,7 @@ function loadState() {
 
 function persist() {
   localStorage.setItem(KEY, JSON.stringify(S));
+  scheduleSync();
 }
 
 /* ================================================================
@@ -4208,7 +4303,226 @@ RENDER_MAP = {
   control:   renderControl
 };
 
+/* ================================================================
+   AUTH SYSTEM
+================================================================ */
+var AUTH_HASH_KEY = 'cafeManager_pwHash';
+var AUTH_SESS_KEY = 'cafeManager_authed';
+
+function _hashPw(pw) {
+  var s = 'cafe_biz_' + pw + '_mgr';
+  var h = 5381;
+  for (var i = 0; i < s.length; i++) {
+    h = ((h << 5) + h) ^ s.charCodeAt(i);
+    h = h >>> 0;
+  }
+  return h.toString(16) + '_' + s.length.toString(16);
+}
+
+function authInit() {
+  var hash = localStorage.getItem(AUTH_HASH_KEY);
+  var authed = sessionStorage.getItem(AUTH_SESS_KEY);
+  if (!hash) {
+    // First time — set password
+    document.getElementById('auth-sub').textContent = 'ברוך הבא! צור סיסמה לאבטחת הנתונים שלך';
+    document.getElementById('auth-pw2').style.display = '';
+    document.getElementById('auth-btn').textContent = 'צור סיסמה';
+    document.getElementById('auth-screen').style.display = 'flex';
+  } else if (!authed) {
+    // Need to login
+    document.getElementById('auth-reset-link').style.display = '';
+    document.getElementById('auth-screen').style.display = 'flex';
+    setTimeout(function() { document.getElementById('auth-pw').focus(); }, 100);
+  } else {
+    authShowApp();
+  }
+}
+
+function authNext() {
+  var hash = localStorage.getItem(AUTH_HASH_KEY);
+  var pw   = document.getElementById('auth-pw').value;
+  var err  = document.getElementById('auth-err');
+  if (!pw) { err.textContent = 'נא להזין סיסמה'; return; }
+  if (!hash) {
+    // Setup mode
+    var pw2 = document.getElementById('auth-pw2').value;
+    if (pw.length < 4) { err.textContent = 'הסיסמה חייבת להיות לפחות 4 תווים'; return; }
+    if (pw !== pw2) { err.textContent = 'הסיסמאות אינן תואמות'; return; }
+    localStorage.setItem(AUTH_HASH_KEY, _hashPw(pw));
+    sessionStorage.setItem(AUTH_SESS_KEY, '1');
+    authShowApp();
+  } else {
+    // Login mode
+    if (_hashPw(pw) === hash) {
+      sessionStorage.setItem(AUTH_SESS_KEY, '1');
+      authShowApp();
+    } else {
+      err.textContent = 'סיסמה שגויה — נסה שוב';
+      document.getElementById('auth-pw').value = '';
+      document.getElementById('auth-pw').focus();
+    }
+  }
+}
+
+function authShowApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = '';
+  appStart();
+}
+
+function authReset() {
+  if (!confirm('איפוס סיסמה — תצטרך לשחזר נתונים מגיבוי.\n\nהאם להמשיך?')) return;
+  localStorage.removeItem(AUTH_HASH_KEY);
+  sessionStorage.removeItem(AUTH_SESS_KEY);
+  location.reload();
+}
+
+/* ================================================================
+   CLOUD SYNC (GitHub)
+================================================================ */
+var SYNC_TOKEN_KEY = 'cafeManager_ghSync';
+var _syncTimer = null;
+var _syncStatus = 'idle'; // idle | syncing | ok | err
+
+function scheduleSync() {
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(pushToCloud, 20000);
+}
+
+function pushToCloud() {
+  var token = localStorage.getItem(SYNC_TOKEN_KEY);
+  if (!token) return;
+  setSyncStatus('syncing');
+  var data   = JSON.stringify(S, null, 2);
+  var bytes  = unescape(encodeURIComponent(data));
+  var base64 = btoa(bytes);
+  var headers = { 'Authorization': 'token ' + token, 'User-Agent': 'cafe-sync', 'Content-Type': 'application/json', 'Accept': 'application/vnd.github.v3+json' };
+  var apiUrl  = 'https://api.github.com/repos/maromezra5-glitch/Business-manager/contents/cafe-data.json';
+
+  function doUpload(sha) {
+    var body = JSON.stringify({ message: 'sync ' + new Date().toISOString(), content: base64, branch: 'main' });
+    if (sha) body = JSON.stringify({ message: 'sync ' + new Date().toISOString(), content: base64, sha: sha, branch: 'main' });
+    var xhr = new XMLHttpRequest();
+    xhr.open('PUT', apiUrl, true);
+    Object.keys(headers).forEach(function(k) { xhr.setRequestHeader(k, headers[k]); });
+    xhr.onload = function() {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        setSyncStatus('ok');
+        localStorage.setItem('cafeManager_lastSync', new Date().toISOString());
+      } else { setSyncStatus('err'); }
+    };
+    xhr.onerror = function() { setSyncStatus('err'); };
+    xhr.send(body);
+  }
+
+  var xhrGet = new XMLHttpRequest();
+  xhrGet.open('GET', apiUrl, true);
+  Object.keys(headers).forEach(function(k) { xhrGet.setRequestHeader(k, headers[k]); });
+  xhrGet.onload = function() {
+    var sha = null;
+    if (xhrGet.status === 200) {
+      try { sha = JSON.parse(xhrGet.responseText).sha; } catch(e) {}
+    }
+    doUpload(sha);
+  };
+  xhrGet.onerror = function() { doUpload(null); };
+  xhrGet.send();
+}
+
+function pullFromCloud(token, onDone) {
+  var apiUrl = 'https://api.github.com/repos/maromezra5-glitch/Business-manager/contents/cafe-data.json';
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', apiUrl, true);
+  xhr.setRequestHeader('Authorization', 'token ' + token);
+  xhr.setRequestHeader('User-Agent', 'cafe-sync');
+  xhr.setRequestHeader('Accept', 'application/vnd.github.v3+json');
+  xhr.onload = function() {
+    if (xhr.status === 200) {
+      try {
+        var b64  = JSON.parse(xhr.responseText).content.replace(/\n/g, '');
+        var raw  = decodeURIComponent(escape(atob(b64)));
+        var data = JSON.parse(raw);
+        if (data && Array.isArray(data.employees)) { onDone(null, data); return; }
+      } catch(e) {}
+    }
+    onDone('לא נמצא גיבוי בענן');
+  };
+  xhr.onerror = function() { onDone('שגיאת רשת'); };
+  xhr.send();
+}
+
+function setSyncStatus(s) {
+  _syncStatus = s;
+  var lbl = document.getElementById('sync-label');
+  var btn = document.getElementById('sync-btn');
+  if (!lbl) return;
+  if (s === 'syncing') { lbl.textContent = 'מסנכרן...'; btn.style.color = '#C87D0E'; }
+  else if (s === 'ok')   { lbl.textContent = 'מסונכרן ✓'; btn.style.color = '#1E7D4B'; }
+  else if (s === 'err')  { lbl.textContent = 'שגיאת ענן'; btn.style.color = '#C0392B'; }
+  else                   { lbl.textContent = 'ענן'; btn.style.color = ''; }
+}
+
+function openSyncModal() {
+  var token   = localStorage.getItem(SYNC_TOKEN_KEY) || '';
+  var lastSync = localStorage.getItem('cafeManager_lastSync');
+  var lastStr  = lastSync ? 'סנכרון אחרון: ' + new Date(lastSync).toLocaleString('he-IL') : 'טרם בוצע סנכרון';
+  var html = '<h2 class="modal-title">☁️ סנכרון ענן</h2>' +
+    '<p style="font-size:14px;color:var(--text-sec);margin-bottom:18px">שמור גיבוי אוטומטי בענן — הנתונים ישמרו ב-GitHub ותוכל לשחזר ממכשיר אחר.</p>' +
+    '<div style="background:var(--warning-bg);border:1px solid var(--warning);border-radius:10px;padding:12px;font-size:13px;margin-bottom:18px">' +
+    '💡 <strong>איך מגדירים:</strong> עבור ל-github.com ← Settings ← Developer Settings ← Personal Access Tokens ← צור טוקן עם הרשאת <code>repo</code>' +
+    '</div>' +
+    '<label style="font-weight:700;font-size:14px;display:block;margin-bottom:6px">GitHub Token:</label>' +
+    '<input type="password" id="sync-token-inp" value="' + token + '" placeholder="ghp_..." ' +
+    'style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;direction:ltr;outline:none;margin-bottom:6px">' +
+    '<div style="font-size:12px;color:var(--text-muted);margin-bottom:18px">' + lastStr + '</div>' +
+    '<div class="modal-footer" style="flex-direction:column;gap:8px">' +
+    '<button class="btn btn-primary" onclick="saveSyncToken()">💾 שמור והפעל סנכרון</button>' +
+    '<button class="btn" onclick="pullCloudData()">📥 שחזר מהענן</button>' +
+    (token ? '<button class="btn" onclick="localStorage.removeItem(\'cafeManager_ghSync\');document.getElementById(\'sync-btn\').style.display=\'none\';closeModal();toast(\'סנכרון ענן כובה\',\'ok\')" style="color:var(--error)">🗑️ בטל סנכרון</button>' : '') +
+    '</div>';
+  document.getElementById('modal-box').innerHTML = html;
+  document.getElementById('modal').classList.remove('hidden');
+}
+
+function saveSyncToken() {
+  var token = (document.getElementById('sync-token-inp').value || '').trim();
+  if (!token) { toast('נא להזין טוקן', 'err'); return; }
+  localStorage.setItem(SYNC_TOKEN_KEY, token);
+  document.getElementById('sync-btn').style.display = '';
+  closeModal();
+  toast('✅ סנכרון ענן הופעל', 'ok');
+  pushToCloud();
+}
+
+function pullCloudData() {
+  var token = (document.getElementById('sync-token-inp').value || localStorage.getItem(SYNC_TOKEN_KEY) || '').trim();
+  if (!token) { toast('נא להזין טוקן', 'err'); return; }
+  toast('📥 מוריד מהענן...', 'ok');
+  pullFromCloud(token, function(err, data) {
+    if (err) { toast('שגיאה: ' + err, 'err'); return; }
+    if (!confirm('נמצא גיבוי בענן.\nהאם לשחזר? פעולה זו תחליף את כל הנתונים הנוכחיים.')) return;
+    ['roles','dailyHours','monthlyData','timeRecords','zReports','tips','suppliers','purchases','control','settings'].forEach(function(k) {
+      if (!data[k]) data[k] = S[k];
+    });
+    S = data; persist();
+    toast('✅ שוחזר מהענן — טוען מחדש...', 'ok');
+    setTimeout(function() { location.reload(); }, 900);
+  });
+}
+
+function initSyncBtn() {
+  if (localStorage.getItem(SYNC_TOKEN_KEY)) {
+    document.getElementById('sync-btn').style.display = '';
+    var lastSync = localStorage.getItem('cafeManager_lastSync');
+    if (lastSync) setSyncStatus('ok');
+  }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+  authInit();
+});
+
+function appStart() {
   loadState();
   selectedHoursDate = curDate();
   try { var savedMode = sessionStorage.getItem('cafeHoursMode'); if (savedMode) hoursMode = savedMode; } catch(e) {}
@@ -4217,7 +4531,8 @@ document.addEventListener('DOMContentLoaded', function() {
   renderEmps();
   showBackupBannerIfNeeded();
   checkForUpdate();
-});
+  initSyncBtn();
+}
 
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeModal();
