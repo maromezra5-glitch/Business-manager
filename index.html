@@ -4572,22 +4572,18 @@ function applyBizSettings() {
   var header  = document.getElementById('app-header');
   if (header) {
     if (bgImage) {
-      header.style.backgroundImage   = 'linear-gradient(rgba(0,0,0,0.52),rgba(0,0,0,0.52)), url("' + bgImage + '")';
+      header.style.backgroundImage    = 'linear-gradient(rgba(0,0,0,0.52),rgba(0,0,0,0.52)), url("' + bgImage + '")';
       header.style.backgroundSize     = 'cover';
       header.style.backgroundPosition = 'center';
       header.style.backgroundColor    = '';
+      header.style.borderBottom       = 'none';
     } else if (bgColor) {
-      header.style.backgroundImage    = '';
-      header.style.backgroundSize     = '';
-      header.style.backgroundPosition = '';
-      header.style.backgroundColor    = bgColor;
+      header.style.background         = bgColor;
+      header.style.borderBottom       = 'none';
     } else {
-      header.style.backgroundImage    = '';
-      header.style.backgroundSize     = '';
-      header.style.backgroundPosition = '';
-      header.style.backgroundColor    = '';
+      header.style.background         = '';
+      header.style.borderBottom       = '';
     }
-    header.style.borderBottomColor = bgImage ? 'transparent' : (bgColor || '');
   }
 
   // צבע ראשי
@@ -4735,8 +4731,20 @@ function handleBgUpload(input) {
   if (!file) return;
   var reader = new FileReader();
   reader.onload = function(e) {
-    _setBizBgPreview(e.target.result);
-    document.getElementById('biz-bg-status').textContent = '✅ תמונה הועלתה';
+    var img = new Image();
+    img.onload = function() {
+      var MAX = 1400;
+      var w = img.width, h = img.height;
+      if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      var compressed = canvas.toDataURL('image/jpeg', 0.72);
+      _setBizBgPreview(compressed);
+      var kb = Math.round(compressed.length * 0.75 / 1024);
+      document.getElementById('biz-bg-status').textContent = '✅ תמונה הועלתה (' + kb + ' KB)';
+    };
+    img.src = e.target.result;
   };
   reader.readAsDataURL(file);
   input.value = '';
