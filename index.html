@@ -730,9 +730,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-18a';
+var APP_VERSION  = '2026-06-18b';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-18b', t: '🐛 תיקון באגים: פוקוס נגנב בסימון משימות; יעד מכירות מתעדכן רק ב-Enter ולא על כל מקש; קוד מיותר הוסר' },
   { v: '2026-06-18a', t: '📊 דשבורד גרפים — גרפי מכירות יומיות, פילוח ערוצים, פילוח הוצאות ו-6 חודשים; הצגה/הסתרה בלחיצה בלשוניות Z ושליטה' },
   { v: '2026-06-17m', t: '🔢 כרטיס עובד — שדה מספר עובד מקבל ספרות בלבד' },
   { v: '2026-06-17l', t: '🔔 עדכוני מערכת — הפופאפ מופיע בכניסה הראשונה אחרי כל עדכון (פעם אחת בלבד לכל כניסה)' },
@@ -3613,7 +3614,7 @@ function renderControl() {
             '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
               '<span style="font-size:13px;font-weight:700;color:var(--text-muted)">🎯 יעד מכירות חודשי:</span>' +
               '<input type="number" id="ctrl-sales-target" value="' + (target||'') + '" placeholder="הזן יעד ₪" ' +
-                'oninput="saveSalesTarget(this.value)" ' +
+                'onchange="saveSalesTarget(this.value)" ' +
                 'style="width:120px;padding:5px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-weight:700;text-align:center">' +
             '</div>' + bar + '</div>';
         })() +
@@ -3751,8 +3752,7 @@ function buildMonthComparison(ym, curIncome, curExpenses, curPl, curFc, curLc) {
   var prevFc = prevNet > 0 && prevPurchases > 0 ? (prevPurchases/(1+vat2/100)) / prevNet * 100 : 0;
   var prevLc = prevNet > 0 ? prevPayroll / prevNet * 100 : 0;
 
-  var MHE2 = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
-  var prevLabel = MHE2[m-1] + ' ' + y;
+  var prevLabel = MHE[m-1] + ' ' + y;
 
   function chg(cur, prev, higherIsBetter) {
     if (!prev) return '<span style="color:#9ca3af">—</span>';
@@ -5084,18 +5084,18 @@ function addTask() {
   if (!S.tasks) S.tasks = [];
   S.tasks.unshift({ id: Date.now() + '_' + Math.random().toString(36).slice(2), text: text, dueDate: date ? date.value : '', done: false, createdAt: new Date().toISOString().slice(0,10) });
   persist();
-  renderTasks();
+  renderTasks(true);
 }
 function toggleTask(id) {
   var t = (S.tasks||[]).find(function(x){ return x.id === id; });
-  if (t) { t.done = !t.done; persist(); renderTasks(); }
+  if (t) { t.done = !t.done; persist(); renderTasks(false); }
 }
 function deleteTask(id) {
   S.tasks = (S.tasks||[]).filter(function(x){ return x.id !== id; });
   persist();
-  renderTasks();
+  renderTasks(false);
 }
-function renderTasks() {
+function renderTasks(focusInput) {
   var cont = document.getElementById('tasks-content');
   if (!cont) return;
   if (!S.tasks) S.tasks = [];
@@ -5144,8 +5144,10 @@ function renderTasks() {
       '</div>'
     );
 
-  var inp = document.getElementById('task-input');
-  if (inp) inp.focus();
+  if (focusInput) {
+    var inp2 = document.getElementById('task-input');
+    if (inp2) inp2.focus();
+  }
 }
 
 // Register renderers
