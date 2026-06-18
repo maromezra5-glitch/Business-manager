@@ -13,7 +13,7 @@
     signOut, onAuthStateChanged, sendPasswordResetEmail, verifyBeforeUpdateEmail
   } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
   import {
-    getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, getDocs
+    getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, getDocs, onSnapshot
   } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -45,6 +45,7 @@
     currentUser: function() { return fbAuth.currentUser; },
 
     getUserDoc:    function(uid) { return getDoc(doc(fbDb, 'users', uid)); },
+    watchUserDoc:  function(uid, cb) { return onSnapshot(doc(fbDb, 'users', uid), cb); },
     createUserDoc: function(uid, businessId, role, email, allowedTabs) { return setDoc(doc(fbDb, 'users', uid), {businessId: businessId, role: role, email: email || '', allowedTabs: allowedTabs || []}); },
     updateMemberTabs: function(uid, allowedTabs) { return updateDoc(doc(fbDb, 'users', uid), {allowedTabs: allowedTabs}); },
     listMembers:   function(businessId) { return getDocs(query(collection(fbDb, 'users'), where('businessId', '==', businessId))); },
@@ -788,9 +789,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-18n';
+var APP_VERSION  = '2026-06-18o';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-18o', t: '🔄 שינויי הרשאות משתמשים נכנסים לתוקף באופן מיידי — בלי צורך בכניסה מחדש' },
   { v: '2026-06-18n', t: '👤 הרשאות מותאמות אישית — הבעל/ת בוחר/ת בדיוק לאיזה לשוניות כל משתמש/ת מוזמן/ת יקבל גישה · ☁️ הוסר סנכרון GitHub הישן (Firebase מטפל בהכל)' },
   { v: '2026-06-18m', t: '👤 הרשאות מרובות משתמשים — הזמן מנהל/ת משמרת עם גישה מוגבלת (שעות, טיפים, דוח Z בלבד)' },
   { v: '2026-06-18l', t: '📅 ולידציית תאריך לידה בכרטיס עובד — לא ניתן יותר לבחור 30 בפברואר וכו\'' },
@@ -5872,6 +5874,30 @@ async function authLoadAndShowApp(user) {
   document.getElementById('app').style.display = '';
   appStart();
   applyRolePermissions();
+  _watchOwnPermissions(user.uid);
+}
+
+var _stopWatchingPermissions = null;
+function _watchOwnPermissions(uid) {
+  if (_stopWatchingPermissions) { _stopWatchingPermissions(); _stopWatchingPermissions = null; }
+  if (!window.fb) return;
+  _stopWatchingPermissions = window.fb.watchUserDoc(uid, function(snap) {
+    if (!snap.exists()) {
+      // Owner removed this user's access entirely
+      toast('⚠️ הגישה שלך למערכת הוסרה', 'err');
+      if (_stopWatchingPermissions) { _stopWatchingPermissions(); _stopWatchingPermissions = null; }
+      setTimeout(function() { _forceSignOut(); }, 1500);
+      return;
+    }
+    var u = snap.data();
+    var changed = currentRole !== u.role || JSON.stringify(currentAllowedTabs || []) !== JSON.stringify(u.allowedTabs || []);
+    currentRole = u.role;
+    currentAllowedTabs = u.allowedTabs || [];
+    if (changed && document.getElementById('app').style.display !== 'none') {
+      applyRolePermissions();
+      if (!isOwner()) toast('🔄 ההרשאות שלך עודכנו', 'ok');
+    }
+  });
 }
 
 async function authForgotPassword() {
@@ -5898,6 +5924,11 @@ async function authSignOut() {
     confirmText: 'התנתק'
   });
   if (!ok) return;
+  await _forceSignOut();
+}
+
+async function _forceSignOut() {
+  if (_stopWatchingPermissions) { _stopWatchingPermissions(); _stopWatchingPermissions = null; }
   if (window.fb) await window.fb.signOut();
   location.reload();
 }
