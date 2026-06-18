@@ -184,7 +184,7 @@ body {
 .s-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 5px; font-weight: 600; }
 
 /* ── TABLES ── */
-.table-wrap { overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 240px); border-radius: var(--r); border: 1px solid var(--border); background: var(--surface); }
+.table-wrap { overflow-x: auto; border-radius: var(--r); border: 1px solid var(--border); background: var(--surface); }
 table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
 thead th {
   background: #F0EBE6; color: var(--text); font-weight: 800;
@@ -516,7 +516,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
   .modal-footer { flex-direction: column-reverse; }
   .modal-footer .btn { width: 100%; text-align: center; }
 
-  .table-wrap { max-height: calc(100vh - 160px); }
+  .table-wrap { overflow-x: auto; }
   table { min-width: 540px; }
 
   .btn { padding: 9px 14px; font-size: 13px; }
@@ -730,9 +730,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-18b';
+var APP_VERSION  = '2026-06-18c';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-18c', t: '📅 יומן: בחירת תאריך עם תפריטי יום/חודש/שנה בעברית; 📋 שעות: תוקנה גלילה — כל העובדים גלויים בגלילת עמוד רגילה' },
   { v: '2026-06-18b', t: '🐛 תיקון באגים: פוקוס נגנב בסימון משימות; יעד מכירות מתעדכן רק ב-Enter ולא על כל מקש; קוד מיותר הוסר' },
   { v: '2026-06-18a', t: '📊 דשבורד גרפים — גרפי מכירות יומיות, פילוח ערוצים, פילוח הוצאות ו-6 חודשים; הצגה/הסתרה בלחיצה בלשוניות Z ושליטה' },
   { v: '2026-06-17m', t: '🔢 כרטיס עובד — שדה מספר עובד מקבל ספרות בלבד' },
@@ -1738,7 +1739,7 @@ function renderHoursWeekly() {
 
   cont.innerHTML =
     navBar + otBar + roleFilterBar +
-    '<div class="table-wrap" style="border:1.5px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.08)">' +
+    '<div class="table-wrap" style="border:1.5px solid var(--border);border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.08)">' +
     '<table style="border-collapse:collapse;width:100%">' +
       thead + '<tbody>' + tbody + '</tbody>' +
       '<tfoot><tr style="border-top:2px solid var(--border)">' + footerCells + '</tr></tfoot>' +
@@ -5076,13 +5077,39 @@ function initControlCharts(ym, totalPayroll, totalPurchases, totalFixed, totalEx
 /* ================================================================
    TAB 8 — TASKS / יומן משימות
 ================================================================ */
+function buildTaskDateSelects(val) {
+  var parts = val ? val.split('-') : ['', '', ''];
+  var sy = parts[0] || '', sm = parts[1] || '', sd = parts[2] || '';
+  var sel = 'style="flex:1;min-width:50px;padding:9px 6px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:13px;background:var(--surface);outline:none;cursor:pointer;text-align:center"';
+  var dayOpts = '<option value="">יום</option>';
+  for (var di = 1; di <= 31; di++) { var dv = String(di).padStart(2,'0'); dayOpts += '<option value="' + dv + '"' + (sd === dv ? ' selected' : '') + '>' + di + '</option>'; }
+  var moNames = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  var moOpts = '<option value="">חודש</option>';
+  moNames.forEach(function(mn, i) { var mv = String(i+1).padStart(2,'0'); moOpts += '<option value="' + mv + '"' + (sm === mv ? ' selected' : '') + '>' + mn + '</option>'; });
+  var cy = new Date().getFullYear();
+  var yrOpts = '<option value="">שנה</option>';
+  for (var yi = cy - 1; yi <= cy + 3; yi++) yrOpts += '<option value="' + yi + '"' + (sy === String(yi) ? ' selected' : '') + '>' + yi + '</option>';
+  return '<div style="display:flex;gap:4px;align-items:center">' +
+    '<select id="task-date-d" ' + sel + '>' + dayOpts + '</select>' +
+    '<select id="task-date-m" ' + sel + '>' + moOpts  + '</select>' +
+    '<select id="task-date-y" ' + sel + '>' + yrOpts  + '</select>' +
+  '</div>';
+}
+function getTaskDateValue() {
+  var d = (document.getElementById('task-date-d') || {}).value || '';
+  var m = (document.getElementById('task-date-m') || {}).value || '';
+  var y = (document.getElementById('task-date-y') || {}).value || '';
+  if (!d || !m || !y) return '';
+  return y + '-' + m + '-' + d;
+}
+
 function addTask() {
   var inp  = document.getElementById('task-input');
-  var date = document.getElementById('task-date');
   var text = inp ? inp.value.trim() : '';
   if (!text) { toast('כתוב משימה לפני ההוספה', 'warn'); return; }
+  var dueDate = getTaskDateValue();
   if (!S.tasks) S.tasks = [];
-  S.tasks.unshift({ id: Date.now() + '_' + Math.random().toString(36).slice(2), text: text, dueDate: date ? date.value : '', done: false, createdAt: new Date().toISOString().slice(0,10) });
+  S.tasks.unshift({ id: Date.now() + '_' + Math.random().toString(36).slice(2), text: text, dueDate: dueDate, done: false, createdAt: new Date().toISOString().slice(0,10) });
   persist();
   renderTasks(true);
 }
@@ -5131,7 +5158,7 @@ function renderTasks(focusInput) {
         '</div>' +
         '<div>' +
           '<label style="font-size:12px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:5px">תאריך יעד (אופציונלי)</label>' +
-          '<input type="date" id="task-date" style="padding:10px 12px;border:2px solid var(--border);border-radius:10px;font-size:14px">' +
+          buildTaskDateSelects('') +
         '</div>' +
         '<button class="btn btn-primary" onclick="addTask()" style="padding:10px 22px;font-size:15px;white-space:nowrap">+ הוסף משימה</button>' +
       '</div>' +
