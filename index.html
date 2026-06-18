@@ -46,8 +46,9 @@
 
     getUserDoc:    function(uid) { return getDoc(doc(fbDb, 'users', uid)); },
     watchUserDoc:  function(uid, cb) { return onSnapshot(doc(fbDb, 'users', uid), cb); },
-    createUserDoc: function(uid, businessId, role, email, allowedTabs) { return setDoc(doc(fbDb, 'users', uid), {businessId: businessId, role: role, email: email || '', allowedTabs: allowedTabs || []}); },
+    createUserDoc: function(uid, businessId, role, email, allowedTabs, name) { return setDoc(doc(fbDb, 'users', uid), {businessId: businessId, role: role, email: email || '', name: name || '', allowedTabs: allowedTabs || []}); },
     updateMemberTabs: function(uid, allowedTabs) { return updateDoc(doc(fbDb, 'users', uid), {allowedTabs: allowedTabs}); },
+    updateSeenVersion: function(uid, v) { return updateDoc(doc(fbDb, 'users', uid), {seenVersion: v}); },
     listMembers:   function(businessId) { return getDocs(query(collection(fbDb, 'users'), where('businessId', '==', businessId))); },
     removeMember:  function(uid) { return deleteDoc(doc(fbDb, 'users', uid)); },
 
@@ -478,6 +479,13 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 
 /* ── HEADER ACTION BTNS ── */
 .hdr-btn { display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:8px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);color:rgba(255,255,255,.72);font-size:12px;font-weight:700;cursor:pointer;transition:all .16s;white-space:nowrap; }
+.hdr-dropdown-menu { position:absolute; top:calc(100% + 6px); left:0; z-index:200; background:#fff; border-radius:12px; box-shadow:0 12px 32px rgba(0,0,0,.25); padding:6px; display:flex; flex-direction:column; gap:2px; min-width:190px; }
+.hdr-dropdown-menu.hidden { display:none; }
+.hdr-dropdown-menu button { display:flex; align-items:center; gap:6px; width:100%; text-align:right; padding:9px 12px; border:none; background:none; border-radius:8px; font-size:13px; font-weight:600; color:var(--text); cursor:pointer; transition:background .12s; }
+.hdr-dropdown-menu button:hover { background:var(--bg); }
+.hdr-dropdown-menu button.danger { color:var(--error); }
+.hdr-dropdown-menu button.danger:hover { background:var(--error-bg); }
+.hdr-dropdown-sep { height:1px; background:var(--border); margin:4px 2px; }
 .hdr-btn:hover { background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.25); }
 .hdr-btn.green { border-color:rgba(74,222,128,.3);background:rgba(74,222,128,.08);color:rgba(74,222,128,.9); }
 .hdr-btn.green:hover { background:rgba(74,222,128,.18);color:#4ADE80; }
@@ -587,6 +595,8 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
     <div class="auth-sub" id="auth-sub">התחבר עם אימייל וסיסמה</div>
     <input type="email" id="auth-email" class="auth-inp" placeholder="כתובת אימייל" maxlength="120" autocomplete="username"
            onkeydown="if(event.key==='Enter')authNext()">
+    <input type="text" id="auth-name" class="auth-inp" placeholder="השם שלך" maxlength="60" autocomplete="name"
+           style="display:none" onkeydown="if(event.key==='Enter')authNext()">
     <input type="password" id="auth-pw" class="auth-inp" placeholder="••••••••" maxlength="50" autocomplete="current-password"
            onkeydown="if(event.key==='Enter')authNext()">
     <input type="password" id="auth-pw2" class="auth-inp" placeholder="אשר סיסמה" maxlength="50"
@@ -615,15 +625,22 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
     <div class="header-live"><div class="header-live-dot"></div><span class="header-live-txt">מערכת פעילה</span></div>
     <div class="header-date" id="hdate"></div>
-    <button class="hdr-btn green owner-only" onclick="exportBackup()" title="גיבוי כל הנתונים לקובץ JSON">💾 גיבוי</button>
-    <button class="hdr-btn owner-only" onclick="triggerImport()" title="שחזור נתונים מקובץ גיבוי">📂 שחזור</button>
+    <span id="hdr-user-greeting" class="header-date" style="font-weight:700"></span>
     <button class="hdr-btn" onclick="openWhatsNew()" title="מה חדש במערכת?" style="font-size:13px;font-weight:800">🆕 מה חדש?</button>
-    <button class="hdr-btn owner-only" onclick="renderAuditLog()" title="יומן פעולות אחרונות">📋 יומן</button>
-    <button class="hdr-btn owner-only" onclick="openUserMgmt()" title="ניהול משתמשים">👤 משתמשים</button>
-    <button class="hdr-btn owner-only" onclick="openBizSettings()" title="הגדרות עסק">⚙️</button>
-    <button class="hdr-btn owner-only" onclick="loadDemoData()" title="טען נתוני דוגמה לבדיקה">🎭 דוגמה</button>
+    <div class="hdr-dropdown owner-only" style="position:relative">
+      <button class="hdr-btn" id="admin-menu-btn" onclick="toggleAdminMenu(event)">⚙️ ניהול ▾</button>
+      <div id="admin-menu" class="hdr-dropdown-menu hidden">
+        <button onclick="closeAdminMenu();exportBackup()">💾 גיבוי נתונים</button>
+        <button onclick="closeAdminMenu();triggerImport()">📂 שחזור מגיבוי</button>
+        <button onclick="closeAdminMenu();renderAuditLog()">📋 יומן פעולות</button>
+        <button onclick="closeAdminMenu();openUserMgmt()">👤 ניהול משתמשים</button>
+        <button onclick="closeAdminMenu();openBizSettings()">🏢 הגדרות עסק</button>
+        <button onclick="closeAdminMenu();loadDemoData()">🎭 נתוני דוגמה</button>
+        <div class="hdr-dropdown-sep"></div>
+        <button onclick="closeAdminMenu();confirmReset()" class="danger">🗑️ איפוס נתונים</button>
+      </div>
+    </div>
     <button class="hdr-btn" onclick="authSignOut()" title="התנתקות מהחשבון">🚪 התנתק</button>
-    <button class="hdr-btn owner-only" onclick="confirmReset()" title="מחק את כל הנתונים" style="border-color:rgba(220,38,38,.25);color:rgba(220,120,100,.7)">🗑️ איפוס</button>
   </div>
 </header>
 <input type="file" id="biz-logo-input" accept="image/*" style="display:none" onchange="handleLogoUpload(this)">
@@ -789,9 +806,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-18o';
+var APP_VERSION  = '2026-06-18p';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-18p', t: '👋 שם משתמש בהרשמה + "שלום, [שם]" בכותרת · 🆕 מה חדש מציג רק עדכונים מאז הכניסה האחרונה שלך · 🧹 כותרת מסודרת — כפתורי ניהול עברו לתפריט "⚙️ ניהול"' },
   { v: '2026-06-18o', t: '🔄 שינויי הרשאות משתמשים נכנסים לתוקף באופן מיידי — בלי צורך בכניסה מחדש' },
   { v: '2026-06-18n', t: '👤 הרשאות מותאמות אישית — הבעל/ת בוחר/ת בדיוק לאיזה לשוניות כל משתמש/ת מוזמן/ת יקבל גישה · ☁️ הוסר סנכרון GitHub הישן (Firebase מטפל בהכל)' },
   { v: '2026-06-18m', t: '👤 הרשאות מרובות משתמשים — הזמן מנהל/ת משמרת עם גישה מוגבלת (שעות, טיפים, דוח Z בלבד)' },
@@ -5011,27 +5029,37 @@ function _buildUpdateHTML(notes, title) {
     '<h2 style="margin:0 0 6px;font-size:22px;color:#1A1A1A">' + title + '</h2>' +
     '<div style="font-size:13px;color:#9ca3af;margin-bottom:20px">' + APP_VERSION + '</div>' +
     '<ul style="margin:0 0 24px;padding-right:20px;color:#374151;font-size:15px;line-height:1.7">' + items + '</ul>' +
-    '<button onclick="document.getElementById(\'update-modal\').remove();localStorage.setItem(\'cafeManager_seenVersion\',\'' + APP_VERSION + '\')" ' +
+    '<button onclick="document.getElementById(\'update-modal\').remove()" ' +
     'style="width:100%;padding:13px;background:#D97757;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer">הבנתי, תודה!</button>' +
     '</div></div>';
 }
+function _markVersionSeen(v) {
+  currentSeenVersion = v;
+  localStorage.setItem('cafeManager_seenVersion', v);
+  if (currentUid && window.fb) window.fb.updateSeenVersion(currentUid, v).catch(function() {});
+}
 function checkForUpdate() {
-  var seen = localStorage.getItem('cafeManager_seenVersion') || '';
-  if (seen === APP_VERSION) return;
+  if (!currentSeenVersion) {
+    // First login for this user — nothing "missed", just baseline silently
+    _markVersionSeen(APP_VERSION);
+    return;
+  }
+  if (currentSeenVersion === APP_VERSION) return;
   // הצג פעם אחת בלבד לכל כניסה — גם אם הדף נטען מחדש באותה כניסה
   if (sessionStorage.getItem('updateShownThisSession') === APP_VERSION) return;
   sessionStorage.setItem('updateShownThisSession', APP_VERSION);
-  var toShow = seen
-    ? UPDATE_NOTES.filter(function(n) { return n.v > seen; })
-    : UPDATE_NOTES.slice();
-  if (!toShow.length) toShow = UPDATE_NOTES.slice(0, 3);
-  var title = seen ? 'מה חדש מאז הפעם האחרונה?' : 'המערכת עודכנה!';
-  setTimeout(function() { document.body.insertAdjacentHTML('beforeend', _buildUpdateHTML(toShow, title)); }, 600);
+  var toShow = UPDATE_NOTES.filter(function(n) { return n.v > currentSeenVersion; });
+  _markVersionSeen(APP_VERSION);
+  if (!toShow.length) return;
+  setTimeout(function() { document.body.insertAdjacentHTML('beforeend', _buildUpdateHTML(toShow, 'מה חדש מאז הכניסה האחרונה?')); }, 600);
 }
 function openWhatsNew() {
   var ex = document.getElementById('update-modal');
   if (ex) ex.remove();
-  document.body.insertAdjacentHTML('beforeend', _buildUpdateHTML(UPDATE_NOTES, 'כל עדכוני המערכת'));
+  var toShow = UPDATE_NOTES.filter(function(n) { return n.v > (currentSeenVersion || ''); });
+  if (!toShow.length) { toast('אין עדכונים חדשים מאז הכניסה האחרונה שלך', 'ok'); return; }
+  document.body.insertAdjacentHTML('beforeend', _buildUpdateHTML(toShow, 'מה חדש מאז הכניסה האחרונה?'));
+  _markVersionSeen(APP_VERSION);
 }
 
 function dismissBanner() {
@@ -5745,6 +5773,35 @@ var currentUid = null;
 var currentBusinessId = null;
 var currentRole = null; // 'owner' | 'manager'
 var currentAllowedTabs = [];
+var currentUserName = '';
+var currentSeenVersion = '';
+
+function toggleAdminMenu(e) {
+  e.stopPropagation();
+  var menu = document.getElementById('admin-menu');
+  if (menu) menu.classList.toggle('hidden');
+}
+function closeAdminMenu() {
+  var menu = document.getElementById('admin-menu');
+  if (menu) menu.classList.add('hidden');
+}
+document.addEventListener('click', function(e) {
+  var menu = document.getElementById('admin-menu');
+  if (menu && !menu.classList.contains('hidden') && !menu.contains(e.target)) {
+    menu.classList.add('hidden');
+  }
+});
+
+function renderUserGreeting() {
+  var el = document.getElementById('hdr-user-greeting');
+  if (!el) return;
+  var name = currentUserName;
+  if (!name && window.fb && window.fb.currentUser()) {
+    var email = window.fb.currentUser().email || '';
+    name = email.split('@')[0];
+  }
+  el.textContent = name ? ('שלום, ' + name) : '';
+}
 var LAST_EMAIL_KEY = 'cafeManager_lastEmail';
 function isOwner() { return currentRole === 'owner'; }
 
@@ -5776,11 +5833,14 @@ function authToggleMode() {
   _authMode = _authMode === 'login' ? 'signup' : 'login';
   var isSignup = _authMode === 'signup';
   document.getElementById('auth-sub').textContent = isSignup ? 'יצירת חשבון חדש' : 'התחבר עם אימייל וסיסמה';
+  document.getElementById('auth-name').style.display = isSignup ? '' : 'none';
   document.getElementById('auth-pw2').style.display = isSignup ? '' : 'none';
   document.getElementById('auth-btn').textContent  = isSignup ? 'צור חשבון' : 'כניסה';
   document.getElementById('auth-mode-link').textContent = isSignup ? 'יש לי כבר חשבון — כניסה' : 'משתמש/ת חדש/ה? הרשמה';
   document.getElementById('auth-err').textContent = '';
 }
+
+var _pendingSignupName = '';
 
 async function authNext() {
   var email = (document.getElementById('auth-email').value || '').trim();
@@ -5795,9 +5855,12 @@ async function authNext() {
   try {
     localStorage.setItem(LAST_EMAIL_KEY, email);
     if (_authMode === 'signup') {
-      var pw2 = document.getElementById('auth-pw2').value;
+      var name = (document.getElementById('auth-name').value || '').trim();
+      var pw2  = document.getElementById('auth-pw2').value;
+      if (!name) { err.textContent = 'נא להזין שם'; return; }
       if (pw.length < 6) { err.textContent = 'הסיסמה חייבת להיות לפחות 6 תווים'; return; }
       if (pw !== pw2) { err.textContent = 'הסיסמאות אינן תואמות'; return; }
+      _pendingSignupName = name;
       await window.fb.signUp(email, pw);
       // onAuthChange listener picks up the new session automatically
     } else {
@@ -5822,11 +5885,13 @@ function _authErrMsg(e) {
 }
 
 async function _resolveBusinessAndRole(user) {
+  var signupName = _pendingSignupName;
+  _pendingSignupName = '';
   // 1) Already a known member/owner?
   var userSnap = await window.fb.getUserDoc(user.uid);
   if (userSnap.exists()) {
     var u = userSnap.data();
-    return {businessId: u.businessId, role: u.role, allowedTabs: u.allowedTabs || []};
+    return {businessId: u.businessId, role: u.role, allowedTabs: u.allowedTabs || [], name: u.name || '', seenVersion: u.seenVersion || ''};
   }
   // 2) Were they invited as a shift manager to someone else's business?
   if (user.email) {
@@ -5834,15 +5899,15 @@ async function _resolveBusinessAndRole(user) {
       var inviteSnap = await window.fb.getInvite(user.email);
       if (inviteSnap.exists()) {
         var inv = inviteSnap.data();
-        await window.fb.createUserDoc(user.uid, inv.businessId, inv.role, user.email, inv.allowedTabs || []);
+        await window.fb.createUserDoc(user.uid, inv.businessId, inv.role, user.email, inv.allowedTabs || [], signupName);
         await window.fb.deleteInvite(user.email);
-        return {businessId: inv.businessId, role: inv.role, allowedTabs: inv.allowedTabs || []};
+        return {businessId: inv.businessId, role: inv.role, allowedTabs: inv.allowedTabs || [], name: signupName, seenVersion: ''};
       }
     } catch (e) { /* fall through to owner default */ }
   }
   // 3) Brand-new signup with no invite — they own their own new business
-  await window.fb.createUserDoc(user.uid, user.uid, 'owner', user.email, []);
-  return {businessId: user.uid, role: 'owner', allowedTabs: []};
+  await window.fb.createUserDoc(user.uid, user.uid, 'owner', user.email, [], signupName);
+  return {businessId: user.uid, role: 'owner', allowedTabs: [], name: signupName, seenVersion: ''};
 }
 
 async function authLoadAndShowApp(user) {
@@ -5852,11 +5917,15 @@ async function authLoadAndShowApp(user) {
     currentBusinessId = resolved.businessId;
     currentRole = resolved.role;
     currentAllowedTabs = resolved.allowedTabs || [];
+    currentUserName = resolved.name || '';
+    currentSeenVersion = resolved.seenVersion || '';
   } catch (e) {
     toast('⚠️ שגיאה בזיהוי החשבון — עובד מהנתונים המקומיים', 'err');
     currentBusinessId = user.uid;
     currentRole = 'owner';
     currentAllowedTabs = [];
+    currentUserName = '';
+    currentSeenVersion = '';
   }
   try {
     var snap = await window.fb.loadData(currentBusinessId);
@@ -5874,6 +5943,7 @@ async function authLoadAndShowApp(user) {
   document.getElementById('app').style.display = '';
   appStart();
   applyRolePermissions();
+  renderUserGreeting();
   _watchOwnPermissions(user.uid);
 }
 
