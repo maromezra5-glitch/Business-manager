@@ -776,9 +776,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-18i';
+var APP_VERSION  = '2026-06-18j';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-18j', t: '🐛 תיקון: שחזור גיבוי / טעינת דוגמה לא היו נשמרים בענן לפני הרענון, ולכן חזרו לאחור' },
   { v: '2026-06-18i', t: '☁️ התחברות אמיתית עם אימייל+סיסמה (Firebase) וגיבוי אוטומטי לענן — הנתונים לא חיים יותר רק בדפדפן הזה' },
   { v: '2026-06-18h', t: '🔒 אבטחת סיסמה משודרגת · 📋 יומן פעולות (audit log) · 🪄 אישורים מעוצבים · 👋 מסך הדרכה לכניסה ראשונה · 🖨️ הדפסת P&L' },
   { v: '2026-06-18g', t: '✕ מחיקת תפקיד מרשימת התפקידים בכרטיס עובד' },
@@ -1090,6 +1091,17 @@ function scheduleFirestoreSync() {
       toast('⚠️ סנכרון לענן נכשל — הנתונים נשמרו מקומית בלבד', 'err');
     });
   }, 2500);
+}
+
+// Use before reloading the page after a bulk data replace (restore/demo/import) —
+// the debounced scheduleFirestoreSync() runs too late and a reload would re-fetch stale cloud data.
+async function persistAndReload(delayMs) {
+  clearTimeout(_fsSyncTimer);
+  persist();
+  if (currentUid && window.fb) {
+    try { await window.fb.saveData(currentUid, S); } catch(e) {}
+  }
+  setTimeout(function() { location.reload(); }, delayMs || 400);
 }
 
 function customConfirm(opts) {
@@ -4910,9 +4922,8 @@ async function doRestore(fileEntry) {
     });
     S = data;
     logAudit('שחזור מגיבוי', file.name || '');
-    persist();
     toast('✅ גיבוי יובא — טוען מחדש...', 'ok');
-    setTimeout(function() { location.reload(); }, 900);
+    await persistAndReload(900);
   } catch(e) {
     toast('שגיאה בשחזור: ' + e.message, 'err');
   }
@@ -4946,10 +4957,9 @@ function handleImport(input) {
       });
       S = data;
       logAudit('שחזור מגיבוי', file.name || '');
-      persist();
       input.value = '';
       toast('✅ גיבוי יובא — טוען מחדש...', 'ok');
-      setTimeout(function() { location.reload(); }, 900);
+      await persistAndReload(900);
     } catch(err) {
       toast('שגיאה בקריאת הקובץ', 'err');
       input.value = '';
@@ -5264,9 +5274,8 @@ async function loadDemoData() {
   };
   if (!S.settings.shiftDefs) delete S.settings.shiftDefs;
 
-  persist();
   toast('✅ נתוני דוגמה נטענו — טוען מחדש...', 'ok');
-  setTimeout(function() { location.reload(); }, 700);
+  await persistAndReload(700);
 }
 
 /* ================================================================
@@ -5793,9 +5802,8 @@ function pullCloudData() {
     });
     S = data;
     logAudit('שחזור מהענן', '');
-    persist();
     toast('✅ שוחזר מהענן — טוען מחדש...', 'ok');
-    setTimeout(function() { location.reload(); }, 900);
+    await persistAndReload(900);
   });
 }
 
