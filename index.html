@@ -312,7 +312,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 .modal-footer { display: flex; gap: 10px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border); justify-content: flex-end; }
 
 /* ── TOAST ── */
-.toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); background: #1C1410; color: #fff; padding: 12px 26px; border-radius: 50px; font-size: 14px; font-weight: 700; z-index: 9999; box-shadow: 0 8px 32px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.07); animation: toastIn .28s cubic-bezier(.34,1.56,.64,1); pointer-events: none; white-space: nowrap; }
+.toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); background: #1C1410; color: #fff; padding: 12px 26px; border-radius: 50px; font-size: 14px; font-weight: 700; z-index: 10200; box-shadow: 0 8px 32px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.07); animation: toastIn .28s cubic-bezier(.34,1.56,.64,1); pointer-events: none; white-space: nowrap; }
 .toast.hidden { display: none; }
 .toast.ok { background: linear-gradient(135deg, #1E7D4B, #25A060); box-shadow: 0 8px 28px rgba(30,125,75,.45); }
 .toast.err { background: linear-gradient(135deg, #C0392B, #E04534); box-shadow: 0 8px 28px rgba(192,57,43,.45); }
@@ -776,9 +776,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-18j';
+var APP_VERSION  = '2026-06-18k';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-18k', t: '🐛 תיקון: כפתור "שכחתי סיסמה" — ההודעה הייתה מוסתרת מתחת למסך הכניסה' },
   { v: '2026-06-18j', t: '🐛 תיקון: שחזור גיבוי / טעינת דוגמה לא היו נשמרים בענן לפני הרענון, ולכן חזרו לאחור' },
   { v: '2026-06-18i', t: '☁️ התחברות אמיתית עם אימייל+סיסמה (Firebase) וגיבוי אוטומטי לענן — הנתונים לא חיים יותר רק בדפדפן הזה' },
   { v: '2026-06-18h', t: '🔒 אבטחת סיסמה משודרגת · 📋 יומן פעולות (audit log) · 🪄 אישורים מעוצבים · 👋 מסך הדרכה לכניסה ראשונה · 🖨️ הדפסת P&L' },
@@ -5633,13 +5634,18 @@ async function authLoadAndShowApp(user) {
 
 async function authForgotPassword() {
   var email = (document.getElementById('auth-email').value || '').trim();
-  if (!email) { document.getElementById('auth-err').textContent = 'הזן את כתובת האימייל שלך למעלה, ואז לחץ "שכחתי סיסמה"'; return; }
-  if (!window.fb) return;
+  var err = document.getElementById('auth-err');
+  err.style.color = '';
+  if (!email) { err.textContent = 'הזן את כתובת האימייל שלך למעלה, ואז לחץ "שכחתי סיסמה"'; return; }
+  if (!window.fb) { err.textContent = 'מערכת ההתחברות עדיין נטענת — נסה שוב בעוד רגע'; return; }
   try {
     await window.fb.sendPasswordReset(email);
-    toast('✅ נשלח אימייל לאיפוס סיסמה ל-' + email, 'ok');
+    err.style.color = 'var(--success)';
+    err.textContent = '✅ נשלח אימייל לאיפוס סיסמה ל-' + email + ' (בדוק גם תיקיית ספאם)';
+    toast('✅ נשלח אימייל לאיפוס סיסמה', 'ok');
   } catch (e) {
-    document.getElementById('auth-err').textContent = _authErrMsg(e);
+    err.style.color = '';
+    err.textContent = _authErrMsg(e);
   }
 }
 
