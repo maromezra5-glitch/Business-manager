@@ -191,7 +191,7 @@ thead th {
   font-size: 13px; text-transform: uppercase; letter-spacing: .3px;
   padding: 12px 14px; white-space: nowrap;
   border-bottom: 2px solid var(--border);
-  position: sticky; top: 0; z-index: 10;
+  position: sticky; top: 122px; z-index: 10;
   box-shadow: 0 2px 4px rgba(0,0,0,.06);
 }
 td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; font-size: 14.5px; }
@@ -497,6 +497,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
   .tab-nav::-webkit-scrollbar { display: none; }
   .tab-btn  { padding: 10px 11px 8px; font-size: 12px; white-space: nowrap; flex-shrink: 0; gap: 4px; }
   .tab-icon { font-size: 14px; }
+  thead th  { top: 156px; }
 
   .tab-contents { padding: 10px 8px; }
 
@@ -730,9 +731,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-18c';
+var APP_VERSION  = '2026-06-18d';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-18d', t: '📌 כותרות טבלה נשארות קבועות בגלילה; 🎯 יעד מכירות — ניתן להדליק/לכבות מהגדרות טבלת שליטה' },
   { v: '2026-06-18c', t: '📅 יומן: בחירת תאריך עם תפריטי יום/חודש/שנה בעברית; 📋 שעות: תוקנה גלילה — כל העובדים גלויים בגלילת עמוד רגילה' },
   { v: '2026-06-18b', t: '🐛 תיקון באגים: פוקוס נגנב בסימון משימות; יעד מכירות מתעדכן רק ב-Enter ולא על כל מקש; קוד מיותר הוסר' },
   { v: '2026-06-18a', t: '📊 דשבורד גרפים — גרפי מכירות יומיות, פילוח ערוצים, פילוח הוצאות ו-6 חודשים; הצגה/הסתרה בלחיצה בלשוניות Z ושליטה' },
@@ -3585,13 +3587,17 @@ function renderControl() {
   }).join('');
 
   document.getElementById('ctrl-content').innerHTML =
-    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;padding:11px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);flex-wrap:wrap">' +
-      '<span style="font-size:12px;font-weight:800;color:var(--text-muted)">⚙️ הגדרות:</span>' +
-      '<span style="font-size:13px">שיעור מע"מ:</span>' +
-      '<input type="number" class="ti" style="width:72px;text-align:center" min="0" max="99" step="1" value="' + vat + '" onchange="saveVat(this.value)">' +
-      '<span style="font-size:13px">%</span>' +
-      '<span style="font-size:12.5px;color:var(--text-sec)">· מכירות נטו ללא מע"מ: <strong>' + ILS(netSales) + '</strong></span>' +
-    '</div>' +
+    (function(){
+      var stVisible = (S.settings || {}).showSalesTarget !== false;
+      return '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;padding:11px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);flex-wrap:wrap">' +
+        '<span style="font-size:12px;font-weight:800;color:var(--text-muted)">⚙️ הגדרות:</span>' +
+        '<span style="font-size:13px">שיעור מע"מ:</span>' +
+        '<input type="number" class="ti" style="width:72px;text-align:center" min="0" max="99" step="1" value="' + vat + '" onchange="saveVat(this.value)">' +
+        '<span style="font-size:13px">%</span>' +
+        '<span style="font-size:12.5px;color:var(--text-sec)">· מכירות נטו ללא מע"מ: <strong>' + ILS(netSales) + '</strong></span>' +
+        '<button onclick="toggleSalesTarget()" style="margin-right:auto;font-size:12px;padding:4px 12px;border-radius:20px;border:1.5px solid ' + (stVisible ? 'var(--primary)' : 'var(--border)') + ';background:' + (stVisible ? 'var(--primary-light)' : '#f3f4f6') + ';color:' + (stVisible ? 'var(--primary-dark)' : 'var(--text-muted)') + ';font-weight:700;cursor:pointer">🎯 יעד מכירות ' + (stVisible ? '✓ פועל' : '— כבוי') + '</button>' +
+      '</div>';
+    })() +
     '<div class="ctrl-grid">' +
       '<div class="card" style="border-color:rgba(42,122,82,.25);background:linear-gradient(160deg,#fff,#F0FBF5)">' +
         '<div class="card-title" style="color:var(--success)">📈 הכנסות החודש</div>' +
@@ -3603,7 +3609,7 @@ function renderControl() {
         '<div class="ctrl-total" style="color:var(--success);border-color:var(--success)">' +
           '<span>✅ סה"כ הכנסות</span><span style="font-size:20px">' + ILS(totalIncome) + '</span>' +
         '</div>' +
-        (function(){
+        ((S.settings || {}).showSalesTarget !== false ? (function(){
           var target = toNum(ctrl.salesTarget);
           var pct    = target > 0 ? Math.min(totalIncome / target * 100, 100) : 0;
           var barClr = pct >= 100 ? 'var(--success)' : pct >= 80 ? 'var(--warning)' : 'var(--error)';
@@ -3618,7 +3624,7 @@ function renderControl() {
                 'onchange="saveSalesTarget(this.value)" ' +
                 'style="width:120px;padding:5px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-weight:700;text-align:center">' +
             '</div>' + bar + '</div>';
-        })() +
+        })() : '') +
       '</div>' +
       '<div class="card" style="border-color:rgba(192,57,43,.2);background:linear-gradient(160deg,#fff,#FFF5F5)">' +
         '<div class="card-title" style="color:var(--error)">📉 הוצאות החודש</div>' +
@@ -4013,6 +4019,13 @@ function removeExtra(i) {
 function saveVat(val) {
   if (!S.settings) S.settings = {vat:17};
   S.settings.vat = toNum(val) || 17;
+  persist();
+  renderControl();
+}
+function toggleSalesTarget() {
+  if (!S.settings) S.settings = {vat:17};
+  var cur = S.settings.showSalesTarget !== false;
+  S.settings.showSalesTarget = !cur;
   persist();
   renderControl();
 }
