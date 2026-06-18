@@ -564,6 +564,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
     <button class="hdr-btn" onclick="triggerImport()" title="שחזור נתונים מקובץ גיבוי">📂 שחזור</button>
     <button class="hdr-btn" id="sync-btn" onclick="openSyncModal()" title="סנכרון ענן" style="display:none">☁️ <span id="sync-label">ענן</span></button>
     <button class="hdr-btn" onclick="openWhatsNew()" title="מה חדש במערכת?" style="font-size:13px;font-weight:800">🆕 מה חדש?</button>
+    <button class="hdr-btn" onclick="renderAuditLog()" title="יומן פעולות אחרונות">📋 יומן</button>
     <button class="hdr-btn" onclick="openBizSettings()" title="הגדרות עסק">⚙️</button>
     <button class="hdr-btn" onclick="loadDemoData()" title="טען נתוני דוגמה לבדיקה">🎭 דוגמה</button>
     <button class="hdr-btn" onclick="confirmReset()" title="מחק את כל הנתונים" style="border-color:rgba(220,38,38,.25);color:rgba(220,120,100,.7)">🗑️ איפוס</button>
@@ -686,6 +687,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
         <div class="month-sel"><label>חודש:</label><select id="ctrl-month" onchange="renderControl()"></select></div>
         <button class="btn btn-primary" onclick="saveControl()">💾 שמור הוצאות</button>
         <button class="btn btn-secondary" onclick="exportControl()">📥 ייצוא P&amp;L לאקסל</button>
+        <button class="btn btn-secondary" onclick="printControlPL()">🖨️ הדפס / PDF</button>
         <button class="btn btn-secondary" id="charts-toggle-ctrl" onclick="toggleCharts()">📊 הצג גרפים</button>
       </div>
     </div>
@@ -731,9 +733,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-18g';
+var APP_VERSION  = '2026-06-18h';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-18h', t: '🔒 אבטחת סיסמה משודרגת · 📋 יומן פעולות (audit log) · 🪄 אישורים מעוצבים · 👋 מסך הדרכה לכניסה ראשונה · 🖨️ הדפסת P&L' },
   { v: '2026-06-18g', t: '✕ מחיקת תפקיד מרשימת התפקידים בכרטיס עובד' },
   { v: '2026-06-18f', t: '📌 כותרות טבלה דביקות — חזרה לגלילה פנימית עם top:0, עובד בכל דפדפן' },
   { v: '2026-06-18d', t: '📌 כותרות טבלה נשארות קבועות בגלילה; 🎯 יעד מכירות — ניתן להדליק/לכבות מהגדרות טבלת שליטה' },
@@ -794,6 +797,7 @@ var S = {
   purchases: {},
   control: {},
   tasks: [],
+  auditLog: [],
   settings: {vat: 17}
 };
 var editEmpId = null;
@@ -1032,6 +1036,83 @@ function persist() {
   }
 }
 
+function customConfirm(opts) {
+  if (typeof opts === 'string') opts = {message: opts};
+  var title       = opts.title || (opts.danger ? 'אישור פעולה מסוכנת' : 'אישור פעולה');
+  var message     = escHtml(opts.message || '').replace(/\n/g, '<br>');
+  var confirmText = opts.confirmText || 'אישור';
+  var cancelText  = opts.cancelText  || 'ביטול';
+  var danger      = !!opts.danger;
+  var requireText = opts.requireText || '';
+  return new Promise(function(resolve) {
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10050;display:flex;align-items:center;justify-content:center;direction:rtl;padding:16px';
+    overlay.innerHTML =
+      '<div style="background:#fff;border-radius:18px;padding:26px 28px;max-width:430px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:right">' +
+        '<div style="font-size:18px;font-weight:800;margin-bottom:12px;color:' + (danger ? 'var(--error)' : 'var(--text)') + '">' + (danger ? '⚠️ ' : '') + escHtml(title) + '</div>' +
+        '<div style="font-size:14.5px;line-height:1.65;color:var(--text-sec);margin-bottom:' + (requireText ? '14px' : '24px') + '">' + message + '</div>' +
+        (requireText ?
+          '<div style="margin-bottom:18px">' +
+            '<div style="font-size:12.5px;color:var(--text-muted);margin-bottom:6px">הקלד "<strong>' + escHtml(requireText) + '</strong>" לאישור:</div>' +
+            '<input type="text" id="cc-confirm-input" class="form-control" autocomplete="off">' +
+          '</div>'
+        : '') +
+        '<div style="display:flex;gap:10px;justify-content:flex-end">' +
+          '<button class="btn btn-secondary" id="cc-cancel-btn">' + escHtml(cancelText) + '</button>' +
+          '<button class="btn ' + (danger ? 'btn-danger' : 'btn-primary') + '" id="cc-confirm-btn" ' + (requireText ? 'disabled' : '') + ' style="' + (danger ? 'background:var(--error);color:#fff;border-color:var(--error)' : '') + (requireText ? ';opacity:.5;cursor:not-allowed' : '') + '">' + escHtml(confirmText) + '</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    function finish(result) { overlay.remove(); resolve(result); }
+    overlay.querySelector('#cc-cancel-btn').onclick  = function() { finish(false); };
+    overlay.querySelector('#cc-confirm-btn').onclick = function() { if (!overlay.querySelector('#cc-confirm-btn').disabled) finish(true); };
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) finish(false); });
+    if (requireText) {
+      var inp = overlay.querySelector('#cc-confirm-input');
+      var btn = overlay.querySelector('#cc-confirm-btn');
+      inp.addEventListener('input', function() {
+        var match = inp.value.trim() === requireText;
+        btn.disabled = !match;
+        btn.style.opacity = match ? '1' : '.5';
+        btn.style.cursor = match ? 'pointer' : 'not-allowed';
+      });
+      setTimeout(function() { inp.focus(); }, 30);
+    } else {
+      setTimeout(function() { var b = overlay.querySelector('#cc-confirm-btn'); if (b) b.focus(); }, 30);
+    }
+  });
+}
+
+function logAudit(action, details) {
+  if (!S.auditLog) S.auditLog = [];
+  S.auditLog.unshift({ts: Date.now(), action: action, details: details || ''});
+  if (S.auditLog.length > 500) S.auditLog.length = 500;
+}
+
+function renderAuditLog() {
+  var log = S.auditLog || [];
+  var html =
+    '<h2 class="modal-title">📋 יומן פעולות אחרונות</h2>' +
+    '<div style="color:var(--text-muted);font-size:13px;margin-bottom:14px">תיעוד אוטומטי של שינויים מרכזיים במערכת — מי מה ומתי.</div>';
+  if (!log.length) {
+    html += '<div style="text-align:center;padding:30px;color:var(--text-muted)">אין רשומות עדיין</div>';
+  } else {
+    html += '<div style="max-height:60vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px">' +
+      log.map(function(e) {
+        var d = new Date(e.ts);
+        var dateStr = d.toLocaleDateString('he-IL') + ' ' + d.toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'});
+        return '<div style="display:flex;justify-content:space-between;gap:10px;padding:9px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);font-size:13px">' +
+          '<span style="font-weight:700">' + escHtml(e.action) + (e.details ? ' — <span style="color:var(--text-sec);font-weight:400">' + escHtml(e.details) + '</span>' : '') + '</span>' +
+          '<span style="color:var(--text-muted);white-space:nowrap;font-size:12px">' + dateStr + '</span>' +
+        '</div>';
+      }).join('') +
+    '</div>';
+  }
+  html += '<div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal()">סגור</button></div>';
+  document.getElementById('modal-box').innerHTML = html;
+  document.getElementById('modal').classList.remove('hidden');
+}
+
 /* ================================================================
    UTILITIES
 ================================================================ */
@@ -1260,7 +1341,7 @@ function toggleSalType() {
   document.getElementById('m-monthly').style.display = t === 'monthly' ? '' : 'none';
 }
 
-function saveEmp() {
+async function saveEmp() {
   var name           = document.getElementById('m-name').value.trim();
   var type           = document.getElementById('m-type').value;
   var idNum          = document.getElementById('m-idnum').value.trim();
@@ -1276,12 +1357,13 @@ function saveEmp() {
   if (!editEmpRoles.length) { toast('נא לבחור לפחות תפקיד אחד', 'err'); return; }
   if (type === 'hourly' && hourlyRate <= 0) { toast('תעריף לשעה חייב להיות גדול מ-0', 'err'); return; }
   if (type === 'monthly' && monthlySalary <= 0) { toast('משכורת חודשית חייבת להיות גדולה מ-0', 'err'); return; }
-  if (type === 'hourly' && hourlyRate > 500)  { if (!confirm('תעריף ₪' + hourlyRate + ' לשעה — האם זה נכון?')) return; }
-  if (type === 'monthly' && monthlySalary > 50000) { if (!confirm('משכורת ₪' + monthlySalary + ' — האם זה נכון?')) return; }
+  if (type === 'hourly' && hourlyRate > 500)  { if (!await customConfirm('תעריף ₪' + hourlyRate + ' לשעה — האם זה נכון?')) return; }
+  if (type === 'monthly' && monthlySalary > 50000) { if (!await customConfirm('משכורת ₪' + monthlySalary + ' — האם זה נכון?')) return; }
 
   editEmpRoles.forEach(function(r) { if (S.roles.indexOf(r) === -1) S.roles.push(r); });
   var empData = {name:name, type:type, idNum:idNum, empNum:empNum, roles:editEmpRoles.slice(), role:editEmpRoles[0]||'', phone:phone, dob:dob, address:address, hourlyRate:hourlyRate, monthlySalary:monthlySalary, travelPerDay:travelPerDay, active:true};
 
+  var wasEdit = !!editEmpId;
   if (editEmpId) {
     var idx = S.employees.findIndex(function(e){ return e.id === editEmpId; });
     if (idx >= 0) {
@@ -1294,6 +1376,7 @@ function saveEmp() {
     S.employees.push(empData);
   }
 
+  logAudit(wasEdit ? 'עדכון עובד' : 'הוספת עובד', name);
   persist();
   closeModal();
   renderEmps();
@@ -1309,11 +1392,17 @@ function toggleEmpActive(id) {
   toast(emp.active ? '✅ עובד הופעל' : '⏸ עובד הוקפא', emp.active ? 'ok' : '');
 }
 
-function deleteEmp(id) {
+async function deleteEmp(id) {
   var emp = S.employees.find(function(x){ return x.id === id; });
   if (!emp) return;
-  if (!confirm('מחיקת עובד: ' + emp.name + '\n\nהשעות וההיסטוריה של העובד יישמרו בנתונים אך העובד לא יופיע יותר.\n\nהאם למחוק?')) return;
+  var ok = await customConfirm({
+    title: 'מחיקת עובד',
+    message: 'מחיקת עובד: ' + emp.name + '\n\nהשעות וההיסטוריה של העובד יישמרו בנתונים אך העובד לא יופיע יותר ברשימות.',
+    confirmText: 'מחק עובד', danger: true
+  });
+  if (!ok) return;
   S.employees = S.employees.filter(function(x){ return x.id !== id; });
+  logAudit('מחיקת עובד', emp.name);
   persist();
   renderEmps();
   toast('🗑️ ' + emp.name + ' נמחק', 'err');
@@ -1335,17 +1424,23 @@ function filterByName(q) {
   renderEmps();
 }
 
-function confirmReset() {
-  if (!confirm('⚠️ אזהרה: פעולה זו תמחק את כל הנתונים — עובדים, שעות, מכירות, קניות וכל שאר הנתונים.\n\nלא ניתן לשחזר את המידע אחרי האיפוס!\n\nהאם להמשיך?')) return;
-  if (!confirm('אישור אחרון: האם אתה בטוח לחלוטין?')) return;
+async function confirmReset() {
+  var ok = await customConfirm({
+    title: 'איפוס מלא של כל הנתונים',
+    message: 'פעולה זו תמחק לצמיתות את כל הנתונים — עובדים, שעות, מכירות, קניות וכל שאר המידע.\n\nלא ניתן לשחזר את המידע אחרי האיפוס (אלא מגיבוי שמור).',
+    confirmText: 'מחק את הכל', danger: true, requireText: 'מחיקה'
+  });
+  if (!ok) return;
   localStorage.removeItem(KEY);
-  S = {employees:[], roles:[], dailyHours:{}, monthlyData:{}, timeRecords:{}, zReports:{}, tips:{}, suppliers:[], purchases:{}, control:{}, settings:{vat:17}};
+  localStorage.removeItem('cafeManager_setupDone');
+  S = {employees:[], roles:[], dailyHours:{}, monthlyData:{}, timeRecords:{}, zReports:{}, tips:{}, suppliers:[], purchases:{}, control:{}, tasks:[], auditLog:[], settings:{vat:17}};
   empRoleFilter = '';
   selectedTipsDay = null;
   initSelects();
   switchTab('employees');
   renderEmps();
   toast('כל הנתונים נמחקו בהצלחה', 'err');
+  renderSetupWizard();
 }
 
 /* ================================================================
@@ -2204,7 +2299,7 @@ function renderZ() {
     tbody += dateCell(d, wd, ds);
     tbody += '<td><input type="text" class="ti" style="width:75px;text-align:center"' +
       ' data-ds="' + ds + '" data-fk="reportNum"' +
-      ' value="' + escHtml(rec.reportNum || '') + '" placeholder="—"' +
+      ' value="' + escHtml(rec.reportNum || '') + '" placeholder="אופציונלי" title="מספר דוח Z — שדה אופציונלי, לתיעוד בלבד"' +
       ' oninput="onZInput(this)"></td>';
     fields.forEach(function(f){
       tbody += '<td><input type="number" class="ti ti-w80" min="0" step="1"' +
@@ -3401,10 +3496,16 @@ function addSupplier() {
   toast('✅ ספק "' + name + '" נוסף');
 }
 
-function removeSupplier(idx) {
+async function removeSupplier(idx) {
   var name = S.suppliers[idx];
-  if (!confirm('להסיר את הספק "' + name + '"?')) return;
+  var ok = await customConfirm({
+    title: 'הסרת ספק',
+    message: 'להסיר את הספק "' + name + '"?\n\nהיסטוריית הקניות הקיימת מהספק תישמר, אך לא יהיה ניתן להוסיף קניות חדשות תחתיו.',
+    confirmText: 'הסר ספק', danger: true
+  });
+  if (!ok) return;
   S.suppliers.splice(idx, 1);
+  logAudit('הסרת ספק', name);
   persist();
   renderSuppliersMgmt();
   renderPurchasesTable();
@@ -4016,6 +4117,8 @@ function removeFixedCat(key) {
   saveControl();
   if (!S.settings) S.settings = {};
   if (!S.settings.fixedCats) S.settings.fixedCats = getFixedExp().slice();
+  var removed = S.settings.fixedCats.find(function(e){ return e.k === key; });
+  logAudit('הסרת קטגוריית הוצאה קבועה', removed ? removed.l : key);
   S.settings.fixedCats = S.settings.fixedCats.filter(function(e){ return e.k !== key; });
   persist();
   renderControl();
@@ -4036,7 +4139,11 @@ function addExtra() {
 function removeExtra(i) {
   var ym = document.getElementById('ctrl-month').value;
   saveControl();
-  if (S.control[ym] && S.control[ym].extras) S.control[ym].extras.splice(i, 1);
+  if (S.control[ym] && S.control[ym].extras) {
+    var rem = S.control[ym].extras[i];
+    logAudit('הסרת הוצאה חד-פעמית', (rem && rem.name ? rem.name + ' — ' : '') + ym);
+    S.control[ym].extras.splice(i, 1);
+  }
   persist();
   renderControl();
 }
@@ -4501,6 +4608,104 @@ function exportControl() {
   XLSX.writeFile(wb, 'P&L_' + parts[0] + '_' + parts[1] + '.xlsx');
 }
 
+function printControlPL() {
+  var ym    = document.getElementById('ctrl-month').value;
+  var parts = ym.split('-');
+  var mn    = MHE[parseInt(parts[1])-1] + ' ' + parts[0];
+  var ctrl  = S.control[ym] || {};
+  var zb    = getZBreakdown(ym);
+  var vat   = toNum((S.settings || {}).vat) || 17;
+  var vatFactor      = 1 + vat / 100;
+  var totalIncome    = zb.cash + zb.credit + zb.wolt + zb.hakafe;
+  var netSales       = totalIncome > 0 ? totalIncome / vatFactor : 0;
+  var totalPayroll   = getPayrollTotal(ym);
+  var totalPurchases = getPurchasesTotal(ym);
+  var _hiddenFixed   = ctrl.hiddenFixed || [];
+  var totalFixed = 0;
+  var fixedRows = '';
+  getFixedExp().forEach(function(e) {
+    if (_hiddenFixed.indexOf(e.k) >= 0) return;
+    var amt = toNum(ctrl[e.k]);
+    totalFixed += amt;
+    if (amt > 0) fixedRows += payslipRow(e.l, '', '', ILS(amt));
+  });
+  var extras     = ctrl.extras || [];
+  var totalExtra = extras.reduce(function(s,e){ return s + toNum(e.amount); }, 0);
+  var extraRows = '';
+  extras.forEach(function(ex) { if (toNum(ex.amount) > 0) extraRows += payslipRow(ex.name || 'הוצאה נוספת', '', '', ILS(toNum(ex.amount))); });
+  var totalExpenses = totalPayroll + totalPurchases + totalFixed + totalExtra;
+  var pl      = totalIncome - totalExpenses;
+  var fc = totalPurchases > 0 && netSales > 0 ? (totalPurchases / vatFactor) / netSales * 100 : 0;
+  var lc = netSales > 0 ? totalPayroll / netSales * 100 : 0;
+  var today = new Date();
+  var todayStr = today.getDate() + '/' + (today.getMonth()+1) + '/' + today.getFullYear();
+  var bizName = ((S.settings || {}).biz || {}).name || 'מנהל העסק';
+
+  var html = '<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>דוח רווח והפסד — ' + mn + '</title>';
+  html += '<style>';
+  html += 'body{font-family:"Segoe UI",Arial,sans-serif;direction:rtl;padding:36px 40px;color:#1A1514;font-size:14px;max-width:700px;margin:0 auto;background:#fff}';
+  html += '.ps-header{text-align:center;margin-bottom:28px;padding-bottom:22px;border-bottom:3px solid #D97757}';
+  html += '.ps-logo{font-size:38px;margin-bottom:6px}';
+  html += '.ps-title{font-size:24px;font-weight:900;color:#D97757;margin:0 0 2px}';
+  html += '.ps-sub{font-size:15px;color:#6B6460;font-weight:600;margin:0}';
+  html += 'h3{font-size:14px;color:#9C9490;margin:22px 0 8px;text-transform:uppercase;letter-spacing:.4px}';
+  html += 'table{width:100%;border-collapse:collapse;margin-bottom:10px;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.07)}';
+  html += 'thead th{background:#D97757;color:#fff;padding:11px 14px;text-align:right;font-size:13px;font-weight:800}';
+  html += 'thead th:last-child{text-align:left}';
+  html += 'tbody tr:nth-child(even) td{background:#FBF8F5}';
+  html += 'tfoot td{background:#1A1514!important;color:#fff;font-size:17px;font-weight:900;padding:13px 14px}';
+  html += 'tfoot td:last-child{font-size:20px;text-align:left}';
+  html += '.metrics{display:flex;gap:14px;margin-top:18px}';
+  html += '.metric{flex:1;background:#F9F5F2;border-radius:10px;padding:14px;text-align:center;border:1px solid #E4DDD8}';
+  html += '.metric .v{font-size:22px;font-weight:900;color:#D97757}';
+  html += '.metric .l{font-size:12px;color:#6B6460;font-weight:700;margin-top:2px}';
+  html += '.ps-footer{text-align:center;color:#9C9490;font-size:12px;margin-top:26px;padding-top:14px;border-top:1px solid #E4DDD8}';
+  html += '.no-print{display:flex;gap:10px;justify-content:center;margin-bottom:22px}';
+  html += '.btn-print{background:#D97757;color:#fff;border:none;padding:11px 26px;border-radius:9px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 3px 12px rgba(217,119,87,.3)}';
+  html += '.btn-close{background:#EEE;color:#333;border:none;padding:11px 20px;border-radius:9px;font-size:15px;font-weight:700;cursor:pointer}';
+  html += '@media print{.no-print{display:none!important}body{padding:20px}}';
+  html += '</style></head><body>';
+
+  html += '<div class="ps-header">';
+  html += '<div class="ps-logo">📊</div>';
+  html += '<h1 class="ps-title">' + escHtml(bizName) + '</h1>';
+  html += '<p class="ps-sub">דוח רווח והפסד — ' + mn + '</p>';
+  html += '</div>';
+
+  html += '<h3>הכנסות</h3><table><tbody>';
+  html += payslipRow('מזומן', '', '', ILS(zb.cash));
+  html += payslipRow('אשראי', '', '', ILS(zb.credit));
+  html += payslipRow('וולט', '', '', ILS(zb.wolt));
+  html += payslipRow('הקפות', '', '', ILS(zb.hakafe));
+  html += '</tbody><tfoot><tr><td colspan="3">סה"כ הכנסות (עם מע"מ)</td><td>' + ILS(totalIncome) + '</td></tr></tfoot></table>';
+
+  html += '<h3>הוצאות</h3><table><tbody>';
+  html += payslipRow('👥 שכר עובדים', '', '', ILS(totalPayroll));
+  html += payslipRow('🛒 קניות ספקים', '', '', ILS(totalPurchases));
+  html += fixedRows + extraRows;
+  html += '</tbody><tfoot><tr><td colspan="3">סה"כ הוצאות (עם מע"מ)</td><td>' + ILS(totalExpenses) + '</td></tr></tfoot></table>';
+
+  html += '<table><tfoot><tr><td colspan="3" style="text-align:center;letter-spacing:.4px;font-size:15px">' + (pl >= 0 ? '✅ רווח (עם מע"מ)' : '❌ הפסד (עם מע"מ)') + '</td><td style="color:' + (pl>=0?'#4ADE80':'#FF8A80') + '">' + ILS(pl) + '</td></tr></tfoot></table>';
+
+  html += '<div class="metrics">';
+  html += '<div class="metric"><div class="v">' + fc.toFixed(1) + '%</div><div class="l">Food Cost</div></div>';
+  html += '<div class="metric"><div class="v">' + lc.toFixed(1) + '%</div><div class="l">Labor Cost</div></div>';
+  html += '</div>';
+
+  html += '<div class="no-print" style="margin-top:24px">';
+  html += '<button class="btn-print" onclick="window.print()">🖨️ הדפס / שמור PDF</button>';
+  html += '<button class="btn-close" onclick="window.close()">✕ סגור</button>';
+  html += '</div>';
+
+  html += '<div class="ps-footer">הופק על ידי <strong>' + escHtml(bizName) + '</strong> · ' + todayStr + '</div>';
+  html += '</body></html>';
+
+  var win = window.open('', '_blank', 'width=760,height=960,scrollbars=yes');
+  if (!win) { toast('אנא אפשר חלונות קופצים בדפדפן', 'err'); return; }
+  win.document.write(html);
+  win.document.close();
+}
+
 /* ================================================================
    BACKUP / RESTORE  — File System Access API
 ================================================================ */
@@ -4629,7 +4834,12 @@ function showRestoreModal(files) {
 }
 
 async function doRestore(fileEntry) {
-  if (!confirm('⚠️ שחזור גיבוי\n\nהפעולה תחליף את כל הנתונים הקיימים.\nהאם להמשיך?')) return;
+  var ok = await customConfirm({
+    title: 'שחזור גיבוי',
+    message: 'הפעולה תחליף את כל הנתונים הקיימים בנתוני הגיבוי שנבחר.',
+    confirmText: 'שחזר גיבוי', danger: true
+  });
+  if (!ok) return;
   var modal = document.getElementById('restore-modal');
   if (modal) modal.remove();
   try {
@@ -4641,7 +4851,9 @@ async function doRestore(fileEntry) {
     ['roles','dailyHours','monthlyData','timeRecords','zReports','tips','suppliers','purchases','control','settings'].forEach(function(k) {
       if (!data[k]) data[k] = S[k];
     });
-    S = data; persist();
+    S = data;
+    logAudit('שחזור מגיבוי', file.name || '');
+    persist();
     toast('✅ גיבוי יובא — טוען מחדש...', 'ok');
     setTimeout(function() { location.reload(); }, 900);
   } catch(e) {
@@ -4653,7 +4865,7 @@ function handleImport(input) {
   var file = input.files[0];
   if (!file) return;
   var reader = new FileReader();
-  reader.onload = function(e) {
+  reader.onload = async function(e) {
     try {
       var raw = e.target.result;
       if (raw.charCodeAt(0) === 0xFEFF) raw = raw.slice(1);
@@ -4663,7 +4875,12 @@ function handleImport(input) {
         input.value = '';
         return;
       }
-      if (!confirm('⚠️ ייבוא גיבוי\n\nהפעולה תחליף את כל הנתונים הקיימים.\nהאם להמשיך?')) {
+      var ok = await customConfirm({
+        title: 'ייבוא גיבוי',
+        message: 'הפעולה תחליף את כל הנתונים הקיימים בנתוני הקובץ שנבחר.',
+        confirmText: 'ייבא גיבוי', danger: true
+      });
+      if (!ok) {
         input.value = '';
         return;
       }
@@ -4671,6 +4888,7 @@ function handleImport(input) {
         if (!data[k]) data[k] = S[k];
       });
       S = data;
+      logAudit('שחזור מגיבוי', file.name || '');
       persist();
       input.value = '';
       toast('✅ גיבוי יובא — טוען מחדש...', 'ok');
@@ -4847,9 +5065,14 @@ function printPayslip(empId, ym) {
 /* ================================================================
    DEMO DATA
 ================================================================ */
-function loadDemoData() {
+async function loadDemoData() {
   if (S.employees.length > 0) {
-    if (!confirm('⚠️ טעינת נתוני דוגמה תמחק את כל הנתונים הנוכחיים.\nהאם להמשיך?')) return;
+    var ok = await customConfirm({
+      title: 'טעינת נתוני דוגמה',
+      message: 'טעינת נתוני דוגמה תמחק את כל הנתונים הנוכחיים שלך.',
+      confirmText: 'טען נתוני דוגמה', danger: true
+    });
+    if (!ok) return;
   }
 
   var today  = new Date();
@@ -5129,9 +5352,25 @@ function buildTaskDateSelects(val) {
   for (var yi = cy - 1; yi <= cy + 3; yi++) yrOpts += '<option value="' + yi + '"' + (sy === String(yi) ? ' selected' : '') + '>' + yi + '</option>';
   return '<div style="display:flex;gap:4px;align-items:center">' +
     '<select id="task-date-d" ' + sel + '>' + dayOpts + '</select>' +
-    '<select id="task-date-m" ' + sel + '>' + moOpts  + '</select>' +
-    '<select id="task-date-y" ' + sel + '>' + yrOpts  + '</select>' +
+    '<select id="task-date-m" ' + sel + ' onchange="adjustTaskDayOptions()">' + moOpts  + '</select>' +
+    '<select id="task-date-y" ' + sel + ' onchange="adjustTaskDayOptions()">' + yrOpts  + '</select>' +
   '</div>';
+}
+function adjustTaskDayOptions() {
+  var dSel = document.getElementById('task-date-d');
+  var mSel = document.getElementById('task-date-m');
+  var ySel = document.getElementById('task-date-y');
+  if (!dSel || !mSel || !ySel) return;
+  var m = parseInt(mSel.value, 10);
+  var y = parseInt(ySel.value, 10) || new Date().getFullYear();
+  if (!m) return;
+  var maxDay = new Date(y, m, 0).getDate();
+  var curVal = parseInt(dSel.value, 10) || 0;
+  Array.prototype.forEach.call(dSel.options, function(opt) {
+    if (!opt.value) return;
+    opt.disabled = parseInt(opt.value, 10) > maxDay;
+  });
+  if (curVal > maxDay) dSel.value = String(maxDay).padStart(2, '0');
 }
 function getTaskDateValue() {
   var d = (document.getElementById('task-date-d') || {}).value || '';
@@ -5233,7 +5472,7 @@ RENDER_MAP = {
 var AUTH_HASH_KEY = 'cafeManager_pwHash';
 var AUTH_SESS_KEY = 'cafeManager_authed';
 
-function _hashPw(pw) {
+function _legacyHashPw(pw) {
   var s = 'cafe_biz_' + pw + '_mgr';
   var h = 5381;
   for (var i = 0; i < s.length; i++) {
@@ -5241,6 +5480,18 @@ function _hashPw(pw) {
     h = h >>> 0;
   }
   return h.toString(16) + '_' + s.length.toString(16);
+}
+function _randomSaltHex() {
+  var arr = new Uint8Array(16);
+  crypto.getRandomValues(arr);
+  return Array.from(arr).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+}
+async function _deriveHash(pw, saltHex) {
+  var enc = new TextEncoder();
+  var saltBytes = new Uint8Array(saltHex.match(/.{2}/g).map(function(b) { return parseInt(b, 16); }));
+  var keyMaterial = await crypto.subtle.importKey('raw', enc.encode(pw), {name: 'PBKDF2'}, false, ['deriveBits']);
+  var bits = await crypto.subtle.deriveBits({name: 'PBKDF2', salt: saltBytes, iterations: 100000, hash: 'SHA-256'}, keyMaterial, 256);
+  return Array.from(new Uint8Array(bits)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
 }
 
 function authInit() {
@@ -5262,29 +5513,52 @@ function authInit() {
   }
 }
 
-function authNext() {
-  var hash = localStorage.getItem(AUTH_HASH_KEY);
+async function authNext() {
+  var stored = localStorage.getItem(AUTH_HASH_KEY);
   var pw   = document.getElementById('auth-pw').value;
   var err  = document.getElementById('auth-err');
   if (!pw) { err.textContent = 'נא להזין סיסמה'; return; }
-  if (!hash) {
-    // Setup mode
-    var pw2 = document.getElementById('auth-pw2').value;
-    if (pw.length < 4) { err.textContent = 'הסיסמה חייבת להיות לפחות 4 תווים'; return; }
-    if (pw !== pw2) { err.textContent = 'הסיסמאות אינן תואמות'; return; }
-    localStorage.setItem(AUTH_HASH_KEY, _hashPw(pw));
-    sessionStorage.setItem(AUTH_SESS_KEY, '1');
-    authShowApp();
-  } else {
-    // Login mode
-    if (_hashPw(pw) === hash) {
+  var btn = document.getElementById('auth-btn');
+  btn.disabled = true;
+  try {
+    if (!stored) {
+      // Setup mode
+      var pw2 = document.getElementById('auth-pw2').value;
+      if (pw.length < 4) { err.textContent = 'הסיסמה חייבת להיות לפחות 4 תווים'; return; }
+      if (pw !== pw2) { err.textContent = 'הסיסמאות אינן תואמות'; return; }
+      var salt = _randomSaltHex();
+      var hash = await _deriveHash(pw, salt);
+      localStorage.setItem(AUTH_HASH_KEY, salt + ':' + hash);
       sessionStorage.setItem(AUTH_SESS_KEY, '1');
       authShowApp();
+    } else if (stored.indexOf(':') >= 0) {
+      // Modern PBKDF2 hash
+      var parts = stored.split(':');
+      var attempt = await _deriveHash(pw, parts[0]);
+      if (attempt === parts[1]) {
+        sessionStorage.setItem(AUTH_SESS_KEY, '1');
+        authShowApp();
+      } else {
+        err.textContent = 'סיסמה שגויה — נסה שוב';
+        document.getElementById('auth-pw').value = '';
+        document.getElementById('auth-pw').focus();
+      }
     } else {
-      err.textContent = 'סיסמה שגויה — נסה שוב';
-      document.getElementById('auth-pw').value = '';
-      document.getElementById('auth-pw').focus();
+      // Legacy weak hash — verify once, then transparently upgrade
+      if (_legacyHashPw(pw) === stored) {
+        var newSalt = _randomSaltHex();
+        var newHash = await _deriveHash(pw, newSalt);
+        localStorage.setItem(AUTH_HASH_KEY, newSalt + ':' + newHash);
+        sessionStorage.setItem(AUTH_SESS_KEY, '1');
+        authShowApp();
+      } else {
+        err.textContent = 'סיסמה שגויה — נסה שוב';
+        document.getElementById('auth-pw').value = '';
+        document.getElementById('auth-pw').focus();
+      }
     }
+  } finally {
+    btn.disabled = false;
   }
 }
 
@@ -5294,8 +5568,13 @@ function authShowApp() {
   appStart();
 }
 
-function authReset() {
-  if (!confirm('איפוס סיסמה — תצטרך לשחזר נתונים מגיבוי.\n\nהאם להמשיך?')) return;
+async function authReset() {
+  var ok = await customConfirm({
+    title: 'איפוס סיסמה',
+    message: 'איפוס הסיסמה ימחק את הנתונים השמורים בדפדפן הזה — תצטרך לשחזר אותם מקובץ גיבוי.',
+    confirmText: 'אפס סיסמה', danger: true
+  });
+  if (!ok) return;
   localStorage.removeItem(AUTH_HASH_KEY);
   sessionStorage.removeItem(AUTH_SESS_KEY);
   location.reload();
@@ -5425,13 +5704,20 @@ function pullCloudData() {
   var token = (document.getElementById('sync-token-inp').value || localStorage.getItem(SYNC_TOKEN_KEY) || '').trim();
   if (!token) { toast('נא להזין טוקן', 'err'); return; }
   toast('📥 מוריד מהענן...', 'ok');
-  pullFromCloud(token, function(err, data) {
+  pullFromCloud(token, async function(err, data) {
     if (err) { toast('שגיאה: ' + err, 'err'); return; }
-    if (!confirm('נמצא גיבוי בענן.\nהאם לשחזר? פעולה זו תחליף את כל הנתונים הנוכחיים.')) return;
+    var ok = await customConfirm({
+      title: 'שחזור מהענן',
+      message: 'נמצא גיבוי בענן. שחזור יחליף את כל הנתונים הנוכחיים בנתוני הגיבוי.',
+      confirmText: 'שחזר מהענן', danger: true
+    });
+    if (!ok) return;
     ['roles','dailyHours','monthlyData','timeRecords','zReports','tips','suppliers','purchases','control','settings'].forEach(function(k) {
       if (!data[k]) data[k] = S[k];
     });
-    S = data; persist();
+    S = data;
+    logAudit('שחזור מהענן', '');
+    persist();
     toast('✅ שוחזר מהענן — טוען מחדש...', 'ok');
     setTimeout(function() { location.reload(); }, 900);
   });
@@ -5718,9 +6004,131 @@ function appStart() {
   updateHeaderDate();
   renderEmps();
   showBackupBannerIfNeeded();
-  checkForUpdate();
   initSyncBtn();
   applyBizSettings();
+  if (isFirstTimeSetup()) {
+    localStorage.setItem('cafeManager_seenVersion', APP_VERSION);
+    renderSetupWizard();
+  } else {
+    checkForUpdate();
+  }
+}
+
+function isFirstTimeSetup() {
+  return !localStorage.getItem('cafeManager_setupDone') && S.employees.length === 0;
+}
+
+var _wizStep = 0;
+var _wizRoles = [];
+function renderSetupWizard() {
+  var biz = (S.settings && S.settings.biz) || {};
+  var existing = document.getElementById('setup-wizard');
+  if (existing) existing.remove();
+
+  var roleSuggestions = ['מלצר/ית','טבח/ית','בריסטה','קופאי/ת','מנהל/ת משמרת','שליח/ה'];
+  var stepsHtml = [
+    '<div style="font-size:40px;margin-bottom:10px">👋</div>' +
+    '<h2 style="margin-bottom:6px">ברוך הבא למנהל העסק!</h2>' +
+    '<div style="color:var(--text-muted);font-size:14px;margin-bottom:20px">כמה שאלות קצרות לפני שמתחילים — לוקח דקה.</div>' +
+    '<div class="form-group"><label class="form-label">🏢 שם העסק</label>' +
+    '<input class="form-control" id="wiz-biz-name" value="' + escHtml(biz.name||'') + '" placeholder="לדוגמה: קפה הפינה"></div>' +
+    '<div class="form-group" style="max-width:140px"><label class="form-label">📊 שיעור מע"מ %</label>' +
+    '<input class="form-control" id="wiz-vat" type="number" value="' + ((S.settings && S.settings.vat) || 17) + '"></div>',
+
+    '<div style="font-size:40px;margin-bottom:10px">🏷️</div>' +
+    '<h2 style="margin-bottom:6px">אילו תפקידים יש בעסק שלך?</h2>' +
+    '<div style="color:var(--text-muted);font-size:14px;margin-bottom:16px">לחץ על תפקידים מהרשימה או הוסף תפקיד משלך — תמיד אפשר לשנות אחר כך.</div>' +
+    '<div id="wiz-role-suggestions" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">' +
+      roleSuggestions.map(function(r) {
+        return '<span class="role-chip" data-wr="' + escHtml(r) + '" onclick="toggleWizRole(this)" style="cursor:pointer">' + escHtml(r) + '</span>';
+      }).join('') +
+    '</div>' +
+    '<div style="display:flex;gap:6px">' +
+      '<input class="form-control" id="wiz-new-role" placeholder="תפקיד מותאם אישית..." onkeydown="if(event.key===\'Enter\'){event.preventDefault();addWizCustomRole();}">' +
+      '<button class="btn btn-secondary" onclick="addWizCustomRole()">+ הוסף</button>' +
+    '</div>',
+
+    '<div style="font-size:40px;margin-bottom:10px">🎉</div>' +
+    '<h2 style="margin-bottom:6px">מוכנים להתחיל!</h2>' +
+    '<div style="color:var(--text-muted);font-size:14px;line-height:1.7;margin-bottom:18px">' +
+      'הצעד הבא: הוסיפו את העובד הראשון שלכם בלשונית <strong>👥 עובדים</strong>.<br><br>' +
+      'משם תוכלו למלא שעות, לחשב משכורות, לתעד מכירות (דוח Z), לנהל טיפים, קניות, ולעקוב אחרי הרווח/הפסד החודשי — הכל במקום אחד.' +
+    '</div>' +
+    '<button class="btn btn-secondary" onclick="dismissSetupWizard();loadDemoData()" style="width:100%;margin-bottom:8px">🎭 או טען נתוני דוגמה לבדיקה</button>'
+  ];
+
+  var html =
+    '<div id="setup-wizard" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10100;display:flex;align-items:center;justify-content:center;direction:rtl;padding:16px">' +
+      '<div style="background:#fff;border-radius:20px;padding:32px;max-width:440px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,.3);text-align:right">' +
+        '<div style="display:flex;gap:5px;margin-bottom:22px">' +
+          [0,1,2].map(function(i) { return '<div style="height:5px;border-radius:3px;flex:1;background:' + (i <= _wizStep ? 'var(--primary)' : 'var(--border)') + '"></div>'; }).join('') +
+        '</div>' +
+        '<div id="wiz-body">' + stepsHtml[_wizStep] + '</div>' +
+        '<div style="display:flex;justify-content:space-between;margin-top:24px">' +
+          (_wizStep === 0
+            ? '<button class="btn btn-secondary" onclick="dismissSetupWizard()" style="font-size:12px">דלג להמשך</button>'
+            : '<button class="btn btn-secondary" onclick="wizStep(-1)">→ הקודם</button>') +
+          (_wizStep < 2
+            ? '<button class="btn btn-primary" onclick="wizStep(1)">הבא ←</button>'
+            : '<button class="btn btn-primary" onclick="dismissSetupWizard()">סגור והתחל לעבוד</button>') +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+function toggleWizRole(el) {
+  var r = el.dataset.wr;
+  var idx = _wizRoles.indexOf(r);
+  if (idx >= 0) {
+    _wizRoles.splice(idx, 1);
+    el.style.background = ''; el.style.color = ''; el.style.borderColor = '';
+  } else {
+    _wizRoles.push(r);
+    el.style.background = 'var(--primary)'; el.style.color = '#fff'; el.style.borderColor = 'var(--primary-dark)';
+  }
+}
+function addWizCustomRole() {
+  var inp = document.getElementById('wiz-new-role');
+  var r = inp.value.trim();
+  if (!r) return;
+  inp.value = '';
+  if (_wizRoles.indexOf(r) === -1) _wizRoles.push(r);
+  var wrap = document.getElementById('wiz-role-suggestions');
+  if (!wrap) return;
+  var span = document.createElement('span');
+  span.className = 'role-chip';
+  span.dataset.wr = r;
+  span.style.cursor = 'pointer';
+  span.style.background = 'var(--primary)';
+  span.style.color = '#fff';
+  span.style.borderColor = 'var(--primary-dark)';
+  span.textContent = r;
+  span.onclick = function() { toggleWizRole(span); };
+  wrap.appendChild(span);
+}
+function wizStep(delta) {
+  if (_wizStep === 0 && delta > 0) {
+    if (!S.settings) S.settings = {vat: 17};
+    if (!S.settings.biz) S.settings.biz = {};
+    var nameInp = document.getElementById('wiz-biz-name');
+    var vatInp  = document.getElementById('wiz-vat');
+    if (nameInp && nameInp.value.trim()) S.settings.biz.name = nameInp.value.trim();
+    S.settings.vat = (vatInp && toNum(vatInp.value)) || S.settings.vat || 17;
+    persist();
+    applyBizSettings();
+  }
+  if (_wizStep === 1 && delta > 0) {
+    if (!S.roles) S.roles = [];
+    _wizRoles.forEach(function(r) { if (S.roles.indexOf(r) === -1) S.roles.push(r); });
+    persist();
+  }
+  _wizStep += delta;
+  renderSetupWizard();
+}
+function dismissSetupWizard() {
+  localStorage.setItem('cafeManager_setupDone', '1');
+  var el = document.getElementById('setup-wizard');
+  if (el) el.remove();
 }
 
 document.addEventListener('keydown', function(e) {
