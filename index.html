@@ -184,15 +184,23 @@ body {
 .s-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 5px; font-weight: 600; }
 
 /* ── TABLES ── */
-.table-wrap { overflow-x: auto; border-radius: var(--r); border: 1px solid var(--border); background: var(--surface); }
+.table-wrap {
+  overflow-x: auto;
+  overflow-y: clip; /* clip = NOT a scroll container → sticky headers work relative to viewport */
+  border-radius: var(--r);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--primary);
+  background: var(--surface);
+}
 table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
 thead th {
-  background: #F0EBE6; color: var(--text); font-weight: 800;
-  font-size: 13px; text-transform: uppercase; letter-spacing: .3px;
-  padding: 12px 14px; white-space: nowrap;
-  border-bottom: 2px solid var(--border);
+  background: linear-gradient(180deg, #EDE5DC 0%, #E6DDD3 100%);
+  color: var(--text); font-weight: 800;
+  font-size: 12.5px; text-transform: uppercase; letter-spacing: .6px;
+  padding: 13px 14px; white-space: nowrap;
+  border-bottom: 2.5px solid #D4C9BF;
   position: sticky; top: 122px; z-index: 10;
-  box-shadow: 0 2px 4px rgba(0,0,0,.06);
+  box-shadow: 0 4px 12px rgba(0,0,0,.1), 0 1px 0 rgba(0,0,0,.04);
 }
 td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; font-size: 14.5px; }
 tr:last-child td { border-bottom: none; }
@@ -204,7 +212,7 @@ tbody tr:hover { background: #F5EDE7; }
 
 /* sticky first column (RTL = right side) */
 .sticky-col { position: sticky; inset-inline-start: 0; z-index: 5; background: inherit; }
-thead .sticky-col { background: #F0EBE6; z-index: 11; }
+thead .sticky-col { background: #E6DDD3; z-index: 11; }
 .tr-total .sticky-col { background: #EDE7E0; }
 
 /* ── TABLE INPUTS ── */
@@ -497,7 +505,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
   .tab-nav::-webkit-scrollbar { display: none; }
   .tab-btn  { padding: 10px 11px 8px; font-size: 12px; white-space: nowrap; flex-shrink: 0; gap: 4px; }
   .tab-icon { font-size: 14px; }
-  thead th  { top: 156px; }
+  thead th  { top: 148px; }
 
   .tab-contents { padding: 10px 8px; }
 
@@ -731,9 +739,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-18d';
+var APP_VERSION  = '2026-06-18e';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-18e', t: '📌 כותרות טבלה — תוקן overflow-y:clip, sticky עובד נכון מול הדף; שיפור ויזואלי: גרדיאנט, צל חזק, קו עליון צבעוני' },
   { v: '2026-06-18d', t: '📌 כותרות טבלה נשארות קבועות בגלילה; 🎯 יעד מכירות — ניתן להדליק/לכבות מהגדרות טבלת שליטה' },
   { v: '2026-06-18c', t: '📅 יומן: בחירת תאריך עם תפריטי יום/חודש/שנה בעברית; 📋 שעות: תוקנה גלילה — כל העובדים גלויים בגלילת עמוד רגילה' },
   { v: '2026-06-18b', t: '🐛 תיקון באגים: פוקוס נגנב בסימון משימות; יעד מכירות מתעדכן רק ב-Enter ולא על כל מקש; קוד מיותר הוסר' },
