@@ -13,7 +13,7 @@
     signOut, onAuthStateChanged, sendPasswordResetEmail, verifyBeforeUpdateEmail
   } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
   import {
-    getFirestore, doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs
+    getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, getDocs
   } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -45,14 +45,16 @@
     currentUser: function() { return fbAuth.currentUser; },
 
     getUserDoc:    function(uid) { return getDoc(doc(fbDb, 'users', uid)); },
-    createUserDoc: function(uid, businessId, role, email) { return setDoc(doc(fbDb, 'users', uid), {businessId: businessId, role: role, email: email || ''}); },
+    createUserDoc: function(uid, businessId, role, email, allowedTabs) { return setDoc(doc(fbDb, 'users', uid), {businessId: businessId, role: role, email: email || '', allowedTabs: allowedTabs || []}); },
+    updateMemberTabs: function(uid, allowedTabs) { return updateDoc(doc(fbDb, 'users', uid), {allowedTabs: allowedTabs}); },
     listMembers:   function(businessId) { return getDocs(query(collection(fbDb, 'users'), where('businessId', '==', businessId))); },
     removeMember:  function(uid) { return deleteDoc(doc(fbDb, 'users', uid)); },
 
-    createInvite: function(email, businessId, role) { return setDoc(doc(fbDb, 'invites', email.toLowerCase()), {businessId: businessId, role: role, createdAt: Date.now()}); },
+    createInvite: function(email, businessId, role, allowedTabs) { return setDoc(doc(fbDb, 'invites', email.toLowerCase()), {businessId: businessId, role: role, allowedTabs: allowedTabs || [], createdAt: Date.now()}); },
     getInvite:    function(email) { return getDoc(doc(fbDb, 'invites', email.toLowerCase())); },
     deleteInvite: function(email) { return deleteDoc(doc(fbDb, 'invites', email.toLowerCase())); },
-    listInvites:  function(businessId) { return getDocs(query(collection(fbDb, 'invites'), where('businessId', '==', businessId))); }
+    listInvites:  function(businessId) { return getDocs(query(collection(fbDb, 'invites'), where('businessId', '==', businessId))); },
+    updateInviteTabs: function(email, allowedTabs) { return updateDoc(doc(fbDb, 'invites', email.toLowerCase()), {allowedTabs: allowedTabs}); }
   };
 </script>
 <style>
@@ -614,7 +616,6 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
     <div class="header-date" id="hdate"></div>
     <button class="hdr-btn green owner-only" onclick="exportBackup()" title="גיבוי כל הנתונים לקובץ JSON">💾 גיבוי</button>
     <button class="hdr-btn owner-only" onclick="triggerImport()" title="שחזור נתונים מקובץ גיבוי">📂 שחזור</button>
-    <button class="hdr-btn owner-only" id="sync-btn" onclick="openSyncModal()" title="סנכרון ענן" style="display:none">☁️ <span id="sync-label">ענן</span></button>
     <button class="hdr-btn" onclick="openWhatsNew()" title="מה חדש במערכת?" style="font-size:13px;font-weight:800">🆕 מה חדש?</button>
     <button class="hdr-btn owner-only" onclick="renderAuditLog()" title="יומן פעולות אחרונות">📋 יומן</button>
     <button class="hdr-btn owner-only" onclick="openUserMgmt()" title="ניהול משתמשים">👤 משתמשים</button>
@@ -787,9 +788,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-18m';
+var APP_VERSION  = '2026-06-18n';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-18n', t: '👤 הרשאות מותאמות אישית — הבעל/ת בוחר/ת בדיוק לאיזה לשוניות כל משתמש/ת מוזמן/ת יקבל גישה · ☁️ הוסר סנכרון GitHub הישן (Firebase מטפל בהכל)' },
   { v: '2026-06-18m', t: '👤 הרשאות מרובות משתמשים — הזמן מנהל/ת משמרת עם גישה מוגבלת (שעות, טיפים, דוח Z בלבד)' },
   { v: '2026-06-18l', t: '📅 ולידציית תאריך לידה בכרטיס עובד — לא ניתן יותר לבחור 30 בפברואר וכו\'' },
   { v: '2026-06-18k', t: '🐛 תיקון: כפתור "שכחתי סיסמה" — ההודעה הייתה מוסתרת מתחת למסך הכניסה' },
@@ -1089,7 +1091,6 @@ function loadState() {
 function persist() {
   try {
     localStorage.setItem(KEY, JSON.stringify(S));
-    scheduleSync();
     scheduleFirestoreSync();
   } catch(e) {
     toast('⚠️ נגמר מקום בדפדפן! גבה את הנתונים עכשיו לפני שיאבדו', 'err');
@@ -5565,7 +5566,11 @@ RENDER_MAP = {
 /* ================================================================
    AUTH SYSTEM — Firebase Authentication
 ================================================================ */
-var MANAGER_ALLOWED_TABS = ['hours', 'tips', 'zreport'];
+var ALL_TABS = ['employees', 'zreport', 'purchases', 'hours', 'tips', 'payroll', 'control', 'tasks'];
+var TAB_LABELS = {
+  employees: '👥 עובדים', zreport: '📊 דוח Z', purchases: '🛒 קניות', hours: '⏱ שעות',
+  tips: '💸 טיפים', payroll: '💰 משכורות', control: '📋 טבלת שליטה', tasks: '📝 יומן'
+};
 
 function applyRolePermissions() {
   var ownerEls   = document.querySelectorAll('.owner-only');
@@ -5578,13 +5583,40 @@ function applyRolePermissions() {
   }
   ownerEls.forEach(function(el) { el.style.display = 'none'; });
   if (logoEl) { logoEl.style.cursor = 'default'; logoEl.onclick = null; }
+  var allowed = currentAllowedTabs || [];
   document.querySelectorAll('.tab-btn').forEach(function(btn) {
     var name = btn.id.replace('btn-', '');
-    if (MANAGER_ALLOWED_TABS.indexOf(name) === -1) btn.style.display = 'none';
+    if (allowed.indexOf(name) === -1) btn.style.display = 'none';
   });
+  if (!allowed.length) {
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+    document.querySelector('.tab-contents').insertAdjacentHTML('beforeend',
+      '<div class="empty" id="no-perms-msg"><div class="empty-icon">🔒</div><div class="empty-title">אין לך עדיין הרשאות גישה</div><div class="empty-text">פנה/י לבעל/ת העסק להגדרת הרשאות</div></div>');
+    return;
+  }
   var activeTab = document.querySelector('.tab-btn.active');
   var activeName = activeTab ? activeTab.id.replace('btn-', '') : '';
-  if (MANAGER_ALLOWED_TABS.indexOf(activeName) === -1) switchTab(MANAGER_ALLOWED_TABS[0]);
+  if (allowed.indexOf(activeName) === -1) switchTab(allowed[0]);
+}
+
+function buildTabCheckboxes(containerId, checkedTabs) {
+  checkedTabs = checkedTabs || [];
+  return '<div id="' + containerId + '" style="display:flex;flex-wrap:wrap;gap:4px;margin:8px 0">' +
+    ALL_TABS.map(function(t) {
+      var checked = checkedTabs.indexOf(t) >= 0 ? ' checked' : '';
+      return '<label style="display:inline-flex;align-items:center;gap:4px;font-size:12.5px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:4px 9px;cursor:pointer">' +
+        '<input type="checkbox" data-tab="' + t + '"' + checked + '>' + TAB_LABELS[t] +
+      '</label>';
+    }).join('') +
+  '</div>';
+}
+function readCheckedTabs(containerId) {
+  var out = [];
+  document.querySelectorAll('#' + containerId + ' input[type=checkbox]').forEach(function(b) {
+    if (b.checked) out.push(b.dataset.tab);
+  });
+  return out;
 }
 
 async function openUserMgmt() {
@@ -5593,49 +5625,90 @@ async function openUserMgmt() {
   document.getElementById('modal').classList.remove('hidden');
   var membersHtml = '', invitesHtml = '';
   try {
+    var mi = 0;
     var membersSnap = await window.fb.listMembers(currentBusinessId);
     membersSnap.forEach(function(d) {
       var m = d.data();
-      var roleStr = m.role === 'owner' ? '👑 בעל/ת העסק' : '🧑‍💼 מנהל/ת משמרת';
-      membersHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);margin-bottom:6px">' +
-        '<div><div style="font-weight:700">' + escHtml(m.email||'') + '</div><div style="font-size:12px;color:var(--text-muted)">' + roleStr + '</div></div>' +
-        (m.role !== 'owner' ? '<button class="btn btn-danger btn-sm" onclick="removeUserMember(\'' + d.id + '\')">🗑️ הסר</button>' : '') +
+      if (m.role === 'owner') {
+        membersHtml += '<div style="padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);margin-bottom:6px">' +
+          '<div style="font-weight:700">' + escHtml(m.email||'') + '</div><div style="font-size:12px;color:var(--text-muted)">👑 בעל/ת העסק — גישה מלאה</div>' +
+        '</div>';
+        return;
+      }
+      var cid = 'member-tabs-' + (mi++);
+      membersHtml += '<div style="padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);margin-bottom:6px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center">' +
+          '<div style="font-weight:700">' + escHtml(m.email||'') + '</div>' +
+          '<button class="btn btn-danger btn-sm" onclick="removeUserMember(\'' + d.id + '\')">🗑️ הסר</button>' +
+        '</div>' +
+        buildTabCheckboxes(cid, m.allowedTabs) +
+        '<button class="btn btn-secondary btn-sm" onclick="saveMemberPermissions(\'' + d.id + '\',\'' + cid + '\')">💾 שמור הרשאות</button>' +
       '</div>';
     });
+    var ii = 0;
     var invitesSnap = await window.fb.listInvites(currentBusinessId);
     invitesSnap.forEach(function(d) {
-      invitesHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--warning-bg);border:1px solid rgba(200,125,14,.25);border-radius:var(--r-sm);margin-bottom:6px">' +
-        '<div><div style="font-weight:700">' + escHtml(d.id) + '</div><div style="font-size:12px;color:var(--warning)">⏳ ממתין/ה להרשמה</div></div>' +
-        '<button class="btn btn-secondary btn-sm" onclick="cancelUserInvite(\'' + escHtml(d.id) + '\')">ביטול</button>' +
+      var inv = d.data();
+      var cid = 'invite-tabs-' + (ii++);
+      invitesHtml += '<div style="padding:10px 14px;background:var(--warning-bg);border:1px solid rgba(200,125,14,.25);border-radius:var(--r-sm);margin-bottom:6px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center">' +
+          '<div><div style="font-weight:700">' + escHtml(d.id) + '</div><div style="font-size:12px;color:var(--warning)">⏳ ממתין/ה להרשמה</div></div>' +
+          '<button class="btn btn-secondary btn-sm" onclick="cancelUserInvite(\'' + escHtml(d.id) + '\')">ביטול</button>' +
+        '</div>' +
+        buildTabCheckboxes(cid, inv.allowedTabs) +
+        '<button class="btn btn-secondary btn-sm" onclick="saveInvitePermissions(\'' + escHtml(d.id) + '\',\'' + cid + '\')">💾 שמור הרשאות</button>' +
       '</div>';
     });
   } catch (e) {
     membersHtml = '<div style="color:var(--error)">שגיאה בטעינת רשימת המשתמשים</div>';
   }
+  var newCid = 'invite-new-tabs';
   var html =
     '<h2 class="modal-title">👤 ניהול משתמשים</h2>' +
-    '<div style="color:var(--text-muted);font-size:13px;margin-bottom:14px">הזמן/י מנהל/ת משמרת — תהיה לו/ה גישה מוגבלת: שעות, טיפים ודוח Z בלבד. ללא משכורות, P&L או הגדרות.</div>' +
+    '<div style="color:var(--text-muted);font-size:13px;margin-bottom:14px">בחר/י בדיוק לאיזה לשוניות תהיה גישה לכל משתמש/ת. אפשר לשנות הרשאות בכל עת.</div>' +
     '<div style="margin-bottom:18px">' + membersHtml + invitesHtml + '</div>' +
-    '<div class="form-group"><label class="form-label">➕ הזמנת מנהל/ת משמרת חדש/ה</label>' +
-      '<div style="display:flex;gap:8px">' +
-        '<input type="email" class="form-control" id="invite-email-inp" placeholder="כתובת אימייל" style="flex:1">' +
-        '<button class="btn btn-primary" onclick="sendManagerInvite()">שלח הזמנה</button>' +
-      '</div>' +
+    '<div class="form-group" style="border-top:1px solid var(--border);padding-top:14px">' +
+      '<label class="form-label">➕ הזמנת משתמש/ת חדש/ה</label>' +
+      '<input type="email" class="form-control" id="invite-email-inp" placeholder="כתובת אימייל" style="margin-bottom:6px">' +
+      buildTabCheckboxes(newCid, []) +
+      '<button class="btn btn-primary" onclick="sendUserInvite()" style="margin-top:6px">שלח הזמנה</button>' +
     '</div>' +
     '<div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal()">סגור</button></div>';
   document.getElementById('modal-box').innerHTML = html;
 }
 
-async function sendManagerInvite() {
+async function sendUserInvite() {
   var inp = document.getElementById('invite-email-inp');
   var email = (inp.value || '').trim();
   if (!email) { toast('נא להזין כתובת אימייל', 'err'); return; }
+  var tabs = readCheckedTabs('invite-new-tabs');
+  if (!tabs.length) { toast('בחר לפחות לשונית אחת להרשאה', 'err'); return; }
   try {
-    await window.fb.createInvite(email, currentBusinessId, 'manager');
-    toast('✅ הזמנה נשלחה — כשיירשם/תירשם עם האימייל הזה, תהיה לו/ה גישה מוגבלת', 'ok');
+    await window.fb.createInvite(email, currentBusinessId, 'manager', tabs);
+    toast('✅ הזמנה נשלחה — כשיירשם/תירשם עם האימייל הזה, תהיה לו/ה הגישה שבחרת', 'ok');
     openUserMgmt();
   } catch (e) {
     toast('שגיאה בשליחת ההזמנה', 'err');
+  }
+}
+
+async function saveMemberPermissions(uid, containerId) {
+  var tabs = readCheckedTabs(containerId);
+  try {
+    await window.fb.updateMemberTabs(uid, tabs);
+    toast('✅ ההרשאות נשמרו', 'ok');
+  } catch (e) {
+    toast('שגיאה בשמירת ההרשאות', 'err');
+  }
+}
+
+async function saveInvitePermissions(email, containerId) {
+  var tabs = readCheckedTabs(containerId);
+  try {
+    await window.fb.updateInviteTabs(email, tabs);
+    toast('✅ ההרשאות נשמרו', 'ok');
+  } catch (e) {
+    toast('שגיאה בשמירת ההרשאות', 'err');
   }
 }
 
@@ -5669,6 +5742,7 @@ var _authMode = 'login'; // 'login' | 'signup'
 var currentUid = null;
 var currentBusinessId = null;
 var currentRole = null; // 'owner' | 'manager'
+var currentAllowedTabs = [];
 var LAST_EMAIL_KEY = 'cafeManager_lastEmail';
 function isOwner() { return currentRole === 'owner'; }
 
@@ -5750,7 +5824,7 @@ async function _resolveBusinessAndRole(user) {
   var userSnap = await window.fb.getUserDoc(user.uid);
   if (userSnap.exists()) {
     var u = userSnap.data();
-    return {businessId: u.businessId, role: u.role};
+    return {businessId: u.businessId, role: u.role, allowedTabs: u.allowedTabs || []};
   }
   // 2) Were they invited as a shift manager to someone else's business?
   if (user.email) {
@@ -5758,15 +5832,15 @@ async function _resolveBusinessAndRole(user) {
       var inviteSnap = await window.fb.getInvite(user.email);
       if (inviteSnap.exists()) {
         var inv = inviteSnap.data();
-        await window.fb.createUserDoc(user.uid, inv.businessId, inv.role, user.email);
+        await window.fb.createUserDoc(user.uid, inv.businessId, inv.role, user.email, inv.allowedTabs || []);
         await window.fb.deleteInvite(user.email);
-        return {businessId: inv.businessId, role: inv.role};
+        return {businessId: inv.businessId, role: inv.role, allowedTabs: inv.allowedTabs || []};
       }
     } catch (e) { /* fall through to owner default */ }
   }
   // 3) Brand-new signup with no invite — they own their own new business
-  await window.fb.createUserDoc(user.uid, user.uid, 'owner', user.email);
-  return {businessId: user.uid, role: 'owner'};
+  await window.fb.createUserDoc(user.uid, user.uid, 'owner', user.email, []);
+  return {businessId: user.uid, role: 'owner', allowedTabs: []};
 }
 
 async function authLoadAndShowApp(user) {
@@ -5775,10 +5849,12 @@ async function authLoadAndShowApp(user) {
     var resolved = await _resolveBusinessAndRole(user);
     currentBusinessId = resolved.businessId;
     currentRole = resolved.role;
+    currentAllowedTabs = resolved.allowedTabs || [];
   } catch (e) {
     toast('⚠️ שגיאה בזיהוי החשבון — עובד מהנתונים המקומיים', 'err');
     currentBusinessId = user.uid;
     currentRole = 'owner';
+    currentAllowedTabs = [];
   }
   try {
     var snap = await window.fb.loadData(currentBusinessId);
@@ -5834,156 +5910,6 @@ async function changeAccountEmail() {
     toast('✅ נשלח מייל אישור ל-' + newEmail + ' — האימייל יתעדכן לאחר אישור', 'ok');
   } catch (e) {
     toast(_authErrMsg(e), 'err');
-  }
-}
-
-/* ================================================================
-   CLOUD SYNC (GitHub)
-================================================================ */
-var SYNC_TOKEN_KEY = 'cafeManager_ghSync';
-var _syncTimer = null;
-var _syncStatus = 'idle'; // idle | syncing | ok | err
-
-function scheduleSync() {
-  clearTimeout(_syncTimer);
-  _syncTimer = setTimeout(pushToCloud, 20000);
-}
-
-function pushToCloud() {
-  var token = localStorage.getItem(SYNC_TOKEN_KEY);
-  if (!token) return;
-  setSyncStatus('syncing');
-  var data   = JSON.stringify(S, null, 2);
-  var bytes  = unescape(encodeURIComponent(data));
-  var base64 = btoa(bytes);
-  var headers = { 'Authorization': 'token ' + token, 'User-Agent': 'cafe-sync', 'Content-Type': 'application/json', 'Accept': 'application/vnd.github.v3+json' };
-  var apiUrl  = 'https://api.github.com/repos/maromezra5-glitch/Business-manager/contents/cafe-data.json';
-
-  function doUpload(sha) {
-    var body = JSON.stringify({ message: 'sync ' + new Date().toISOString(), content: base64, branch: 'main' });
-    if (sha) body = JSON.stringify({ message: 'sync ' + new Date().toISOString(), content: base64, sha: sha, branch: 'main' });
-    var xhr = new XMLHttpRequest();
-    xhr.open('PUT', apiUrl, true);
-    Object.keys(headers).forEach(function(k) { xhr.setRequestHeader(k, headers[k]); });
-    xhr.onload = function() {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        setSyncStatus('ok');
-        localStorage.setItem('cafeManager_lastSync', new Date().toISOString());
-      } else { setSyncStatus('err'); }
-    };
-    xhr.onerror = function() { setSyncStatus('err'); };
-    xhr.send(body);
-  }
-
-  var xhrGet = new XMLHttpRequest();
-  xhrGet.open('GET', apiUrl, true);
-  Object.keys(headers).forEach(function(k) { xhrGet.setRequestHeader(k, headers[k]); });
-  xhrGet.onload = function() {
-    var sha = null;
-    if (xhrGet.status === 200) {
-      try { sha = JSON.parse(xhrGet.responseText).sha; } catch(e) {}
-    }
-    doUpload(sha);
-  };
-  xhrGet.onerror = function() { doUpload(null); };
-  xhrGet.send();
-}
-
-function pullFromCloud(token, onDone) {
-  var apiUrl = 'https://api.github.com/repos/maromezra5-glitch/Business-manager/contents/cafe-data.json';
-  var xhr = new XMLHttpRequest();
-  xhr.open('GET', apiUrl, true);
-  xhr.setRequestHeader('Authorization', 'token ' + token);
-  xhr.setRequestHeader('User-Agent', 'cafe-sync');
-  xhr.setRequestHeader('Accept', 'application/vnd.github.v3+json');
-  xhr.onload = function() {
-    if (xhr.status === 200) {
-      try {
-        var b64  = JSON.parse(xhr.responseText).content.replace(/\n/g, '');
-        var raw  = decodeURIComponent(escape(atob(b64)));
-        var data = JSON.parse(raw);
-        if (data && Array.isArray(data.employees)) { onDone(null, data); return; }
-      } catch(e) {}
-    }
-    onDone('לא נמצא גיבוי בענן');
-  };
-  xhr.onerror = function() { onDone('שגיאת רשת'); };
-  xhr.send();
-}
-
-function setSyncStatus(s) {
-  _syncStatus = s;
-  var lbl = document.getElementById('sync-label');
-  var btn = document.getElementById('sync-btn');
-  if (!lbl) return;
-  if (s === 'syncing') { lbl.textContent = 'מסנכרן...'; btn.style.color = '#C87D0E'; }
-  else if (s === 'ok')   { lbl.textContent = 'מסונכרן ✓'; btn.style.color = '#1E7D4B'; }
-  else if (s === 'err')  { lbl.textContent = 'שגיאת ענן'; btn.style.color = '#C0392B'; }
-  else                   { lbl.textContent = 'ענן'; btn.style.color = ''; }
-}
-
-function openSyncModal() {
-  var token   = localStorage.getItem(SYNC_TOKEN_KEY) || '';
-  var lastSync = localStorage.getItem('cafeManager_lastSync');
-  var lastStr  = lastSync ? 'סנכרון אחרון: ' + new Date(lastSync).toLocaleString('he-IL') : 'טרם בוצע סנכרון';
-  var html = '<h2 class="modal-title">☁️ סנכרון ענן</h2>' +
-    '<p style="font-size:14px;color:var(--text-sec);margin-bottom:18px">שמור גיבוי אוטומטי בענן — הנתונים ישמרו ב-GitHub ותוכל לשחזר ממכשיר אחר.</p>' +
-    '<div style="background:var(--warning-bg);border:1px solid var(--warning);border-radius:10px;padding:12px;font-size:13px;margin-bottom:10px">' +
-    '💡 <strong>איך מגדירים:</strong> עבור ל-github.com ← Settings ← Developer Settings ← Personal Access Tokens ← צור טוקן עם הרשאת <code>repo</code>' +
-    '</div>' +
-    '<div style="background:var(--error-bg);border:1px solid rgba(192,57,43,.3);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--error);margin-bottom:18px">' +
-    '🔒 <strong>שים לב:</strong> הטוקן נשמר על המחשב שלך בלבד. לא לשתף אותו עם אחרים ולא להכניס אותו בדפדפן של אנשים אחרים.' +
-    '</div>' +
-    '<label style="font-weight:700;font-size:14px;display:block;margin-bottom:6px">GitHub Token:</label>' +
-    '<input type="password" id="sync-token-inp" value="' + token + '" placeholder="ghp_..." ' +
-    'style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;direction:ltr;outline:none;margin-bottom:6px">' +
-    '<div style="font-size:12px;color:var(--text-muted);margin-bottom:18px">' + lastStr + '</div>' +
-    '<div class="modal-footer" style="flex-direction:column;gap:8px">' +
-    '<button class="btn btn-primary" onclick="saveSyncToken()">💾 שמור והפעל סנכרון</button>' +
-    '<button class="btn" onclick="pullCloudData()">📥 שחזר מהענן</button>' +
-    (token ? '<button class="btn" onclick="localStorage.removeItem(\'cafeManager_ghSync\');document.getElementById(\'sync-btn\').style.display=\'none\';closeModal();toast(\'סנכרון ענן כובה\',\'ok\')" style="color:var(--error)">🗑️ בטל סנכרון</button>' : '') +
-    '</div>';
-  document.getElementById('modal-box').innerHTML = html;
-  document.getElementById('modal').classList.remove('hidden');
-}
-
-function saveSyncToken() {
-  var token = (document.getElementById('sync-token-inp').value || '').trim();
-  if (!token) { toast('נא להזין טוקן', 'err'); return; }
-  localStorage.setItem(SYNC_TOKEN_KEY, token);
-  document.getElementById('sync-btn').style.display = '';
-  closeModal();
-  toast('✅ סנכרון ענן הופעל', 'ok');
-  pushToCloud();
-}
-
-function pullCloudData() {
-  var token = (document.getElementById('sync-token-inp').value || localStorage.getItem(SYNC_TOKEN_KEY) || '').trim();
-  if (!token) { toast('נא להזין טוקן', 'err'); return; }
-  toast('📥 מוריד מהענן...', 'ok');
-  pullFromCloud(token, async function(err, data) {
-    if (err) { toast('שגיאה: ' + err, 'err'); return; }
-    var ok = await customConfirm({
-      title: 'שחזור מהענן',
-      message: 'נמצא גיבוי בענן. שחזור יחליף את כל הנתונים הנוכחיים בנתוני הגיבוי.',
-      confirmText: 'שחזר מהענן', danger: true
-    });
-    if (!ok) return;
-    ['roles','dailyHours','monthlyData','timeRecords','zReports','tips','suppliers','purchases','control','settings'].forEach(function(k) {
-      if (!data[k]) data[k] = S[k];
-    });
-    S = data;
-    logAudit('שחזור מהענן', '');
-    toast('✅ שוחזר מהענן — טוען מחדש...', 'ok');
-    await persistAndReload(900);
-  });
-}
-
-function initSyncBtn() {
-  if (localStorage.getItem(SYNC_TOKEN_KEY)) {
-    document.getElementById('sync-btn').style.display = '';
-    var lastSync = localStorage.getItem('cafeManager_lastSync');
-    if (lastSync) setSyncStatus('ok');
   }
 }
 
@@ -6266,7 +6192,6 @@ function appStart() {
   updateHeaderDate();
   renderEmps();
   showBackupBannerIfNeeded();
-  initSyncBtn();
   applyBizSettings();
   if (isFirstTimeSetup()) {
     localStorage.setItem('cafeManager_seenVersion', APP_VERSION);
