@@ -776,9 +776,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-18k';
+var APP_VERSION  = '2026-06-18l';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-18l', t: '📅 ולידציית תאריך לידה בכרטיס עובד — לא ניתן יותר לבחור 30 בפברואר וכו\'' },
   { v: '2026-06-18k', t: '🐛 תיקון: כפתור "שכחתי סיסמה" — ההודעה הייתה מוסתרת מתחת למסך הכניסה' },
   { v: '2026-06-18j', t: '🐛 תיקון: שחזור גיבוי / טעינת דוגמה לא היו נשמרים בענן לפני הרענון, ולכן חזרו לאחור' },
   { v: '2026-06-18i', t: '☁️ התחברות אמיתית עם אימייל+סיסמה (Firebase) וגיבוי אוטומטי לענן — הנתונים לא חיים יותר רק בדפדפן הזה' },
@@ -1301,8 +1302,24 @@ function buildDobSelects(dob) {
 
   var sel = 'style="flex:1;padding:9px 8px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:14px;background:var(--surface);outline:none;cursor:pointer"';
   return '<select id="m-dob-d" ' + sel + '>' + dayOpts + '</select>' +
-         '<select id="m-dob-m" ' + sel + '>' + moOpts  + '</select>' +
-         '<select id="m-dob-y" ' + sel + '>' + yrOpts  + '</select>';
+         '<select id="m-dob-m" ' + sel + ' onchange="adjustDobDayOptions()">' + moOpts  + '</select>' +
+         '<select id="m-dob-y" ' + sel + ' onchange="adjustDobDayOptions()">' + yrOpts  + '</select>';
+}
+function adjustDobDayOptions() {
+  var dSel = document.getElementById('m-dob-d');
+  var mSel = document.getElementById('m-dob-m');
+  var ySel = document.getElementById('m-dob-y');
+  if (!dSel || !mSel || !ySel) return;
+  var m = parseInt(mSel.value, 10);
+  var y = parseInt(ySel.value, 10) || new Date().getFullYear();
+  if (!m) return;
+  var maxDay = new Date(y, m, 0).getDate();
+  var curVal = parseInt(dSel.value, 10) || 0;
+  Array.prototype.forEach.call(dSel.options, function(opt) {
+    if (!opt.value) return;
+    opt.disabled = parseInt(opt.value, 10) > maxDay;
+  });
+  if (curVal > maxDay) dSel.value = String(maxDay).padStart(2, '0');
 }
 
 function getDobValue() {
