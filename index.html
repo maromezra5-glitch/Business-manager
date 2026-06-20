@@ -806,9 +806,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-18p';
+var APP_VERSION  = '2026-06-18q';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-18q', t: '📝 תזכורת אוטומטית למשימות פתוחות בכל כניסה למערכת' },
   { v: '2026-06-18p', t: '👋 שם משתמש בהרשמה + "שלום, [שם]" בכותרת · 🆕 מה חדש מציג רק עדכונים מאז הכניסה האחרונה שלך · 🧹 כותרת מסודרת — כפתורי ניהול עברו לתפריט "⚙️ ניהול"' },
   { v: '2026-06-18o', t: '🔄 שינויי הרשאות משתמשים נכנסים לתוקף באופן מיידי — בלי צורך בכניסה מחדש' },
   { v: '2026-06-18n', t: '👤 הרשאות מותאמות אישית — הבעל/ת בוחר/ת בדיוק לאיזה לשוניות כל משתמש/ת מוזמן/ת יקבל גישה · ☁️ הוסר סנכרון GitHub הישן (Firebase מטפל בהכל)' },
@@ -5062,6 +5063,42 @@ function openWhatsNew() {
   _markVersionSeen(APP_VERSION);
 }
 
+function _buildTasksReminderHTML(tasks) {
+  var today = curDate();
+  var items = tasks.map(function(t) {
+    var overdue = t.dueDate && t.dueDate < today;
+    var dueTxt  = t.dueDate ? ' <span style="font-size:12px;color:' + (overdue ? '#dc2626' : '#9ca3af') + '">(' + (overdue ? '⚠️ ' : '📅 ') + t.dueDate + ')</span>' : '';
+    return '<li style="margin-bottom:8px">' + escHtml(t.text) + dueTxt + '</li>';
+  }).join('');
+  return '<div id="tasks-reminder-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9998;display:flex;align-items:center;justify-content:center;direction:rtl">' +
+    '<div style="background:#fff;border-radius:20px;padding:32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:right;max-height:85vh;overflow-y:auto">' +
+    '<div style="font-size:36px;margin-bottom:8px">📝</div>' +
+    '<h2 style="margin:0 0 6px;font-size:22px;color:#1A1A1A">יש לך ' + tasks.length + ' משימות פתוחות</h2>' +
+    '<div style="font-size:13px;color:#9ca3af;margin-bottom:20px">תזכורת מיומן המשימות</div>' +
+    '<ul style="margin:0 0 24px;padding-right:20px;color:#374151;font-size:15px;line-height:1.7">' + items + '</ul>' +
+    '<div style="display:flex;gap:10px">' +
+    '<button onclick="document.getElementById(\'tasks-reminder-modal\').remove();switchTab(\'tasks\')" style="flex:1;padding:13px;background:#D97757;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer">📝 עבור ליומן</button>' +
+    '<button onclick="document.getElementById(\'tasks-reminder-modal\').remove()" style="flex:1;padding:13px;background:#EEE;color:#333;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer">סגור</button>' +
+    '</div>' +
+    '</div></div>';
+}
+function showTasksReminderIfNeeded() {
+  if (!isOwner() && (currentAllowedTabs || []).indexOf('tasks') === -1) return;
+  if (!S.tasks) return;
+  var pending = S.tasks.filter(function(t) { return !t.done; });
+  if (!pending.length) return;
+  var today = curDate();
+  pending.sort(function(a, b) {
+    var ao = a.dueDate && a.dueDate < today, bo = b.dueDate && b.dueDate < today;
+    if (ao !== bo) return ao ? -1 : 1;
+    if (a.dueDate && b.dueDate) return a.dueDate < b.dueDate ? -1 : 1;
+    if (a.dueDate) return -1;
+    if (b.dueDate) return 1;
+    return 0;
+  });
+  document.body.insertAdjacentHTML('beforeend', _buildTasksReminderHTML(pending));
+}
+
 function dismissBanner() {
   var b = document.getElementById('backup-banner');
   if (b) b.style.display = 'none';
@@ -6300,6 +6337,7 @@ function appStart() {
   } else {
     checkForUpdate();
   }
+  setTimeout(showTasksReminderIfNeeded, 1300);
 }
 
 function isFirstTimeSetup() {
