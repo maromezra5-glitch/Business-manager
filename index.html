@@ -806,9 +806,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-18q';
+var APP_VERSION  = '2026-06-18r';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-18r', t: '⏱ מילוי שעות עבודה בפורמט שעות:דקות (למשל 0:40) במקום מספר עשרוני' },
   { v: '2026-06-18q', t: '📝 תזכורת אוטומטית למשימות פתוחות בכל כניסה למערכת' },
   { v: '2026-06-18p', t: '👋 שם משתמש בהרשמה + "שלום, [שם]" בכותרת · 🆕 מה חדש מציג רק עדכונים מאז הכניסה האחרונה שלך · 🧹 כותרת מסודרת — כפתורי ניהול עברו לתפריט "⚙️ ניהול"' },
   { v: '2026-06-18o', t: '🔄 שינויי הרשאות משתמשים נכנסים לתוקף באופן מיידי — בלי צורך בכניסה מחדש' },
@@ -1781,15 +1782,44 @@ function setHoursDate(ds) {
   renderHoursDaily();
 }
 
+function parseHM(str) {
+  str = (str || '').trim();
+  if (!str) return 0;
+  if (str.indexOf(':') >= 0) {
+    var parts = str.split(':');
+    var h = parseInt(parts[0], 10); if (isNaN(h)) h = 0;
+    var m = parseInt(parts[1], 10); if (isNaN(m)) m = 0;
+    return h + m / 60;
+  }
+  var n = parseFloat(str.replace(',', '.'));
+  return isNaN(n) ? 0 : n;
+}
+function hoursToHM(dec) {
+  dec = toNum(dec);
+  if (!dec) return '';
+  var totalMin = Math.round(dec * 60);
+  var h = Math.floor(totalMin / 60);
+  var m = totalMin % 60;
+  return h + ':' + String(m).padStart(2, '0');
+}
+function formatDayField(inp) {
+  var empId = inp.dataset.deid;
+  var role  = inp.dataset.role || '';
+  var stKey = role ? (empId + '|' + role) : empId;
+  var ds    = inp.dataset.ds;
+  var fk    = inp.dataset.key;
+  var val   = ((S.dailyHours[ds] || {})[stKey] || {})[fk] || 0;
+  inp.value = hoursToHM(val);
+}
 function saveDayField(inp) {
   var empId  = inp.dataset.deid;
   var role   = inp.dataset.role || '';
   var stKey  = role ? (empId + '|' + role) : empId;
   var ds     = inp.dataset.ds;
   var fk     = inp.dataset.key;
-  var val    = toNum(inp.value);
-  if (val < 0) { val = 0; inp.value = 0; }
-  if (val > 24) { val = 24; inp.value = 24; }
+  var val    = parseHM(inp.value);
+  if (val < 0) val = 0;
+  if (val > 24) val = 24;
   if (!S.dailyHours[ds])        S.dailyHours[ds] = {};
   if (!S.dailyHours[ds][stKey]) S.dailyHours[ds][stKey] = {};
   S.dailyHours[ds][stKey][fk] = val;
@@ -1922,22 +1952,22 @@ function renderHoursWeekly() {
 
       cells += '<td style="padding:7px 4px;background:' + cellBg + ';border-left:1px solid var(--border)">' +
         '<div style="display:flex;flex-direction:column;align-items:center;gap:4px">' +
-          '<input type="number" class="ti" min="0" max="24" step=".5"' +
+          '<input type="text" inputmode="numeric" class="ti" maxlength="5"' +
             ' data-deid="' + emp.id + '" data-ds="' + day.ds + '" data-key="regHours"' +
-            ' value="' + (reg||'') + '" placeholder="0"' +
-            ' oninput="saveDayField(this);renderWeeklyTotals()"' +
+            ' value="' + hoursToHM(reg) + '" placeholder="0:00" title="פורמט שעות:דקות, למשל 0:40"' +
+            ' oninput="saveDayField(this);renderWeeklyTotals()" onblur="formatDayField(this)"' +
             ' style="width:64px;height:44px;font-size:20px;font-weight:800;text-align:center;padding:0 4px;line-height:44px;box-sizing:border-box;border:2px solid ' + (reg>0?'#16a34a':'#d1d5db') + ';border-radius:10px;background:' + (reg>0?'#f0fdf4':'#fff') + ';color:' + (reg>0?'#15803d':'#374151') + '">' +
           (hasOT ?
             '<div style="display:flex;gap:3px">' +
-              '<input type="number" class="ti" min="0" max="24" step=".5"' +
+              '<input type="text" inputmode="numeric" class="ti" maxlength="5"' +
                 ' data-deid="' + emp.id + '" data-ds="' + day.ds + '" data-key="ot125"' +
-                ' value="' + (ot1||'') + '" placeholder="0"' +
-                ' oninput="saveDayField(this);renderWeeklyTotals()"' +
+                ' value="' + hoursToHM(ot1) + '" placeholder="0:00" title="פורמט שעות:דקות, למשל 0:40"' +
+                ' oninput="saveDayField(this);renderWeeklyTotals()" onblur="formatDayField(this)"' +
                 ' style="width:42px;height:28px;font-size:13px;font-weight:700;text-align:center;padding:0 3px;line-height:28px;box-sizing:border-box;border:1.5px solid #d97706;border-radius:6px;background:#fef9c3;color:#92400e">' +
-              '<input type="number" class="ti" min="0" max="24" step=".5"' +
+              '<input type="text" inputmode="numeric" class="ti" maxlength="5"' +
                 ' data-deid="' + emp.id + '" data-ds="' + day.ds + '" data-key="ot150"' +
-                ' value="' + (ot2||'') + '" placeholder="0"' +
-                ' oninput="saveDayField(this);renderWeeklyTotals()"' +
+                ' value="' + hoursToHM(ot2) + '" placeholder="0:00" title="פורמט שעות:דקות, למשל 0:40"' +
+                ' oninput="saveDayField(this);renderWeeklyTotals()" onblur="formatDayField(this)"' +
                 ' style="width:42px;height:28px;font-size:13px;font-weight:700;text-align:center;padding:0 3px;line-height:28px;box-sizing:border-box;border:1.5px solid #dc2626;border-radius:6px;background:#fee2e2;color:#991b1b">' +
             '</div>'
           : '') +
@@ -2122,10 +2152,10 @@ function renderHoursDaily() {
         if (emp.noOT && f.k !== 'regHours') {
           tbody += '<td style="text-align:center;color:var(--text-muted);background:#f9fafb;font-size:13px">—</td>';
         } else {
-          tbody += '<td><input type="number" class="ti ti-w70" min="0" max="24" step=".5"' +
+          tbody += '<td><input type="text" inputmode="numeric" class="ti ti-w70" maxlength="5"' +
             ' data-deid="' + emp.id + '" data-ds="' + ds + '" data-key="' + f.k + '"' +
-            ' value="' + (toNum(r[f.k]) || '') + '" placeholder="0"' +
-            ' oninput="saveDayField(this)"></td>';
+            ' value="' + hoursToHM(r[f.k]) + '" placeholder="0:00" title="פורמט שעות:דקות, למשל 0:40"' +
+            ' oninput="saveDayField(this)" onblur="formatDayField(this)"></td>';
         }
       });
       tbody += '<td style="text-align:center;color:' + (h>0?'var(--success)':'var(--text-muted)') + ';font-size:13px;font-weight:700">' + (h>0?'✓ אוטו':'—') + '</td>';
