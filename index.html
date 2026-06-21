@@ -6,6 +6,7 @@
 <title>מנהל העסק</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2/dist/chartjs-plugin-datalabels.min.js"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
   import {
@@ -806,9 +807,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-18v';
+var APP_VERSION  = '2026-06-18w';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-18w', t: '📊 שדרוג גרפים מקצה לקצה — קו מצטבר וממוצע יומי בדוח Z, אחוזים על העוגות, ערכים על העמודות, וגרף חדש: מגמת Food Cost%/Labor Cost% ל-6 חודשים' },
   { v: '2026-06-18v', t: '🐛 תיקון: בורר תאריך בניווט שעות יומי הוחזר לתאריך רגיל (זה ניווט, לא מילוי) · 💰 סה"כ הכנסות ללא מע"מ מוצג עכשיו גם בכרטיס ההכנסות בטבלת שליטה' },
   { v: '2026-06-18u', t: '📅 כל שדות התאריך באתר (כולל תוספת/מפרעה במילוי שעות חודשי) עברו לבחירת יום/חודש/שנה כמו בכרטיס עובד' },
   { v: '2026-06-18t', t: '🎨 תצוגות יומי וחודשי בלשונית שעות עוצבו מחדש כמו התצוגה השבועית — עיגולי שם צבעוניים, תאי שעות צבעוניים, כרטיס ניווט' },
@@ -902,6 +904,10 @@ var hoursNameSearch = '';
 var payrollNameSearch = '';
 var showCharts = false;
 var _chartInstances = {};
+if (typeof Chart !== 'undefined' && typeof ChartDataLabels !== 'undefined') {
+  Chart.register(ChartDataLabels);
+  Chart.defaults.set('plugins.datalabels', { display: false }); // opt-in per chart, not global noise
+}
 
 function getEmpRoles(emp) {
   if (emp.roles && emp.roles.length) return emp.roles;
@@ -3972,7 +3978,10 @@ function renderControl() {
         '<div class="ctrl-total" style="color:var(--success);border-color:var(--success)">' +
           '<span>✅ סה"כ הכנסות</span><span style="font-size:20px">' + ILS(totalIncome) + '</span>' +
         '</div>' +
-        '<div class="ctrl-row" style="margin-top:-2px"><span class="ctrl-label" style="color:var(--text-muted)">ללא מע"מ</span><span class="ctrl-amount" style="color:var(--text-muted);font-size:13px">' + ILS(netSales) + '</span></div>' +
+        '<div class="ctrl-row" style="padding-top:6px">' +
+          '<span class="ctrl-label" style="color:#2563eb;font-size:14px;font-weight:700">↳ סה"כ הכנסות (ללא מע"מ)</span>' +
+          '<span class="ctrl-amount" style="color:#2563eb;font-size:14px;font-weight:800">' + ILS(netSales) + '</span>' +
+        '</div>' +
         ((S.settings || {}).showSalesTarget !== false ? (function(){
           var target = toNum(ctrl.salesTarget);
           var pct    = target > 0 ? Math.min(totalIncome / target * 100, 100) : 0;
@@ -5530,38 +5539,80 @@ function _destroyCharts() {
 }
 function buildZCharts(ym) {
   if (!showCharts || typeof Chart === 'undefined') return '';
-  return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:20px">' +
-    '<div class="card"><div class="card-title">📈 מכירות יומיות</div><canvas id="chart-z-daily" height="200"></canvas></div>' +
-    '<div class="card"><div class="card-title">🥧 פילוח ערוצי מכירה</div><canvas id="chart-z-channels" height="200"></canvas></div>' +
+  return '<div style="display:grid;grid-template-columns:1.4fr 1fr;gap:18px;margin-top:20px">' +
+    '<div class="card"><div class="card-title">📈 מכירות יומיות + מצטבר</div><canvas id="chart-z-daily" height="220"></canvas></div>' +
+    '<div class="card"><div class="card-title">🥧 פילוח ערוצי מכירה</div><canvas id="chart-z-channels" height="220"></canvas></div>' +
   '</div>';
 }
 function initZCharts(ym) {
   if (!showCharts || typeof Chart === 'undefined') return;
   _destroyCharts();
   var days = daysInMonth(ym);
-  var labels = [], vals = [];
+  var labels = [], vals = [], cum = [], running = 0;
   for (var d = 1; d <= days; d++) {
     var ds = dateFull(ym, d);
     var r  = S.zReports[ds] || {};
     var tot = toNum(r.cash) + toNum(r.credit) + toNum(r.wolt) + toNum(r.hakafe);
+    running += tot;
     labels.push(d + '');
     vals.push(+tot.toFixed(0));
+    cum.push(+running.toFixed(0));
   }
+  var avg = vals.length ? vals.reduce(function(a,b){return a+b;},0) / vals.filter(function(v){return v>0;}).length || 0 : 0;
+
   var c1 = document.getElementById('chart-z-daily');
-  if (c1) _chartInstances['z-daily'] = new Chart(c1.getContext('2d'), {
-    type: 'line',
-    data: { labels: labels, datasets: [{ label: 'מכירות יומיות (₪)', data: vals, borderColor: '#D97757', backgroundColor: 'rgba(217,119,87,.1)', fill: true, tension: .4, pointRadius: 3 }] },
-    options: { plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: function(v){ return '₪'+v.toLocaleString(); } } } } }
-  });
+  if (c1) {
+    var ctx1 = c1.getContext('2d');
+    var grad = ctx1.createLinearGradient(0, 0, 0, 220);
+    grad.addColorStop(0, 'rgba(217,119,87,.35)');
+    grad.addColorStop(1, 'rgba(217,119,87,0)');
+    _chartInstances['z-daily'] = new Chart(ctx1, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          { label: 'מכירות יומיות', data: vals, borderColor: '#D97757', backgroundColor: grad, fill: true, tension: .35, pointRadius: 2, pointHoverRadius: 6, pointBackgroundColor: '#D97757', borderWidth: 2.5, yAxisID: 'y' },
+          { label: 'ממוצע יומי', data: labels.map(function(){ return +avg.toFixed(0); }), borderColor: '#9ca3af', backgroundColor: 'transparent', borderDash: [4,4], borderWidth: 1.5, pointRadius: 0, tension: 0, yAxisID: 'y' },
+          { label: 'מצטבר חודשי', data: cum, borderColor: '#10b981', backgroundColor: 'transparent', borderDash: [6,4], borderWidth: 2, pointRadius: 0, tension: .2, yAxisID: 'y1' }
+        ]
+      },
+      options: {
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', labels: { usePointStyle: true, font: { size: 11 } } },
+          datalabels: { display: false },
+          tooltip: { callbacks: { label: function(ctx) { return ' ' + ctx.dataset.label + ': ' + ILS(ctx.parsed.y); } } }
+        },
+        scales: {
+          y:  { position: 'left',  ticks: { callback: function(v){ return '₪'+v.toLocaleString(); }, font: { size: 10 } }, grid: { color: 'rgba(0,0,0,.05)' } },
+          y1: { position: 'right', ticks: { callback: function(v){ return '₪'+v.toLocaleString(); }, font: { size: 10 } }, grid: { display: false } }
+        }
+      }
+    });
+  }
+
   var zb = getZBreakdown(ym);
+  var zbVals  = [zb.cash, zb.credit, zb.wolt, zb.hakafe].map(function(v){ return +v.toFixed(0); });
+  var zbTotal = zbVals.reduce(function(a,b){return a+b;}, 0);
   var c2 = document.getElementById('chart-z-channels');
   if (c2) _chartInstances['z-channels'] = new Chart(c2.getContext('2d'), {
     type: 'doughnut',
     data: {
       labels: ['מזומן','אשראי','וולט','הקפות'],
-      datasets: [{ data: [zb.cash, zb.credit, zb.wolt, zb.hakafe].map(function(v){ return +v.toFixed(0); }), backgroundColor: ['#10b981','#3b82f6','#f59e0b','#8b5cf6'], borderWidth: 2 }]
+      datasets: [{ data: zbVals, backgroundColor: ['#10b981','#3b82f6','#f59e0b','#8b5cf6'], borderWidth: 2, borderColor: '#fff', hoverOffset: 8 }]
     },
-    options: { plugins: { legend: { position: 'bottom', labels: { font: { size: 13 } } } } }
+    options: {
+      cutout: '62%',
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 12 }, usePointStyle: true } },
+        tooltip: { callbacks: { label: function(ctx) { return ' ' + ctx.label + ': ' + ILS(ctx.parsed); } } },
+        datalabels: {
+          display: function(ctx) { return ctx.dataset.data[ctx.dataIndex] > 0; },
+          color: '#fff', font: { weight: '800', size: 12 },
+          formatter: function(v) { return zbTotal > 0 ? (v / zbTotal * 100).toFixed(0) + '%' : ''; }
+        }
+      }
+    }
   });
 }
 function buildControlCharts(ym) {
@@ -5569,22 +5620,36 @@ function buildControlCharts(ym) {
   return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:20px">' +
     '<div class="card"><div class="card-title">🥧 פילוח הוצאות</div><canvas id="chart-ctrl-expenses" height="220"></canvas></div>' +
     '<div class="card"><div class="card-title">📊 הכנסות vs הוצאות — 6 חודשים</div><canvas id="chart-ctrl-trend" height="220"></canvas></div>' +
+    '<div class="card" style="grid-column:1/-1"><div class="card-title">📐 Food Cost % / Labor Cost % — מגמת 6 חודשים</div><canvas id="chart-ctrl-costpct" height="180"></canvas></div>' +
   '</div>';
 }
 function initControlCharts(ym, totalPayroll, totalPurchases, totalFixed, totalExtra) {
   if (!showCharts || typeof Chart === 'undefined') return;
   _destroyCharts();
+  var expTotal = totalPayroll + totalPurchases + totalFixed + totalExtra;
   var c1 = document.getElementById('chart-ctrl-expenses');
   if (c1) _chartInstances['ctrl-exp'] = new Chart(c1.getContext('2d'), {
     type: 'doughnut',
     data: {
       labels: ['שכר עובדים','קניות ספקים','הוצאות קבועות','הוצאות נוספות'],
-      datasets: [{ data: [totalPayroll, totalPurchases, totalFixed, totalExtra].map(function(v){ return +v.toFixed(0); }), backgroundColor: ['#6366f1','#f59e0b','#ef4444','#8b5cf6'], borderWidth: 2 }]
+      datasets: [{ data: [totalPayroll, totalPurchases, totalFixed, totalExtra].map(function(v){ return +v.toFixed(0); }), backgroundColor: ['#6366f1','#f59e0b','#ef4444','#8b5cf6'], borderWidth: 2, borderColor: '#fff', hoverOffset: 8 }]
     },
-    options: { plugins: { legend: { position: 'bottom', labels: { font: { size: 12 } } } } }
+    options: {
+      cutout: '62%',
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 12 }, usePointStyle: true } },
+        tooltip: { callbacks: { label: function(ctx) { return ' ' + ctx.label + ': ' + ILS(ctx.parsed); } } },
+        datalabels: {
+          display: function(ctx) { return ctx.dataset.data[ctx.dataIndex] > 0; },
+          color: '#fff', font: { weight: '800', size: 12 },
+          formatter: function(v) { return expTotal > 0 ? (v / expTotal * 100).toFixed(0) + '%' : ''; }
+        }
+      }
+    }
   });
   // 6 חודשים אחרונים
-  var months = [], incArr = [], expArr = [];
+  var vatRate = toNum((S.settings || {}).vat) || 17;
+  var months = [], incArr = [], expArr = [], fcArr = [], lcArr = [];
   var y = parseInt(ym.slice(0,4)), m = parseInt(ym.slice(5,7));
   var MHE2 = ['ינו','פבר','מרץ','אפר','מאי','יונ','יול','אוג','ספט','אוק','נוב','דצמ'];
   for (var i = 5; i >= 0; i--) {
@@ -5593,14 +5658,19 @@ function initControlCharts(ym, totalPayroll, totalPurchases, totalFixed, totalEx
     var ymI = cy + '-' + (cm < 10 ? '0'+cm : cm);
     var zbI = getZBreakdown(ymI);
     var incI = zbI.cash + zbI.credit + zbI.wolt + zbI.hakafe;
+    var netSalesI = incI > 0 ? incI / (1 + vatRate/100) : 0;
     var ctrlI = S.control[ymI] || {};
     var hiI = ctrlI.hiddenFixed || [];
     var fixI = 0;
     getFixedExp().forEach(function(e){ if (hiI.indexOf(e.k) < 0) fixI += toNum(ctrlI[e.k]); });
-    var expI = getPayrollTotal(ymI) + getPurchasesTotal(ymI) + fixI + (ctrlI.extras||[]).reduce(function(s,e){return s+toNum(e.amount);},0);
+    var purchasesI = getPurchasesTotal(ymI);
+    var payrollI   = getPayrollTotal(ymI);
+    var expI = payrollI + purchasesI + fixI + (ctrlI.extras||[]).reduce(function(s,e){return s+toNum(e.amount);},0);
     months.push(MHE2[cm-1] + "'" + (cy+'').slice(2));
     incArr.push(+incI.toFixed(0));
     expArr.push(+expI.toFixed(0));
+    fcArr.push(netSalesI > 0 ? +(purchasesI / netSalesI * 100).toFixed(1) : 0);
+    lcArr.push(netSalesI > 0 ? +(payrollI   / netSalesI * 100).toFixed(1) : 0);
   }
   var c2 = document.getElementById('chart-ctrl-trend');
   if (c2) _chartInstances['ctrl-trend'] = new Chart(c2.getContext('2d'), {
@@ -5608,11 +5678,47 @@ function initControlCharts(ym, totalPayroll, totalPurchases, totalFixed, totalEx
     data: {
       labels: months,
       datasets: [
-        { label: 'הכנסות', data: incArr, backgroundColor: 'rgba(16,185,129,.7)', borderRadius: 6 },
-        { label: 'הוצאות', data: expArr, backgroundColor: 'rgba(239,68,68,.65)', borderRadius: 6 }
+        { label: 'הכנסות', data: incArr, backgroundColor: 'rgba(16,185,129,.75)', borderRadius: 6 },
+        { label: 'הוצאות', data: expArr, backgroundColor: 'rgba(239,68,68,.7)', borderRadius: 6 }
       ]
     },
-    options: { plugins: { legend: { position: 'bottom' } }, scales: { y: { ticks: { callback: function(v){ return '₪'+v.toLocaleString(); } } } } }
+    options: {
+      plugins: {
+        legend: { position: 'bottom', labels: { usePointStyle: true } },
+        tooltip: { callbacks: { label: function(ctx) { return ' ' + ctx.dataset.label + ': ' + ILS(ctx.parsed.y); } } },
+        datalabels: {
+          display: function(ctx) { return ctx.dataset.data[ctx.dataIndex] > 0; },
+          anchor: 'end', align: 'top', font: { size: 9, weight: '700' }, color: '#374151',
+          formatter: function(v) { return '₪' + (v/1000).toFixed(1) + 'K'; }
+        }
+      },
+      scales: { y: { ticks: { callback: function(v){ return '₪'+v.toLocaleString(); } } } }
+    }
+  });
+
+  var c3 = document.getElementById('chart-ctrl-costpct');
+  if (c3) _chartInstances['ctrl-costpct'] = new Chart(c3.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: months,
+      datasets: [
+        { label: 'Food Cost %',  data: fcArr, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.12)', fill: true, tension: .3, pointRadius: 3, pointHoverRadius: 6, borderWidth: 2.5 },
+        { label: 'Labor Cost %', data: lcArr, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,.12)', fill: true, tension: .3, pointRadius: 3, pointHoverRadius: 6, borderWidth: 2.5 }
+      ]
+    },
+    options: {
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { usePointStyle: true } },
+        tooltip: { callbacks: { label: function(ctx) { return ' ' + ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1) + '%'; } } },
+        datalabels: {
+          align: 'top', font: { size: 9, weight: '700' },
+          color: function(ctx) { return ctx.dataset.borderColor; },
+          formatter: function(v) { return v > 0 ? v.toFixed(0) + '%' : ''; }
+        }
+      },
+      scales: { y: { ticks: { callback: function(v){ return v + '%'; } } } }
+    }
   });
 }
 
