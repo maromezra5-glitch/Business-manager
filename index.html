@@ -822,9 +822,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-19d';
+var APP_VERSION  = '2026-06-19e';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-19e', t: '📌 עמודת התאריך נשארת דביקה בגלילה אופקית בדוח Z, טיפים וקניות' },
   { v: '2026-06-19d', t: '🎯 הודעות "מה חדש" מסוננות עכשיו לפי הרשאות — משתמש מוגבל יראה רק עדכונים רלוונטיים ללשוניות שלו' },
   { v: '2026-06-19c', t: '🐛 תיקון: הודעת שינוי הרשאות לא הופיעה אם המשתמש כבר היה מחובר כשהשינוי קרה' },
   { v: '2026-06-19b', t: '🔄 הודעה למנהל/ת משמרת בכניסה הראשונה אחרי שינוי הרשאות — פעם אחת בלבד לכל שינוי' },
@@ -1126,7 +1127,7 @@ function dateCell(d, wd, ds) {
   var clr = wd === 6 ? 'var(--warning)' : wd === 5 ? '#7B85B0' : 'var(--text-sec)';
   var bg  = wd === 6 ? 'var(--warning-bg)' : wd === 5 ? '#EEEEF8' : 'var(--bg)';
   var mo  = ds ? '<span style="font-size:11px;font-weight:600;color:var(--text-muted)">/' + ds.slice(5,7) + '</span>' : '';
-  return '<td style="white-space:nowrap;padding-right:10px">' +
+  return '<td class="sticky-col" style="white-space:nowrap;padding-right:10px">' +
     '<span style="font-size:15px;font-weight:800;margin-left:4px">' + d + mo + '</span>' +
     '<span style="font-size:11.5px;font-weight:700;color:' + clr + ';background:' + bg + ';padding:2px 9px;border-radius:10px;margin-right:3px">' + DHE[wd] + '</span>' +
     '</td>';
@@ -2585,7 +2586,7 @@ function renderZ() {
 
   function zNetLabel(v) { return v > 0 ? ILS(v / vatFactor) : '—'; }
 
-  var theadCells = '<th style="min-width:70px">יום</th><th style="min-width:80px"># דוח</th>';
+  var theadCells = '<th class="sticky-col" style="min-width:70px">יום</th><th style="min-width:80px"># דוח</th>';
   fields.forEach(function(f){ theadCells += '<th style="min-width:90px">' + f.l + '</th>'; });
   theadCells += '<th style="min-width:100px">📊 סה"כ יומי</th>';
 
@@ -2604,7 +2605,7 @@ function renderZ() {
       '<tbody>' + tbody + '</tbody>' +
       '<tfoot>' +
         '<tr class="tr-total">' +
-          '<td><strong>סה"כ עם מע"מ</strong></td>' +
+          '<td class="sticky-col"><strong>סה"כ עם מע"מ</strong></td>' +
           '<td></td>' +
           '<td id="zf-cash"><strong>'   + ILS(totals.cash)   + '</strong></td>' +
           '<td id="zf-credit"><strong>' + ILS(totals.credit) + '</strong></td>' +
@@ -2613,7 +2614,7 @@ function renderZ() {
           '<td id="zf-grand"><strong style="color:var(--success);font-size:15px">' + ILS(grand) + '</strong></td>' +
         '</tr>' +
         '<tr>' +
-          '<td style="' + nvStyle + '">ללא מע"מ (' + vat + '%)</td>' +
+          '<td class="sticky-col" style="' + nvStyle + '">ללא מע"מ (' + vat + '%)</td>' +
           '<td></td>' +
           '<td id="zf-cash-net" style="' + nvStyle + '">'   + zNetLabel(totals.cash)   + '</td>' +
           '<td id="zf-credit-net" style="' + nvStyle + '">' + zNetLabel(totals.credit) + '</td>' +
@@ -3506,14 +3507,14 @@ function renderTips() {
     '</div>' +
     '<div class="table-wrap"><table>' +
       '<thead><tr>' +
-        '<th style="min-width:120px">יום</th>' +
+        '<th class="sticky-col" style="min-width:120px">יום</th>' +
         thShifts +
         '<th style="min-width:110px">💸 סה"כ</th>' +
         '<th style="min-width:80px">עובדים</th>' +
       '</tr></thead>' +
       '<tbody>' + tbody + '</tbody>' +
       '<tfoot><tr class="tr-total">' +
-        '<td><strong>סה"כ חודשי</strong></td>' +
+        '<td class="sticky-col"><strong>סה"כ חודשי</strong></td>' +
         tfShifts +
         '<td><strong style="color:var(--primary);font-size:15px">' + ILS(tots.total) + '</strong></td>' +
         '<td></td>' +
