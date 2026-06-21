@@ -63,6 +63,10 @@
     listMembers:   function(businessId) { return getDocs(query(collection(fbDb, 'users'), where('businessId', '==', businessId))); },
     removeMember:  function(uid) { return deleteDoc(doc(fbDb, 'users', uid)); },
 
+    blockUser:     function(uid, businessId) { return setDoc(doc(fbDb, 'blockedUsers', uid), {blockedAt: Date.now(), businessId: businessId}); },
+    unblockUser:   function(uid) { return deleteDoc(doc(fbDb, 'blockedUsers', uid)).catch(function(){}); },
+    getBlockedDoc: function(uid) { return getDoc(doc(fbDb, 'blockedUsers', uid)); },
+
     createInvite: function(email, businessId, role, allowedTabs) { return setDoc(doc(fbDb, 'invites', email.toLowerCase()), {businessId: businessId, role: role, allowedTabs: allowedTabs || [], createdAt: Date.now()}); },
     getInvite:    function(email) { return getDoc(doc(fbDb, 'invites', email.toLowerCase())); },
     deleteInvite: function(email) { return deleteDoc(doc(fbDb, 'invites', email.toLowerCase())); },
@@ -817,9 +821,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-18z';
+var APP_VERSION  = '2026-06-19a';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-19a', t: '🔒 תיקון אבטחה: הסרת משתמש חוסמת אותו לגמרי מכניסה חזרה, עד הזמנה מחדש' },
   { v: '2026-06-18z', t: '🐛 תיקון: קישורי הזמנה במייל לא היו לחיצים — עברנו משירות Gmail (OAuth) ל-SMTP ב-EmailJS' },
   { v: '2026-06-18y', t: '🎨 פונט עברי קריא יותר בכל האתר (Rubik) · 👤 מסך ניהול משתמשים שודרג — כרטיסים ברורים, כפתורי שמירה בולטים, ספירת חברי צוות' },
   { v: '2026-06-18x', t: '📧 הזמנת משתמש/ת שולחת עכשיו מייל אמיתי עם קישור להרשמה (EmailJS)' },
@@ -6055,8 +6060,9 @@ async function removeUserMember(uid) {
   });
   if (!ok) return;
   try {
+    await window.fb.blockUser(uid, currentBusinessId);
     await window.fb.removeMember(uid);
-    toast('המשתמש הוסר', 'ok');
+    toast('המשתמש הוסר — לא יוכל/תוכל להתחבר עד שתזמין/י מחדש', 'ok');
     openUserMgmt();
   } catch (e) {
     toast('שגיאה בהסרת המשתמש', 'err');
@@ -6198,7 +6204,7 @@ async function _resolveBusinessAndRole(user) {
     var u = userSnap.data();
     return {businessId: u.businessId, role: u.role, allowedTabs: u.allowedTabs || [], name: u.name || '', seenVersion: u.seenVersion || ''};
   }
-  // 2) Were they invited as a shift manager to someone else's business?
+  // 2) Were they invited (fresh, or re-invited after a previous removal)?
   if (user.email) {
     try {
       var inviteSnap = await window.fb.getInvite(user.email);
@@ -6206,11 +6212,22 @@ async function _resolveBusinessAndRole(user) {
         var inv = inviteSnap.data();
         await window.fb.createUserDoc(user.uid, inv.businessId, inv.role, user.email, inv.allowedTabs || [], signupName);
         await window.fb.deleteInvite(user.email);
+        await window.fb.unblockUser(user.uid); // legitimately re-invited — clear any prior block
         return {businessId: inv.businessId, role: inv.role, allowedTabs: inv.allowedTabs || [], name: signupName, seenVersion: ''};
       }
-    } catch (e) { /* fall through to owner default */ }
+    } catch (e) { /* fall through */ }
   }
-  // 3) Brand-new signup with no invite — they own their own new business
+  // 3) Were they explicitly removed before? Don't let them spin up a new business as a workaround.
+  try {
+    var blockedSnap = await window.fb.getBlockedDoc(user.uid);
+    if (blockedSnap.exists()) {
+      throw { message: 'ACCESS_REVOKED' };
+    }
+  } catch (e) {
+    if (e && e.message === 'ACCESS_REVOKED') throw e;
+    // any other error (e.g. offline) — don't block a legitimate new signup over a failed read
+  }
+  // 4) Brand-new signup with no invite, not blocked — they own their own new business
   await window.fb.createUserDoc(user.uid, user.uid, 'owner', user.email, [], signupName);
   return {businessId: user.uid, role: 'owner', allowedTabs: [], name: signupName, seenVersion: ''};
 }
@@ -6225,6 +6242,11 @@ async function authLoadAndShowApp(user) {
     currentUserName = resolved.name || '';
     currentSeenVersion = resolved.seenVersion || '';
   } catch (e) {
+    if (e && e.message === 'ACCESS_REVOKED') {
+      toast('⚠️ הגישה שלך למערכת הוסרה — פנה/י לבעל/ת העסק לקבלת הזמנה מחדש', 'err');
+      await _forceSignOut();
+      return;
+    }
     toast('⚠️ שגיאה בזיהוי החשבון — עובד מהנתונים המקומיים', 'err');
     currentBusinessId = user.uid;
     currentRole = 'owner';
