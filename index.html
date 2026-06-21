@@ -279,6 +279,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 /* ── TABLE INPUTS ── */
 .ti { padding: 6px 8px; border: 1.5px solid var(--border); border-radius: var(--r-xs); font-size: 13.5px; text-align: center; background: #fff; transition: border-color .15s, box-shadow .15s; font-family: inherit; }
 .ti:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(217,119,87,.14); }
+.field-saved-flash { border-color: #10b981 !important; box-shadow: 0 0 0 3px rgba(16,185,129,.22) !important; }
 .ti-w60 { width: 60px; }
 .ti-w70 { width: 70px; }
 .ti-w80 { width: 80px; }
@@ -595,6 +596,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 
   .table-wrap { overflow-x: auto; }
   table { min-width: 540px; }
+  table th, table td { padding: 6px 7px; font-size: 12.5px; }
+  .ti-w80 { width: 56px; }
+  .ti-w70 { width: 52px; }
+  .ti-w60 { width: 46px; }
 
   .btn { padding: 9px 14px; font-size: 13px; }
   .btn-primary { font-size: 14px; }
@@ -821,9 +826,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-21e';
+var APP_VERSION  = '2026-06-21f';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-21f', t: '⌨️ ניווט מהיר ב-Enter בין שורות בטבלאות הזנה · ✅ אינדיקציית "נשמר" מיידית לכל שדה · ⚠️ התראות אוטומטיות על שינויים חריגים בהשוואת חודשים · 🗑️ מעקב ביטולים/הנחות בדוח המכירות היומי · 📱 דחיסת טבלאות במובייל' },
   { v: '2026-06-21e', t: '🧭 אשף הגדרה ראשוני שואל סוג עסק בשלב הראשון (תפקידים+דמו מותאמים) · 🏷️ הוסר מותג "מנהל בית הקפה" הקבוע מתלושי שכר · 📋 יומן פעולות מציג מי ביצע ומתעד הזמנות/הרשאות · 🗓️ כפתור "העתק מאתמול" בהזנת שעות · 🔒 חיסום מספרים שליליים בדוח מכירות' },
   { v: '2026-06-21d', t: '💸 לשונית "טיפים" מוסתרת כעת גם למספרה/קוסמטיקה וסטודיו — מוצגת רק למסעדה/קפה' },
   { v: '2026-06-21c', t: '🧹 הוסר כפתור "מה חדש?" מהכותרת' },
@@ -1955,6 +1961,11 @@ function hoursToHM(dec) {
   var m = totalMin % 60;
   return h + ':' + String(m).padStart(2, '0');
 }
+function flashSaved(inp) {
+  inp.classList.add('field-saved-flash');
+  clearTimeout(inp._flashTimer);
+  inp._flashTimer = setTimeout(function(){ inp.classList.remove('field-saved-flash'); }, 700);
+}
 function formatDayField(inp) {
   var val = parseHM(inp.value);
   if (val < 0) val = 0;
@@ -1989,6 +2000,7 @@ function saveDayField(inp) {
   if (!S.dailyHours[ds][stKey]) S.dailyHours[ds][stKey] = {};
   S.dailyHours[ds][stKey][fk] = val;
   persist();
+  flashSaved(inp);
 }
 
 
@@ -2623,6 +2635,7 @@ function renderZ() {
   var fields = allFields.filter(function(f){ return hiddenChannels.indexOf(f.k) === -1; });
 
   var totals = {cash:0, credit:0, wolt:0, hakafe:0};
+  var voidsTotal = 0;
   var tbody = '';
   var vat = toNum((S.settings || {}).vat) || 17;
   var vatFactor = 1 + vat / 100;
@@ -2632,6 +2645,7 @@ function renderZ() {
     var wd  = getDow(ds);
     var rec = (S.zReports[ds] || {});
     allFields.forEach(function(f){ totals[f.k] += toNum(rec[f.k]); });
+    voidsTotal += toNum(rec.voids);
     var dt = allFields.reduce(function(s,f){ return s + toNum(rec[f.k]); }, 0);
     var dtNet = dt > 0 ? dt / vatFactor : 0;
 
@@ -2647,6 +2661,11 @@ function renderZ() {
         ' value="' + (toNum(rec[f.k]) || '') + '" placeholder="0"' +
         ' oninput="onZInput(this)"></td>';
     });
+    tbody += '<td><input type="number" class="ti ti-w80" min="0" step="1"' +
+      ' data-ds="' + ds + '" data-fk="voids"' +
+      ' value="' + (toNum(rec.voids) || '') + '" placeholder="0" title="סכום ביטולים/הנחות — לתיעוד בלבד, לא נכלל בהכנסות"' +
+      ' style="border-color:#fca5a5;background:#fff7f7"' +
+      ' oninput="onZInput(this)"></td>';
     tbody += '<td data-zrt="' + ds + '">' +
       '<strong style="color:' + (dt>0?'var(--success)':'var(--text-muted)') + '">' + (dt>0?ILS(dt):'—') + '</strong>' +
       (dtNet > 0 ? '<div style="font-size:10.5px;color:#2563eb;font-weight:600;margin-top:1px">ללא מע"מ: ' + ILS(dtNet) + '</div>' : '') +
@@ -2661,6 +2680,7 @@ function renderZ() {
 
   var theadCells = '<th class="sticky-col" style="min-width:70px">יום</th><th style="min-width:80px"># דוח</th>';
   fields.forEach(function(f){ theadCells += '<th style="min-width:90px">' + f.l + '</th>'; });
+  theadCells += '<th style="min-width:90px;color:#b91c1c">🗑️ ביטולים/הנחות</th>';
   theadCells += '<th style="min-width:100px">📊 סה"כ יומי</th>';
 
   var nvStyle = 'color:#2563eb;font-size:12px;font-weight:600';
@@ -2668,6 +2688,7 @@ function renderZ() {
   var summaryCardsHtml = fields.map(function(f) {
     return '<div class="s-card"><div class="s-label">' + f.l + '</div><div class="s-value" id="zs-' + f.k + '">' + ILS(totals[f.k]) + '</div><div style="' + nvStyle + ';margin-top:2px" id="zs-' + f.k + '-net">ללא מע"מ: ' + zNetLabel(totals[f.k]) + '</div></div>';
   }).join('') +
+    '<div class="s-card" style="border-color:#fecaca"><div class="s-label" style="color:#b91c1c">🗑️ ביטולים/הנחות</div><div class="s-value" id="zs-voids" style="color:#b91c1c">' + ILS(voidsTotal) + '</div><div style="font-size:11px;color:var(--text-muted);margin-top:2px">לתיעוד בלבד, לא בהכנסות</div></div>' +
     '<div class="s-card green-card"><div class="s-label">📊 סה"כ חודש</div><div class="s-value green" id="zs-grand">' + ILS(grand) + '</div><div style="font-size:12px;font-weight:700;color:#1d4ed8;margin-top:2px" id="zs-grand-net">ללא מע"מ: ' + ILS(grandNet) + '</div></div>';
 
   var tfootTotalCells = fields.map(function(f) {
@@ -2687,12 +2708,14 @@ function renderZ() {
           '<td class="sticky-col"><strong>סה"כ עם מע"מ</strong></td>' +
           '<td></td>' +
           tfootTotalCells +
+          '<td id="zf-voids"><strong style="color:#b91c1c">' + ILS(voidsTotal) + '</strong></td>' +
           '<td id="zf-grand"><strong style="color:var(--success);font-size:15px">' + ILS(grand) + '</strong></td>' +
         '</tr>' +
         '<tr>' +
           '<td class="sticky-col" style="' + nvStyle + '">ללא מע"מ (' + vat + '%)</td>' +
           '<td></td>' +
           tfootNetCells +
+          '<td></td>' +
           '<td id="zf-grand-net" style="' + nvStyle + '"><strong>' + ILS(grandNet) + '</strong></td>' +
         '</tr>' +
       '</tfoot>' +
@@ -2716,6 +2739,7 @@ function onZInput(inp) {
     S.zReports[ds][fk] = numVal;
   }
   persist();
+  flashSaved(inp);
 
   var rec = S.zReports[ds];
   var fkeys = ['cash','credit','wolt','hakafe'];
@@ -2726,9 +2750,11 @@ function onZInput(inp) {
   var ym   = document.getElementById('z-month').value;
   var days = daysInMonth(ym);
   var totals = {cash:0, credit:0, wolt:0, hakafe:0};
+  var voidsTotal2 = 0;
   for (var d2 = 1; d2 <= days; d2++) {
     var r2 = S.zReports[dateFull(ym,d2)] || {};
     fkeys.forEach(function(k){ totals[k] += toNum(r2[k]); });
+    voidsTotal2 += toNum(r2.voids);
   }
   var grand = Object.values(totals).reduce(function(a,b){return a+b;},0);
   var vat2 = toNum((S.settings || {}).vat) || 17;
@@ -2755,6 +2781,8 @@ function onZInput(inp) {
   if(g('zf-wolt-net'))   g('zf-wolt-net').textContent   = zn(totals.wolt);
   if(g('zf-hakafe-net')) g('zf-hakafe-net').textContent = zn(totals.hakafe);
   if(g('zf-grand-net'))  g('zf-grand-net').innerHTML    = '<strong>' + ILS(grand / vatF2) + '</strong>';
+  if(g('zs-voids'))      g('zs-voids').textContent      = ILS(voidsTotal2);
+  if(g('zf-voids'))      g('zf-voids').innerHTML        = '<strong style="color:#b91c1c">' + ILS(voidsTotal2) + '</strong>';
 }
 
 /* ================================================================
@@ -4256,6 +4284,26 @@ function buildMonthComparison(ym, curIncome, curExpenses, curPl, curFc, curLc) {
     ['👥 Labor Cost %',prevLc.toFixed(1)+'%', curLc.toFixed(1)+'%', chg(curLc, prevLc, false)],
   ];
 
+  var ANOMALY_THRESHOLD = 25;
+  var anomalies = [];
+  function checkAnomaly(label, cur, prev, higherIsBetter) {
+    if (!prev) return;
+    var pct = ((cur - prev) / Math.abs(prev)) * 100;
+    var bad = higherIsBetter ? pct < 0 : pct > 0;
+    if (bad && Math.abs(pct) >= ANOMALY_THRESHOLD) {
+      anomalies.push(label + ' ' + (pct > 0 ? 'עלו' : 'ירדו') + ' ' + Math.abs(pct).toFixed(0) + '% לעומת ' + prevLabel);
+    }
+  }
+  checkAnomaly('💰 הכנסות', curIncome, prevIncome, true);
+  checkAnomaly('📉 הוצאות', curExpenses, prevExpenses, false);
+  checkAnomaly('🥗 ' + costPctLabel(), curFc, prevFc, false);
+  checkAnomaly('👥 Labor Cost %', curLc, prevLc, false);
+  var anomalyHtml = anomalies.length ?
+    '<div style="margin-bottom:16px;padding:12px 16px;background:#fef2f2;border:1.5px solid #fecaca;border-radius:var(--r-sm)">' +
+      '<div style="font-weight:800;color:#b91c1c;font-size:13.5px;margin-bottom:6px">⚠️ שינוי חריג שדורש בדיקה</div>' +
+      anomalies.map(function(a){ return '<div style="font-size:13px;color:#7f1d1d;padding:2px 0">• ' + a + '</div>'; }).join('') +
+    '</div>' : '';
+
   var tRows = rows.map(function(r){
     return '<tr><td style="font-weight:700;padding:10px 14px">' + r[0] + '</td>' +
       '<td style="text-align:center;color:var(--text-muted);padding:10px 14px">' + r[1] + '</td>' +
@@ -4265,6 +4313,7 @@ function buildMonthComparison(ym, curIncome, curExpenses, curPl, curFc, curLc) {
 
   return '<div class="card" style="margin-top:24px">' +
     '<div class="card-title" style="margin-bottom:16px">📊 השוואה לחודש הקודם</div>' +
+    anomalyHtml +
     '<div class="table-wrap"><table>' +
       '<thead><tr>' +
         '<th>מדד</th>' +
@@ -4628,21 +4677,23 @@ function exportZ() {
   var visIdx  = allKeys.map(function(k,i){ return i; }).filter(function(i){ return hiddenChannels.indexOf(allKeys[i]) === -1; });
   var lbls    = visIdx.map(function(i){ return allLbls[i]; });
   var data    = [['דוח Z — ' + mn], [],
-    ['תאריך','יום'].concat(lbls).concat(['סה"כ יומי (עם מע"מ)','סה"כ יומי (ללא מע"מ)'])];
+    ['תאריך','יום'].concat(lbls).concat(['🗑️ ביטולים/הנחות','סה"כ יומי (עם מע"מ)','סה"כ יומי (ללא מע"מ)'])];
   var t = [0,0,0,0];
+  var voidsT = 0;
   for (var d = 1; d <= days; d++) {
     var ds    = dateFull(ym, d);
     var r     = S.zReports[ds] || {};
     var vvAll = [toNum(r.cash),toNum(r.credit),toNum(r.wolt),toNum(r.hakafe)];
     vvAll.forEach(function(x,i){ t[i] += x; });
+    voidsT += toNum(r.voids);
     var dt    = vvAll.reduce(function(a,b){return a+b;},0);
     var vv    = visIdx.map(function(i){ return vvAll[i]; });
-    data.push([ds, DHE[getDow(ds)]].concat(vv).concat([dt, +(dt/vatF).toFixed(2)]));
+    data.push([ds, DHE[getDow(ds)]].concat(vv).concat([toNum(r.voids), dt, +(dt/vatF).toFixed(2)]));
   }
   var gt   = t.reduce(function(a,b){return a+b;},0);
   var tVis = visIdx.map(function(i){ return t[i]; });
-  data.push([], ['סה"כ חודשי (עם מע"מ)',''].concat(tVis).concat([gt, +(gt/vatF).toFixed(2)]));
-  data.push(['סה"כ חודשי (ללא מע"מ ' + vat + '%)',''].concat(tVis.map(function(v){return +(v/vatF).toFixed(2);})).concat([+(gt/vatF).toFixed(2),'']));
+  data.push([], ['סה"כ חודשי (עם מע"מ)',''].concat(tVis).concat([voidsT, gt, +(gt/vatF).toFixed(2)]));
+  data.push(['סה"כ חודשי (ללא מע"מ ' + vat + '%)',''].concat(tVis.map(function(v){return +(v/vatF).toFixed(2);})).concat(['', +(gt/vatF).toFixed(2),'']));
   var ws = XLSX.utils.aoa_to_sheet(data);
   var wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, mn);
@@ -7131,7 +7182,24 @@ function dismissSetupWizard() {
 }
 
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') closeModal();
+  if (e.key === 'Escape') { closeModal(); return; }
+  if (e.key !== 'Enter') return;
+  var el = e.target;
+  if (!el || el.tagName !== 'INPUT') return;
+  var td = el.closest('td');
+  if (!td) return;
+  var tr = td.closest('tr');
+  if (!tr || !tr.parentElement || tr.parentElement.tagName !== 'TBODY') return;
+  var cellIndex = Array.prototype.indexOf.call(tr.children, td);
+  var nextTr = tr.nextElementSibling;
+  if (!nextTr) return;
+  var nextTd = nextTr.children[cellIndex];
+  var nextInput = nextTd && nextTd.querySelector('input');
+  if (nextInput) {
+    e.preventDefault();
+    nextInput.focus();
+    if (nextInput.select) nextInput.select();
+  }
 });
 </script>
 </body>
