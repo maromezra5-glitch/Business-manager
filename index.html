@@ -806,9 +806,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-18t';
+var APP_VERSION  = '2026-06-18u';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-18u', t: '📅 כל שדות התאריך באתר (כולל תוספת/מפרעה במילוי שעות חודשי) עברו לבחירת יום/חודש/שנה כמו בכרטיס עובד' },
   { v: '2026-06-18t', t: '🎨 תצוגות יומי וחודשי בלשונית שעות עוצבו מחדש כמו התצוגה השבועית — עיגולי שם צבעוניים, תאי שעות צבעוניים, כרטיס ניווט' },
   { v: '2026-06-18s', t: '🧹 ניקוי קוד פנימי בתאי השעות — אין שינוי בהתנהגות' },
   { v: '2026-06-18r', t: '⏱ מילוי שעות עבודה בפורמט שעות:דקות (למשל 0:40) במקום מספר עשרוני' },
@@ -1784,6 +1785,54 @@ function setHoursDate(ds) {
   renderHoursDaily();
 }
 
+/* ── Generic day/month/year dropdown date picker (same UX as employee DOB) ── */
+function buildDateDropdowns(idPrefix, value, onchangeFn) {
+  var parts = value ? value.split('-') : ['', '', ''];
+  var y = parts[0] || '', m = parts[1] || '', d = parts[2] || '';
+  var dayOpts = '<option value="">יום</option>';
+  for (var di = 1; di <= 31; di++) {
+    var dv = String(di).padStart(2, '0');
+    dayOpts += '<option value="' + dv + '"' + (d === dv ? ' selected' : '') + '>' + di + '</option>';
+  }
+  var moOpts = '<option value="">חודש</option>';
+  MHE.forEach(function(mn, i) {
+    var mv = String(i + 1).padStart(2, '0');
+    moOpts += '<option value="' + mv + '"' + (m === mv ? ' selected' : '') + '>' + mn + '</option>';
+  });
+  var curYear = new Date().getFullYear();
+  var yrOpts = '<option value="">שנה</option>';
+  for (var yi = curYear + 2; yi >= curYear - 5; yi--) yrOpts += '<option value="' + yi + '"' + (y === String(yi) ? ' selected' : '') + '>' + yi + '</option>';
+  var sel = 'style="flex:1;min-width:48px;padding:7px 4px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:12px;background:var(--surface);outline:none;cursor:pointer;text-align:center"';
+  return '<div style="display:flex;gap:3px;align-items:center">' +
+    '<select id="' + idPrefix + '-d" ' + sel + ' onchange="' + onchangeFn + '">' + dayOpts + '</select>' +
+    '<select id="' + idPrefix + '-m" ' + sel + ' onchange="adjustDateDropdownDay(\'' + idPrefix + '\');' + onchangeFn + '">' + moOpts + '</select>' +
+    '<select id="' + idPrefix + '-y" ' + sel + ' onchange="adjustDateDropdownDay(\'' + idPrefix + '\');' + onchangeFn + '">' + yrOpts + '</select>' +
+  '</div>';
+}
+function adjustDateDropdownDay(idPrefix) {
+  var dSel = document.getElementById(idPrefix + '-d');
+  var mSel = document.getElementById(idPrefix + '-m');
+  var ySel = document.getElementById(idPrefix + '-y');
+  if (!dSel || !mSel || !ySel) return;
+  var m = parseInt(mSel.value, 10);
+  var y = parseInt(ySel.value, 10) || new Date().getFullYear();
+  if (!m) return;
+  var maxDay = new Date(y, m, 0).getDate();
+  var curVal = parseInt(dSel.value, 10) || 0;
+  Array.prototype.forEach.call(dSel.options, function(opt) {
+    if (!opt.value) return;
+    opt.disabled = parseInt(opt.value, 10) > maxDay;
+  });
+  if (curVal > maxDay) dSel.value = String(maxDay).padStart(2, '0');
+}
+function getDateDropdownValue(idPrefix) {
+  var d = (document.getElementById(idPrefix + '-d') || {}).value || '';
+  var m = (document.getElementById(idPrefix + '-m') || {}).value || '';
+  var y = (document.getElementById(idPrefix + '-y') || {}).value || '';
+  if (!d || !m || !y) return '';
+  return y + '-' + m + '-' + d;
+}
+
 function parseHM(str) {
   str = (str || '').trim();
   if (!str) return 0;
@@ -2102,7 +2151,7 @@ function renderHoursDaily() {
         '<div style="font-size:21px;font-weight:900;color:var(--text)">' + dateDisp + '</div>' +
         '<div style="font-size:12px;font-weight:700;color:' + (wd===6?'var(--warning)':'var(--success)') + ';margin-top:5px">' + DHE[wd] + (wd===6?' 🔶':(ds===today?' · ✅ היום':'')) + '</div>' +
       '</div>' +
-      '<input type="date" class="ti" style="padding:8px 10px;border-radius:8px" value="' + ds + '" onchange="setHoursDate(this.value)">' +
+      buildDateDropdowns('hdate-pick', ds, "setHoursDate(getDateDropdownValue('hdate-pick'))") +
       (ds !== today ? '<button class="btn btn-sm" onclick="setHoursDate(\'' + today + '\')" style="border-radius:8px">📅 היום</button>' : '') +
       '<button class="btn btn-secondary" onclick="stepDate(1)" style="padding:10px 20px;font-size:16px;border-radius:10px;font-weight:700">←</button>' +
     '</div>';
@@ -2277,12 +2326,12 @@ function renderHoursMonthly() {
       tbody += '<td style="text-align:center;background:' + rowBg + '">' + (agg.travelDays || '—') + '</td>';
       tbody += '<td style="background:' + rowBg + '">' +
         '<input type="number" class="ti ti-w80" min="0" data-meid="' + emp.id + '" data-mkey="bonus" value="' + (monthly.bonus||'') + '" placeholder="0" oninput="saveMonthExtra(this,\'' + ym + '\')">' +
-        '<br><input type="date" class="ti" style="width:130px;margin-top:3px;font-size:11px" data-meid="' + emp.id + '" data-mkey="bonusDate" value="' + escHtml(monthly.bonusDate||'') + '" onchange="saveMonthExtra(this,\'' + ym + '\')" title="תאריך תוספת">' +
+        '<div style="margin-top:3px" title="תאריך תוספת">' + buildDateDropdowns('bonusdate-' + emp.id, monthly.bonusDate||'', "saveMonthExtra({dataset:{meid:'" + emp.id + "',mkey:'bonusDate'},value:getDateDropdownValue('bonusdate-" + emp.id + "')},'" + ym + "')") + '</div>' +
         '<br><input type="text" class="ti" style="width:130px;margin-top:3px;font-size:11px" data-meid="' + emp.id + '" data-mkey="bonusNote" value="' + escHtml(monthly.bonusNote||'') + '" placeholder="💬 סיבה / הערה" oninput="saveMonthExtra(this,\'' + ym + '\')" title="סיבת התוספת">' +
       '</td>';
       tbody += '<td style="background:' + rowBg + '">' +
         '<input type="number" class="ti ti-w80" min="0" data-meid="' + emp.id + '" data-mkey="advance" value="' + (monthly.advance||'') + '" placeholder="0" oninput="saveMonthExtra(this,\'' + ym + '\')">' +
-        '<br><input type="date" class="ti" style="width:130px;margin-top:3px;font-size:11px" data-meid="' + emp.id + '" data-mkey="advanceDate" value="' + escHtml(monthly.advanceDate||'') + '" onchange="saveMonthExtra(this,\'' + ym + '\')" title="תאריך מפרעה">' +
+        '<div style="margin-top:3px" title="תאריך מפרעה">' + buildDateDropdowns('advdate-' + emp.id, monthly.advanceDate||'', "saveMonthExtra({dataset:{meid:'" + emp.id + "',mkey:'advanceDate'},value:getDateDropdownValue('advdate-" + emp.id + "')},'" + ym + "')") + '</div>' +
       '</td>';
       tbody += '<td style="background:' + rowBg + '"><input type="text" class="ti ti-w100" data-meid="' + emp.id + '" data-mkey="notes" value="' + escHtml(monthly.notes||'') + '" placeholder="הערות" oninput="saveMonthExtra(this,\'' + ym + '\')"></td>';
       tbody += '</tr>';
