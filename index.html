@@ -822,9 +822,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-19e';
+var APP_VERSION  = '2026-06-19f';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-19f', t: '👁️ תצוגה מקדימה להרשאות — רואים בדיוק אילו לשוניות יראה משתמש לפני שמירה/שליחת הזמנה' },
   { v: '2026-06-19e', t: '📌 עמודת התאריך נשארת דביקה בגלילה אופקית בדוח Z, טיפים וקניות' },
   { v: '2026-06-19d', t: '🎯 הודעות "מה חדש" מסוננות עכשיו לפי הרשאות — משתמש מוגבל יראה רק עדכונים רלוונטיים ללשוניות שלו' },
   { v: '2026-06-19c', t: '🐛 תיקון: הודעת שינוי הרשאות לא הופיעה אם המשתמש כבר היה מחובר כשהשינוי קרה' },
@@ -5941,6 +5942,29 @@ function readCheckedTabs(containerId) {
   return out;
 }
 
+function previewUserPermissions(containerId) {
+  var allowed = readCheckedTabs(containerId);
+  var tabsHtml = ALL_TABS.map(function(t) {
+    var on = allowed.indexOf(t) >= 0;
+    return '<span style="display:inline-flex;align-items:center;gap:4px;padding:7px 14px;border-radius:8px;margin:4px;font-size:13px;font-weight:700;' +
+      (on ? 'background:var(--primary);color:#fff' : 'background:#f3f4f6;color:#9ca3af;text-decoration:line-through') + '">' +
+      (on ? '' : '🔒 ') + (TAB_LABELS[t] || t) +
+    '</span>';
+  }).join('');
+  var html =
+    '<div id="perm-preview-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10100;display:flex;align-items:center;justify-content:center;direction:rtl;padding:16px">' +
+      '<div style="background:#fff;border-radius:18px;padding:28px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:right">' +
+        '<div style="font-size:18px;font-weight:800;margin-bottom:6px">👁️ תצוגה מקדימה</div>' +
+        '<div style="color:var(--text-muted);font-size:13px;margin-bottom:14px">כך ייראה סרגל הלשוניות למשתמש/ת עם ההרשאות שסימנת כרגע (לפני שמירה):</div>' +
+        '<div style="display:flex;flex-wrap:wrap;padding:12px;background:var(--bg);border-radius:var(--r-sm);margin-bottom:14px">' + tabsHtml + '</div>' +
+        (allowed.length ? '' : '<div style="color:var(--error);font-size:13px;margin-bottom:14px">⚠️ לא נבחרה אף לשונית — המשתמש/ת יראה/תראה הודעת "אין הרשאות גישה" בלבד</div>') +
+        '<div style="font-size:12px;color:var(--text-muted);line-height:1.6">בנוסף, כל כפתורי הניהול (גיבוי, הגדרות עסק, יומן פעולות, ניהול משתמשים, איפוס נתונים) לא יהיו זמינים — אלה שמורים לבעל/ת העסק בלבד.</div>' +
+        '<button onclick="document.getElementById(\'perm-preview-overlay\').remove()" style="width:100%;margin-top:18px;padding:12px;background:#D97757;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer">סגור</button>' +
+      '</div>' +
+    '</div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
 function _sectionHeader(text) {
   return '<div style="font-size:12.5px;font-weight:800;color:var(--text-muted);letter-spacing:.3px;margin:18px 0 8px;text-transform:uppercase">' + text + '</div>';
 }
@@ -5973,7 +5997,10 @@ async function openUserMgmt() {
         '</div>' +
         '<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:4px">הרשאות גישה — אילו לשוניות יוכל/תוכל לראות:</div>' +
         buildTabCheckboxes(cid, m.allowedTabs) +
-        '<button class="btn btn-primary btn-sm" onclick="saveMemberPermissions(\'' + d.id + '\',\'' + cid + '\')" style="margin-top:8px">💾 שמור שינויי הרשאות</button>' +
+        '<div style="display:flex;gap:8px;margin-top:8px">' +
+          '<button class="btn btn-primary btn-sm" onclick="saveMemberPermissions(\'' + d.id + '\',\'' + cid + '\')">💾 שמור שינויי הרשאות</button>' +
+          '<button class="btn btn-secondary btn-sm" onclick="previewUserPermissions(\'' + cid + '\')">👁️ תצוגה מקדימה</button>' +
+        '</div>' +
       '</div>';
     });
     var ii = 0;
@@ -5988,7 +6015,10 @@ async function openUserMgmt() {
         '</div>' +
         '<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:4px">הרשאות שיקבל/תקבל בהרשמה:</div>' +
         buildTabCheckboxes(cid, inv.allowedTabs) +
-        '<button class="btn btn-primary btn-sm" onclick="saveInvitePermissions(\'' + escHtml(d.id) + '\',\'' + cid + '\')" style="margin-top:8px">💾 שמור שינויי הרשאות</button>' +
+        '<div style="display:flex;gap:8px;margin-top:8px">' +
+          '<button class="btn btn-primary btn-sm" onclick="saveInvitePermissions(\'' + escHtml(d.id) + '\',\'' + cid + '\')">💾 שמור שינויי הרשאות</button>' +
+          '<button class="btn btn-secondary btn-sm" onclick="previewUserPermissions(\'' + cid + '\')">👁️ תצוגה מקדימה</button>' +
+        '</div>' +
       '</div>';
     });
   } catch (e) {
@@ -6008,7 +6038,10 @@ async function openUserMgmt() {
       '<input type="email" class="form-control" id="invite-email-inp" placeholder="כתובת אימייל" style="margin-bottom:8px">' +
       '<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:4px">הרשאות גישה — אילו לשוניות יראה/תראה:</div>' +
       buildTabCheckboxes(newCid, []) +
-      '<button class="btn btn-primary" onclick="sendUserInvite()" style="margin-top:10px">📧 שלח הזמנה במייל</button>' +
+      '<div style="display:flex;gap:8px;margin-top:10px">' +
+        '<button class="btn btn-primary" onclick="sendUserInvite()">📧 שלח הזמנה במייל</button>' +
+        '<button class="btn btn-secondary" onclick="previewUserPermissions(\'' + newCid + '\')">👁️ תצוגה מקדימה</button>' +
+      '</div>' +
     '</div>' +
     '<div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal()">סגור</button></div>';
   box.innerHTML = html;
