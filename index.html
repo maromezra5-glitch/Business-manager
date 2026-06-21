@@ -822,9 +822,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-19c';
+var APP_VERSION  = '2026-06-19d';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-19d', t: '🎯 הודעות "מה חדש" מסוננות עכשיו לפי הרשאות — משתמש מוגבל יראה רק עדכונים רלוונטיים ללשוניות שלו' },
   { v: '2026-06-19c', t: '🐛 תיקון: הודעת שינוי הרשאות לא הופיעה אם המשתמש כבר היה מחובר כשהשינוי קרה' },
   { v: '2026-06-19b', t: '🔄 הודעה למנהל/ת משמרת בכניסה הראשונה אחרי שינוי הרשאות — פעם אחת בלבד לכל שינוי' },
   { v: '2026-06-19a', t: '🔒 תיקון אבטחה: הסרת משתמש חוסמת אותו לגמרי מכניסה חזרה, עד הזמנה מחדש' },
@@ -5187,6 +5188,14 @@ function _markVersionSeen(v) {
   localStorage.setItem('cafeManager_seenVersion', v);
   if (currentUid && window.fb) window.fb.updateSeenVersion(currentUid, v).catch(function() {});
 }
+function _relevantUpdateNotes(notes) {
+  if (isOwner()) return notes;
+  var allowed = currentAllowedTabs || [];
+  return notes.filter(function(n) {
+    if (!n.tabs) return true; // general/untagged notes — relevant to everyone
+    return n.tabs.some(function(t) { return allowed.indexOf(t) >= 0; });
+  });
+}
 function checkForUpdate() {
   if (!currentSeenVersion) {
     // First login for this user — nothing "missed", just baseline silently
@@ -5197,7 +5206,7 @@ function checkForUpdate() {
   // הצג פעם אחת בלבד לכל כניסה — גם אם הדף נטען מחדש באותה כניסה
   if (sessionStorage.getItem('updateShownThisSession') === APP_VERSION) return;
   sessionStorage.setItem('updateShownThisSession', APP_VERSION);
-  var toShow = UPDATE_NOTES.filter(function(n) { return n.v > currentSeenVersion; });
+  var toShow = _relevantUpdateNotes(UPDATE_NOTES.filter(function(n) { return n.v > currentSeenVersion; }));
   _markVersionSeen(APP_VERSION);
   if (!toShow.length) return;
   setTimeout(function() { document.body.insertAdjacentHTML('beforeend', _buildUpdateHTML(toShow, 'מה חדש מאז הכניסה האחרונה?')); }, 600);
@@ -5205,7 +5214,7 @@ function checkForUpdate() {
 function openWhatsNew() {
   var ex = document.getElementById('update-modal');
   if (ex) ex.remove();
-  var toShow = UPDATE_NOTES.filter(function(n) { return n.v > (currentSeenVersion || ''); });
+  var toShow = _relevantUpdateNotes(UPDATE_NOTES.filter(function(n) { return n.v > (currentSeenVersion || ''); }));
   if (!toShow.length) { toast('אין עדכונים חדשים מאז הכניסה האחרונה שלך', 'ok'); return; }
   document.body.insertAdjacentHTML('beforeend', _buildUpdateHTML(toShow, 'מה חדש מאז הכניסה האחרונה?'));
   _markVersionSeen(APP_VERSION);
