@@ -826,9 +826,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-21h';
+var APP_VERSION  = '2026-06-22a';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-22a', t: '👁️ תצוגה מקדימה להרשאות משודרגת — מציגה בדיוק אילו נתונים יהיו גלויים בכל לשונית, לא רק את שמה' },
   { v: '2026-06-21h', t: '⚠️ אזהרה אוטומטית אם סכום השעות היומי של עובד עולה על 24 שעות (חשד לכפילות הזנה)' },
   { v: '2026-06-21g', t: '📈 גרפי מגמה בטבלת השליטה הורחבו מ-6 ל-12 חודשים · ✍️ באשף ההגדרה אפשר לתאר את העסק במשפט וסוג העסק יזוהה אוטומטית' },
   { v: '2026-06-21f', t: '⌨️ ניווט מהיר ב-Enter בין שורות בטבלאות הזנה · ✅ אינדיקציית "נשמר" מיידית לכל שדה · ⚠️ התראות אוטומטיות על שינויים חריגים בהשוואת חודשים · 🗑️ מעקב ביטולים/הנחות בדוח המכירות היומי · 📱 דחיסת טבלאות במובייל' },
@@ -6245,22 +6246,40 @@ function readCheckedTabs(containerId) {
   return out;
 }
 
+var TAB_CONTENT_DESC = {
+  employees: 'פרטי כל העובדים — שם, ת"ז, טלפון, שכר/תעריף שעתי, תפקידים',
+  hours:     'הזנת וצפייה בשעות עבודה יומיות/שבועיות/חודשיות של כל העובדים',
+  payroll:   'דוח משכורות מלא — שכר, תוספות, מקדמות, תלושי שכר של כל העובדים',
+  zreport:   'מכירות יומיות לפי ערוצי תשלום, וייצוא לאקסל',
+  tips:      'חישוב וחילוק טיפים בין עובדים',
+  purchases: 'קניות מספקים, ספקים וסכומים',
+  control:   'רווח/הפסד מלא של העסק, כולל שכר כולל והוצאות',
+  tasks:     'יומן משימות פנימי'
+};
 function previewUserPermissions(containerId) {
   var allowed = readCheckedTabs(containerId);
-  var tabsHtml = visibleTabsForBiz().map(function(t) {
+  var visTabs = visibleTabsForBiz();
+  var tabsHtml = visTabs.map(function(t) {
     var on = allowed.indexOf(t) >= 0;
     return '<span style="display:inline-flex;align-items:center;gap:4px;padding:7px 14px;border-radius:8px;margin:4px;font-size:13px;font-weight:700;' +
       (on ? 'background:var(--primary);color:#fff' : 'background:#f3f4f6;color:#9ca3af;text-decoration:line-through') + '">' +
       (on ? '' : '🔒 ') + (TAB_LABELS[t] || t) +
     '</span>';
   }).join('');
+  var detailsHtml = visTabs.filter(function(t){ return allowed.indexOf(t) >= 0; }).map(function(t) {
+    return '<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">' +
+      '<span style="font-weight:700;white-space:nowrap;font-size:12.5px">' + (TAB_LABELS[t] || t) + '</span>' +
+      '<span style="color:var(--text-muted);font-size:12px">' + (TAB_CONTENT_DESC[t] || '') + '</span>' +
+    '</div>';
+  }).join('');
   var html =
     '<div id="perm-preview-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10100;display:flex;align-items:center;justify-content:center;direction:rtl;padding:16px">' +
-      '<div style="background:#fff;border-radius:18px;padding:28px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:right">' +
+      '<div style="background:#fff;border-radius:18px;padding:28px;max-width:460px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:right">' +
         '<div style="font-size:18px;font-weight:800;margin-bottom:6px">👁️ תצוגה מקדימה</div>' +
         '<div style="color:var(--text-muted);font-size:13px;margin-bottom:14px">כך ייראה סרגל הלשוניות למשתמש/ת עם ההרשאות שסימנת כרגע (לפני שמירה):</div>' +
         '<div style="display:flex;flex-wrap:wrap;padding:12px;background:var(--bg);border-radius:var(--r-sm);margin-bottom:14px">' + tabsHtml + '</div>' +
         (allowed.length ? '' : '<div style="color:var(--error);font-size:13px;margin-bottom:14px">⚠️ לא נבחרה אף לשונית — המשתמש/ת יראה/תראה הודעת "אין הרשאות גישה" בלבד</div>') +
+        (detailsHtml ? '<div style="font-size:12.5px;font-weight:800;color:var(--text-muted);margin-bottom:6px">📋 בדיוק מה יהיה גלוי:</div><div style="margin-bottom:14px">' + detailsHtml + '</div>' : '') +
         '<div style="font-size:12px;color:var(--text-muted);line-height:1.6">בנוסף, כל כפתורי הניהול (גיבוי, הגדרות עסק, יומן פעולות, ניהול משתמשים, איפוס נתונים) לא יהיו זמינים — אלה שמורים לבעל/ת העסק בלבד.</div>' +
         '<button onclick="document.getElementById(\'perm-preview-overlay\').remove()" style="width:100%;margin-top:18px;padding:12px;background:#D97757;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer">סגור</button>' +
       '</div>' +
