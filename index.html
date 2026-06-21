@@ -826,9 +826,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-22b';
+var APP_VERSION  = '2026-06-22c';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-22c', t: '🔒 חיזוק אבטחה: ניקוי קלט בתצוגה המקדימה של לוגו העסק' },
   { v: '2026-06-22b', t: '🔒 תיקון: לא ניתן יותר להזין מספרים שליליים בקניות, טיפים, הוצאות, מע"מ, בונוס/מקדמה ופרטי עובד' },
   { v: '2026-06-22a', t: '👁️ תצוגה מקדימה להרשאות משודרגת — מציגה בדיוק אילו נתונים יהיו גלויים בכל לשונית, לא רק את שמה' },
   { v: '2026-06-21h', t: '⚠️ אזהרה אוטומטית אם סכום השעות היומי של עובד עולה על 24 שעות (חשד לכפילות הזנה)' },
@@ -6954,7 +6955,7 @@ function fetchBizLogo() { fetchBizAuto(); }
 
 function _setBizLogoPreview(src) {
   var preview = document.getElementById('biz-logo-preview');
-  if (preview) preview.innerHTML = '<img src="' + src + '" style="max-width:100%;max-height:100%;object-fit:contain" id="biz-logo-tmp">';
+  if (preview) preview.innerHTML = '<img src="' + escHtml(src) + '" style="max-width:100%;max-height:100%;object-fit:contain" id="biz-logo-tmp">';
   window._bizLogoTmp = src;
 }
 
