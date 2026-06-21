@@ -58,8 +58,9 @@
     getUserDoc:    function(uid) { return getDoc(doc(fbDb, 'users', uid)); },
     watchUserDoc:  function(uid, cb) { return onSnapshot(doc(fbDb, 'users', uid), cb); },
     createUserDoc: function(uid, businessId, role, email, allowedTabs, name) { return setDoc(doc(fbDb, 'users', uid), {businessId: businessId, role: role, email: email || '', name: name || '', allowedTabs: allowedTabs || []}); },
-    updateMemberTabs: function(uid, allowedTabs) { return updateDoc(doc(fbDb, 'users', uid), {allowedTabs: allowedTabs}); },
+    updateMemberTabs: function(uid, allowedTabs) { return updateDoc(doc(fbDb, 'users', uid), {allowedTabs: allowedTabs, permissionsUpdatedAt: Date.now()}); },
     updateSeenVersion: function(uid, v) { return updateDoc(doc(fbDb, 'users', uid), {seenVersion: v}); },
+    markPermissionsSeen: function(uid, ts) { return updateDoc(doc(fbDb, 'users', uid), {permissionsSeenAt: ts}); },
     listMembers:   function(businessId) { return getDocs(query(collection(fbDb, 'users'), where('businessId', '==', businessId))); },
     removeMember:  function(uid) { return deleteDoc(doc(fbDb, 'users', uid)); },
 
@@ -821,9 +822,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-19a';
+var APP_VERSION  = '2026-06-19b';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-19b', t: '🔄 הודעה למנהל/ת משמרת בכניסה הראשונה אחרי שינוי הרשאות — פעם אחת בלבד לכל שינוי' },
   { v: '2026-06-19a', t: '🔒 תיקון אבטחה: הסרת משתמש חוסמת אותו לגמרי מכניסה חזרה, עד הזמנה מחדש' },
   { v: '2026-06-18z', t: '🐛 תיקון: קישורי הזמנה במייל לא היו לחיצים — עברנו משירות Gmail (OAuth) ל-SMTP ב-EmailJS' },
   { v: '2026-06-18y', t: '🎨 פונט עברי קריא יותר בכל האתר (Rubik) · 👤 מסך ניהול משתמשים שודרג — כרטיסים ברורים, כפתורי שמירה בולטים, ספירת חברי צוות' },
@@ -6202,7 +6204,7 @@ async function _resolveBusinessAndRole(user) {
   var userSnap = await window.fb.getUserDoc(user.uid);
   if (userSnap.exists()) {
     var u = userSnap.data();
-    return {businessId: u.businessId, role: u.role, allowedTabs: u.allowedTabs || [], name: u.name || '', seenVersion: u.seenVersion || ''};
+    return {businessId: u.businessId, role: u.role, allowedTabs: u.allowedTabs || [], name: u.name || '', seenVersion: u.seenVersion || '', permissionsUpdatedAt: u.permissionsUpdatedAt || 0, permissionsSeenAt: u.permissionsSeenAt || 0};
   }
   // 2) Were they invited (fresh, or re-invited after a previous removal)?
   if (user.email) {
@@ -6234,6 +6236,7 @@ async function _resolveBusinessAndRole(user) {
 
 async function authLoadAndShowApp(user) {
   loadState(); // baseline from local cache, in case cloud fetch fails or is empty
+  var permUpdatedAt = 0, permSeenAt = 0;
   try {
     var resolved = await _resolveBusinessAndRole(user);
     currentBusinessId = resolved.businessId;
@@ -6241,6 +6244,8 @@ async function authLoadAndShowApp(user) {
     currentAllowedTabs = resolved.allowedTabs || [];
     currentUserName = resolved.name || '';
     currentSeenVersion = resolved.seenVersion || '';
+    permUpdatedAt = resolved.permissionsUpdatedAt || 0;
+    permSeenAt = resolved.permissionsSeenAt || 0;
   } catch (e) {
     if (e && e.message === 'ACCESS_REVOKED') {
       toast('⚠️ הגישה שלך למערכת הוסרה — פנה/י לבעל/ת העסק לקבלת הזמנה מחדש', 'err');
@@ -6272,6 +6277,9 @@ async function authLoadAndShowApp(user) {
   applyRolePermissions();
   renderUserGreeting();
   _watchOwnPermissions(user.uid);
+  if (!isOwner() && permUpdatedAt > permSeenAt) {
+    setTimeout(function() { showPermissionsChangedNotice(user.uid, permUpdatedAt); }, 1000);
+  }
 }
 
 var _stopWatchingPermissions = null;
@@ -6292,9 +6300,26 @@ function _watchOwnPermissions(uid) {
     currentAllowedTabs = u.allowedTabs || [];
     if (changed && document.getElementById('app').style.display !== 'none') {
       applyRolePermissions();
-      if (!isOwner()) toast('🔄 ההרשאות שלך עודכנו', 'ok');
+      if (!isOwner()) {
+        toast('🔄 ההרשאות שלך עודכנו', 'ok');
+        // Seen live — don't show the login-time notice again for this same change
+        if (window.fb) window.fb.markPermissionsSeen(uid, u.permissionsUpdatedAt || Date.now()).catch(function(){});
+      }
     }
   });
+}
+
+function showPermissionsChangedNotice(uid, ts) {
+  var tabsList = (currentAllowedTabs || []).map(function(t) { return TAB_LABELS[t] || t; }).join(', ') || 'אין הרשאות גישה';
+  var html = '<div id="perm-notice-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9997;display:flex;align-items:center;justify-content:center;direction:rtl">' +
+    '<div style="background:#fff;border-radius:20px;padding:32px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:right">' +
+    '<div style="font-size:36px;margin-bottom:8px">🔄</div>' +
+    '<h2 style="margin:0 0 10px;font-size:20px;color:#1A1A1A">ההרשאות שלך עודכנו</h2>' +
+    '<div style="font-size:14px;color:#374151;line-height:1.7;margin-bottom:22px">בעל/ת העסק שינה/תה את הגישה שלך למערכת מאז הכניסה האחרונה שלך.<br>הגישה הנוכחית שלך: <strong>' + escHtml(tabsList) + '</strong></div>' +
+    '<button onclick="document.getElementById(\'perm-notice-modal\').remove()" style="width:100%;padding:13px;background:#D97757;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer">הבנתי</button>' +
+    '</div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+  if (window.fb && uid) window.fb.markPermissionsSeen(uid, ts).catch(function(){});
 }
 
 async function authForgotPassword() {
