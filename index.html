@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -822,9 +822,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-21a';
+var APP_VERSION  = '2026-06-21b';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-21b', t: '🧮 עמודות "וולט"/"הקפה" בדוח היומי ו-Food Cost% בטבלת השליטה מותאמות/מוסתרות אוטומטית לפי סוג העסק (לא רלוונטי לעסקים שאינם מסעדה/קפה)' },
   { v: '2026-06-21a', t: '🏷️ התאמת המערכת לסוג העסק שלכם — בחרו מסעדה/קפה, חנות, מספרה, סטודיו, קליניקה, מוסך או הקלידו בעצמכם, והלשוניות יתאימו את שמן ואת הרלוונטיות שלהן' },
   { v: '2026-06-19h', t: '🔍 חיפוש וייצוא Excel ביומן הפעולות' },
   { v: '2026-06-19g', t: '⏱ הגנה מפני תקיעות בטעינה מהענן — הודעת שגיאה ברורה במקום "טוען..." ללא סוף אם החיבור נתקע' },
@@ -2577,12 +2578,14 @@ function renderZ() {
   var days = daysInMonth(ym);
   var cont = document.getElementById('z-content');
 
-  var fields = [
+  var allFields = [
     {k:'cash',   l:'💵 מזומן'},
     {k:'credit', l:'💳 אשראי'},
     {k:'wolt',   l:'🛵 וולט'},
     {k:'hakafe', l:'☕ הקפה'},
   ];
+  var hiddenChannels = ZREPORT_HIDDEN_CHANNELS[(S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT] || [];
+  var fields = allFields.filter(function(f){ return hiddenChannels.indexOf(f.k) === -1; });
 
   var totals = {cash:0, credit:0, wolt:0, hakafe:0};
   var tbody = '';
@@ -2593,8 +2596,8 @@ function renderZ() {
     var ds  = dateFull(ym, d);
     var wd  = getDow(ds);
     var rec = (S.zReports[ds] || {});
-    fields.forEach(function(f){ totals[f.k] += toNum(rec[f.k]); });
-    var dt = fields.reduce(function(s,f){ return s + toNum(rec[f.k]); }, 0);
+    allFields.forEach(function(f){ totals[f.k] += toNum(rec[f.k]); });
+    var dt = allFields.reduce(function(s,f){ return s + toNum(rec[f.k]); }, 0);
     var dtNet = dt > 0 ? dt / vatFactor : 0;
 
     tbody += '<tr class="' + (wd===6?'tr-shabbat':'') + '">';
@@ -2627,14 +2630,20 @@ function renderZ() {
 
   var nvStyle = 'color:#2563eb;font-size:12px;font-weight:600';
 
+  var summaryCardsHtml = fields.map(function(f) {
+    return '<div class="s-card"><div class="s-label">' + f.l + '</div><div class="s-value" id="zs-' + f.k + '">' + ILS(totals[f.k]) + '</div><div style="' + nvStyle + ';margin-top:2px" id="zs-' + f.k + '-net">ללא מע"מ: ' + zNetLabel(totals[f.k]) + '</div></div>';
+  }).join('') +
+    '<div class="s-card green-card"><div class="s-label">📊 סה"כ חודש</div><div class="s-value green" id="zs-grand">' + ILS(grand) + '</div><div style="font-size:12px;font-weight:700;color:#1d4ed8;margin-top:2px" id="zs-grand-net">ללא מע"מ: ' + ILS(grandNet) + '</div></div>';
+
+  var tfootTotalCells = fields.map(function(f) {
+    return '<td id="zf-' + f.k + '"><strong>' + ILS(totals[f.k]) + '</strong></td>';
+  }).join('');
+  var tfootNetCells = fields.map(function(f) {
+    return '<td id="zf-' + f.k + '-net" style="' + nvStyle + '">' + zNetLabel(totals[f.k]) + '</td>';
+  }).join('');
+
   cont.innerHTML =
-    '<div class="summary-grid">' +
-      '<div class="s-card"><div class="s-label">💵 מזומן</div><div class="s-value" id="zs-cash">' + ILS(totals.cash) + '</div><div style="' + nvStyle + ';margin-top:2px" id="zs-cash-net">ללא מע"מ: ' + zNetLabel(totals.cash) + '</div></div>' +
-      '<div class="s-card"><div class="s-label">💳 אשראי</div><div class="s-value" id="zs-credit">' + ILS(totals.credit) + '</div><div style="' + nvStyle + ';margin-top:2px" id="zs-credit-net">ללא מע"מ: ' + zNetLabel(totals.credit) + '</div></div>' +
-      '<div class="s-card"><div class="s-label">🛵 וולט</div><div class="s-value" id="zs-wolt">' + ILS(totals.wolt) + '</div><div style="' + nvStyle + ';margin-top:2px" id="zs-wolt-net">ללא מע"מ: ' + zNetLabel(totals.wolt) + '</div></div>' +
-      '<div class="s-card"><div class="s-label">☕ הקפה</div><div class="s-value" id="zs-hakafe">' + ILS(totals.hakafe) + '</div><div style="' + nvStyle + ';margin-top:2px" id="zs-hakafe-net">ללא מע"מ: ' + zNetLabel(totals.hakafe) + '</div></div>' +
-      '<div class="s-card green-card"><div class="s-label">📊 סה"כ חודש</div><div class="s-value green" id="zs-grand">' + ILS(grand) + '</div><div style="font-size:12px;font-weight:700;color:#1d4ed8;margin-top:2px" id="zs-grand-net">ללא מע"מ: ' + ILS(grandNet) + '</div></div>' +
-    '</div>' +
+    '<div class="summary-grid">' + summaryCardsHtml + '</div>' +
     '<div class="table-wrap"><table>' +
       '<thead><tr>' + theadCells + '</tr></thead>' +
       '<tbody>' + tbody + '</tbody>' +
@@ -2642,19 +2651,13 @@ function renderZ() {
         '<tr class="tr-total">' +
           '<td class="sticky-col"><strong>סה"כ עם מע"מ</strong></td>' +
           '<td></td>' +
-          '<td id="zf-cash"><strong>'   + ILS(totals.cash)   + '</strong></td>' +
-          '<td id="zf-credit"><strong>' + ILS(totals.credit) + '</strong></td>' +
-          '<td id="zf-wolt"><strong>'   + ILS(totals.wolt)   + '</strong></td>' +
-          '<td id="zf-hakafe"><strong>' + ILS(totals.hakafe) + '</strong></td>' +
+          tfootTotalCells +
           '<td id="zf-grand"><strong style="color:var(--success);font-size:15px">' + ILS(grand) + '</strong></td>' +
         '</tr>' +
         '<tr>' +
           '<td class="sticky-col" style="' + nvStyle + '">ללא מע"מ (' + vat + '%)</td>' +
           '<td></td>' +
-          '<td id="zf-cash-net" style="' + nvStyle + '">'   + zNetLabel(totals.cash)   + '</td>' +
-          '<td id="zf-credit-net" style="' + nvStyle + '">' + zNetLabel(totals.credit) + '</td>' +
-          '<td id="zf-wolt-net" style="' + nvStyle + '">'   + zNetLabel(totals.wolt)   + '</td>' +
-          '<td id="zf-hakafe-net" style="' + nvStyle + '">' + zNetLabel(totals.hakafe) + '</td>' +
+          tfootNetCells +
           '<td id="zf-grand-net" style="' + nvStyle + '"><strong>' + ILS(grandNet) + '</strong></td>' +
         '</tr>' +
       '</tfoot>' +
@@ -4032,8 +4035,10 @@ function renderControl() {
         '<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:10px;background:var(--success-bg);padding:5px 10px;border-radius:var(--r-xs)">⚡ מחושב אוטומטית מדוח Z</div>' +
         '<div class="ctrl-row"><span class="ctrl-label">💵 מזומן</span><span class="ctrl-amount" style="color:var(--text)">'   + ILS(zb.cash)   + '</span></div>' +
         '<div class="ctrl-row"><span class="ctrl-label">💳 אשראי</span><span class="ctrl-amount" style="color:var(--text)">'  + ILS(zb.credit) + '</span></div>' +
-        '<div class="ctrl-row"><span class="ctrl-label">🛵 וולט</span><span class="ctrl-amount" style="color:var(--text)">'   + ILS(zb.wolt)   + '</span></div>' +
-        '<div class="ctrl-row"><span class="ctrl-label">☕ הקפה</span><span class="ctrl-amount" style="color:var(--text)">'   + ILS(zb.hakafe) + '</span></div>' +
+        ((ZREPORT_HIDDEN_CHANNELS[(S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT] || []).indexOf('wolt') === -1 ?
+          '<div class="ctrl-row"><span class="ctrl-label">🛵 וולט</span><span class="ctrl-amount" style="color:var(--text)">'   + ILS(zb.wolt)   + '</span></div>' : '') +
+        ((ZREPORT_HIDDEN_CHANNELS[(S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT] || []).indexOf('hakafe') === -1 ?
+          '<div class="ctrl-row"><span class="ctrl-label">☕ הקפה</span><span class="ctrl-amount" style="color:var(--text)">'   + ILS(zb.hakafe) + '</span></div>' : '') +
         '<div class="ctrl-total" style="color:var(--success);border-color:var(--success)">' +
           '<span>✅ סה"כ הכנסות</span><span style="font-size:20px">' + ILS(totalIncome) + '</span>' +
         '</div>' +
@@ -4206,7 +4211,7 @@ function buildMonthComparison(ym, curIncome, curExpenses, curPl, curFc, curLc) {
     ['💰 הכנסות',     ILS(prevIncome),   ILS(curIncome),   chg(curIncome, prevIncome, true)],
     ['📉 הוצאות',     ILS(prevExpenses), ILS(curExpenses), chg(curExpenses, prevExpenses, false)],
     [curPl>=0?'✅ רווח':'❌ הפסד', ILS(prevPl), ILS(curPl), chg(curPl, prevPl, true)],
-    ['🥗 Food Cost %', prevFc.toFixed(1)+'%', curFc.toFixed(1)+'%', chg(curFc, prevFc, false)],
+    ['🥗 ' + costPctLabel(), prevFc.toFixed(1)+'%', curFc.toFixed(1)+'%', chg(curFc, prevFc, false)],
     ['👥 Labor Cost %',prevLc.toFixed(1)+'%', curLc.toFixed(1)+'%', chg(curLc, prevLc, false)],
   ];
 
@@ -4576,20 +4581,27 @@ function exportZ() {
   var days    = daysInMonth(ym);
   var vat     = toNum((S.settings || {}).vat) || 17;
   var vatF    = 1 + vat / 100;
+  var allKeys = ['cash','credit','wolt','hakafe'];
+  var allLbls = ['מזומן','אשראי','וולט','הקפה'];
+  var hiddenChannels = ZREPORT_HIDDEN_CHANNELS[(S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT] || [];
+  var visIdx  = allKeys.map(function(k,i){ return i; }).filter(function(i){ return hiddenChannels.indexOf(allKeys[i]) === -1; });
+  var lbls    = visIdx.map(function(i){ return allLbls[i]; });
   var data    = [['דוח Z — ' + mn], [],
-    ['תאריך','יום','מזומן','אשראי','וולט','הקפה','סה"כ יומי (עם מע"מ)','סה"כ יומי (ללא מע"מ)']];
+    ['תאריך','יום'].concat(lbls).concat(['סה"כ יומי (עם מע"מ)','סה"כ יומי (ללא מע"מ)'])];
   var t = [0,0,0,0];
   for (var d = 1; d <= days; d++) {
-    var ds  = dateFull(ym, d);
-    var r   = S.zReports[ds] || {};
-    var vv  = [toNum(r.cash),toNum(r.credit),toNum(r.wolt),toNum(r.hakafe)];
-    vv.forEach(function(x,i){ t[i] += x; });
-    var dt  = vv.reduce(function(a,b){return a+b;},0);
+    var ds    = dateFull(ym, d);
+    var r     = S.zReports[ds] || {};
+    var vvAll = [toNum(r.cash),toNum(r.credit),toNum(r.wolt),toNum(r.hakafe)];
+    vvAll.forEach(function(x,i){ t[i] += x; });
+    var dt    = vvAll.reduce(function(a,b){return a+b;},0);
+    var vv    = visIdx.map(function(i){ return vvAll[i]; });
     data.push([ds, DHE[getDow(ds)]].concat(vv).concat([dt, +(dt/vatF).toFixed(2)]));
   }
-  var gt = t.reduce(function(a,b){return a+b;},0);
-  data.push([], ['סה"כ חודשי (עם מע"מ)',''].concat(t).concat([gt, +(gt/vatF).toFixed(2)]));
-  data.push(['סה"כ חודשי (ללא מע"מ ' + vat + '%)',''].concat(t.map(function(v){return +(v/vatF).toFixed(2);})).concat([+(gt/vatF).toFixed(2),'']));
+  var gt   = t.reduce(function(a,b){return a+b;},0);
+  var tVis = visIdx.map(function(i){ return t[i]; });
+  data.push([], ['סה"כ חודשי (עם מע"מ)',''].concat(tVis).concat([gt, +(gt/vatF).toFixed(2)]));
+  data.push(['סה"כ חודשי (ללא מע"מ ' + vat + '%)',''].concat(tVis.map(function(v){return +(v/vatF).toFixed(2);})).concat([+(gt/vatF).toFixed(2),'']));
   var ws = XLSX.utils.aoa_to_sheet(data);
   var wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, mn);
@@ -4873,21 +4885,24 @@ function exportControl() {
   var lc = netSales > 0 ? totalPayroll / netSales * 100 : 0;
 
   var fmt = function(n){ return +n.toFixed(2); };
+  var _hiddenCh = ZREPORT_HIDDEN_CHANNELS[(S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT] || [];
   var data = [
     ['דוח רווח והפסד — ' + mn],
     [],
     ['=== הכנסות ==='],
     ['מזומן',              fmt(zb.cash)],
     ['אשראי',             fmt(zb.credit)],
-    ['וולט',              fmt(zb.wolt)],
-    ['הקפות',             fmt(zb.hakafe)],
+  ];
+  if (_hiddenCh.indexOf('wolt')   === -1) data.push(['וולט',  fmt(zb.wolt)]);
+  if (_hiddenCh.indexOf('hakafe') === -1) data.push(['הקפות', fmt(zb.hakafe)]);
+  data.push(
     ['סה"כ הכנסות (עם מע"מ)',  fmt(totalIncome)],
     ['סה"כ הכנסות (ללא מע"מ ' + vat + '%)', fmt(netSales)],
     [],
     ['=== הוצאות ==='],
     ['👥 שכר עובדים',     fmt(totalPayroll)],
-    ['🛒 קניות ספקים',    fmt(totalPurchases)],
-  ];
+    ['🛒 קניות ספקים',    fmt(totalPurchases)]
+  );
   getFixedExp().forEach(function(e) {
     if (_hiddenFixed.indexOf(e.k) >= 0) return;
     var amt = toNum(ctrl[e.k]);
@@ -4905,7 +4920,7 @@ function exportControl() {
     [plNoVat >= 0 ? '✅ רווח (ללא מע"מ)' : '❌ הפסד (ללא מע"מ)', fmt(plNoVat)],
     [],
     ['=== מדדים ==='],
-    ['Food Cost %',  +fc.toFixed(1)],
+    [costPctLabel(), +fc.toFixed(1)],
     ['Labor Cost %', +lc.toFixed(1)]
   );
   var ws = XLSX.utils.aoa_to_sheet(data);
@@ -4978,11 +4993,12 @@ function printControlPL() {
   html += '<p class="ps-sub">דוח רווח והפסד — ' + mn + '</p>';
   html += '</div>';
 
+  var _hiddenChP = ZREPORT_HIDDEN_CHANNELS[(S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT] || [];
   html += '<h3>הכנסות</h3><table><tbody>';
   html += payslipRow('מזומן', '', '', ILS(zb.cash));
   html += payslipRow('אשראי', '', '', ILS(zb.credit));
-  html += payslipRow('וולט', '', '', ILS(zb.wolt));
-  html += payslipRow('הקפות', '', '', ILS(zb.hakafe));
+  if (_hiddenChP.indexOf('wolt')   === -1) html += payslipRow('וולט', '', '', ILS(zb.wolt));
+  if (_hiddenChP.indexOf('hakafe') === -1) html += payslipRow('הקפות', '', '', ILS(zb.hakafe));
   html += '</tbody><tfoot><tr><td colspan="3">סה"כ הכנסות (עם מע"מ)</td><td>' + ILS(totalIncome) + '</td></tr></tfoot></table>';
 
   html += '<h3>הוצאות</h3><table><tbody>';
@@ -4994,7 +5010,7 @@ function printControlPL() {
   html += '<table><tfoot><tr><td colspan="3" style="text-align:center;letter-spacing:.4px;font-size:15px">' + (pl >= 0 ? '✅ רווח (עם מע"מ)' : '❌ הפסד (עם מע"מ)') + '</td><td style="color:' + (pl>=0?'#4ADE80':'#FF8A80') + '">' + ILS(pl) + '</td></tr></tfoot></table>';
 
   html += '<div class="metrics">';
-  html += '<div class="metric"><div class="v">' + fc.toFixed(1) + '%</div><div class="l">Food Cost</div></div>';
+  html += '<div class="metric"><div class="v">' + fc.toFixed(1) + '%</div><div class="l">' + costPctLabel() + '</div></div>';
   html += '<div class="metric"><div class="v">' + lc.toFixed(1) + '%</div><div class="l">Labor Cost</div></div>';
   html += '</div>';
 
@@ -5659,14 +5675,21 @@ function initZCharts(ym) {
   }
 
   var zb = getZBreakdown(ym);
-  var zbVals  = [zb.cash, zb.credit, zb.wolt, zb.hakafe].map(function(v){ return +v.toFixed(0); });
+  var _hiddenChCh = ZREPORT_HIDDEN_CHANNELS[(S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT] || [];
+  var allChKeys   = ['cash','credit','wolt','hakafe'];
+  var allChLbls   = ['מזומן','אשראי','וולט','הקפות'];
+  var allChColors = ['#10b981','#3b82f6','#f59e0b','#8b5cf6'];
+  var chVisIdx = allChKeys.map(function(k,i){ return i; }).filter(function(i){ return _hiddenChCh.indexOf(allChKeys[i]) === -1; });
+  var zbVals  = chVisIdx.map(function(i){ return +zb[allChKeys[i]].toFixed(0); });
+  var zbLbls  = chVisIdx.map(function(i){ return allChLbls[i]; });
+  var zbColors = chVisIdx.map(function(i){ return allChColors[i]; });
   var zbTotal = zbVals.reduce(function(a,b){return a+b;}, 0);
   var c2 = document.getElementById('chart-z-channels');
   if (c2) _chartInstances['z-channels'] = new Chart(c2.getContext('2d'), {
     type: 'doughnut',
     data: {
-      labels: ['מזומן','אשראי','וולט','הקפות'],
-      datasets: [{ data: zbVals, backgroundColor: ['#10b981','#3b82f6','#f59e0b','#8b5cf6'], borderWidth: 2, borderColor: '#fff', hoverOffset: 8 }]
+      labels: zbLbls,
+      datasets: [{ data: zbVals, backgroundColor: zbColors, borderWidth: 2, borderColor: '#fff', hoverOffset: 8 }]
     },
     options: {
       cutout: '62%',
@@ -5687,7 +5710,7 @@ function buildControlCharts(ym) {
   return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:20px">' +
     '<div class="card"><div class="card-title">🥧 פילוח הוצאות</div><canvas id="chart-ctrl-expenses" height="220"></canvas></div>' +
     '<div class="card"><div class="card-title">📊 הכנסות vs הוצאות — 6 חודשים</div><canvas id="chart-ctrl-trend" height="220"></canvas></div>' +
-    '<div class="card" style="grid-column:1/-1"><div class="card-title">📐 Food Cost % / Labor Cost % — מגמת 6 חודשים</div><canvas id="chart-ctrl-costpct" height="180"></canvas></div>' +
+    '<div class="card" style="grid-column:1/-1"><div class="card-title">📐 ' + costPctLabel() + ' / Labor Cost % — מגמת 6 חודשים</div><canvas id="chart-ctrl-costpct" height="180"></canvas></div>' +
   '</div>';
 }
 function initControlCharts(ym, totalPayroll, totalPurchases, totalFixed, totalExtra) {
@@ -5769,7 +5792,7 @@ function initControlCharts(ym, totalPayroll, totalPurchases, totalFixed, totalEx
     data: {
       labels: months,
       datasets: [
-        { label: 'Food Cost %',  data: fcArr, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.12)', fill: true, tension: .3, pointRadius: 3, pointHoverRadius: 6, borderWidth: 2.5 },
+        { label: costPctLabel(),  data: fcArr, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.12)', fill: true, tension: .3, pointRadius: 3, pointHoverRadius: 6, borderWidth: 2.5 },
         { label: 'Labor Cost %', data: lcArr, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,.12)', fill: true, tension: .3, pointRadius: 3, pointHoverRadius: 6, borderWidth: 2.5 }
       ]
     },
@@ -5975,6 +5998,21 @@ var BIZ_TYPE_HIDDEN_TABS = {
   cafe: [], salon: [], studio: [],
   retail: ['tips'], clinic: ['tips'], garage: ['tips'], general: ['tips']
 };
+// ערוצי הכנסה "וולט"/"הקפה" הם מושגים ספציפיים למסעדנות — מוסתרים לכל סוג עסק אחר
+var ZREPORT_HIDDEN_CHANNELS = {
+  cafe: [],
+  retail: ['wolt', 'hakafe'], salon: ['wolt', 'hakafe'], studio: ['wolt', 'hakafe'],
+  clinic: ['wolt', 'hakafe'], garage: ['wolt', 'hakafe'], general: ['wolt', 'hakafe']
+};
+// Food Cost % רלוונטי כמדד "עלות סחורה ביחס למחזור" לכל עסק — רק השם משתנה
+var COST_PCT_LABEL_OVERRIDES = {
+  retail: '% עלות סחורה', salon: '% עלות חומרים', studio: '% עלות חומרים',
+  clinic: '% עלות חומרים', garage: '% עלות חלקים', general: '% עלות סחורה/חומרים'
+};
+function costPctLabel() {
+  var type = (S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT;
+  return COST_PCT_LABEL_OVERRIDES[type] || 'Food Cost %';
+}
 
 function detectBizTypeFromText(text) {
   var t = (text || '').toLowerCase();
@@ -6010,6 +6048,10 @@ function applyBusinessType() {
 
   window._bizTypeHiddenTabs = BIZ_TYPE_HIDDEN_TABS[type] || [];
   applyRolePermissions();
+
+  var activeTab = document.querySelector('.tab-btn.active');
+  var activeName = activeTab ? activeTab.id.replace('btn-', '') : '';
+  if (activeName && RENDER_MAP[activeName]) RENDER_MAP[activeName]();
 }
 
 function applyRolePermissions() {
