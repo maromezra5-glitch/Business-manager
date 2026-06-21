@@ -12,7 +12,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script>
-  var EMAILJS_SERVICE_ID  = 'service_0x7ofbo';
+  var EMAILJS_SERVICE_ID  = 'service_2vq310k';
   var EMAILJS_TEMPLATE_ID = 'template_a70klrc';
   var EMAILJS_PUBLIC_KEY  = 'KT_msus7rILpRLW8j';
   if (typeof emailjs !== 'undefined') emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
@@ -817,9 +817,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-18y';
+var APP_VERSION  = '2026-06-18z';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-18z', t: '🐛 תיקון: קישורי הזמנה במייל לא היו לחיצים — עברנו משירות Gmail (OAuth) ל-SMTP ב-EmailJS' },
   { v: '2026-06-18y', t: '🎨 פונט עברי קריא יותר בכל האתר (Rubik) · 👤 מסך ניהול משתמשים שודרג — כרטיסים ברורים, כפתורי שמירה בולטים, ספירת חברי צוות' },
   { v: '2026-06-18x', t: '📧 הזמנת משתמש/ת שולחת עכשיו מייל אמיתי עם קישור להרשמה (EmailJS)' },
   { v: '2026-06-18w', t: '📊 שדרוג גרפים מקצה לקצה — קו מצטבר וממוצע יומי בדוח Z, אחוזים על העוגות, ערכים על העמודות, וגרף חדש: מגמת Food Cost%/Labor Cost% ל-6 חודשים' },
