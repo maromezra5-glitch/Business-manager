@@ -642,7 +642,6 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
     <div class="header-live"><div class="header-live-dot"></div><span class="header-live-txt">מערכת פעילה</span></div>
     <div class="header-date" id="hdate"></div>
     <span id="hdr-user-greeting" class="header-date" style="font-weight:700"></span>
-    <button class="hdr-btn" onclick="openWhatsNew()" title="מה חדש במערכת?" style="font-size:13px;font-weight:800">🆕 מה חדש?</button>
     <div class="hdr-dropdown owner-only" style="position:relative">
       <button class="hdr-btn" id="admin-menu-btn" onclick="toggleAdminMenu(event)">⚙️ ניהול ▾</button>
       <div id="admin-menu" class="hdr-dropdown-menu hidden">
@@ -822,9 +821,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-21b';
+var APP_VERSION  = '2026-06-21c';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-21c', t: '🧹 הוסר כפתור "מה חדש?" מהכותרת' },
   { v: '2026-06-21b', t: '🧮 עמודות "וולט"/"הקפה" בדוח היומי ו-Food Cost% בטבלת השליטה מותאמות/מוסתרות אוטומטית לפי סוג העסק (לא רלוונטי לעסקים שאינם מסעדה/קפה)' },
   { v: '2026-06-21a', t: '🏷️ התאמת המערכת לסוג העסק שלכם — בחרו מסעדה/קפה, חנות, מספרה, סטודיו, קליניקה, מוסך או הקלידו בעצמכם, והלשוניות יתאימו את שמן ואת הרלוונטיות שלהן' },
   { v: '2026-06-19h', t: '🔍 חיפוש וייצוא Excel ביומן הפעולות' },
