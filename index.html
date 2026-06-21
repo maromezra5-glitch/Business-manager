@@ -822,9 +822,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-19f';
+var APP_VERSION  = '2026-06-19g';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-19g', t: '⏱ הגנה מפני תקיעות בטעינה מהענן — הודעת שגיאה ברורה במקום "טוען..." ללא סוף אם החיבור נתקע' },
   { v: '2026-06-19f', t: '👁️ תצוגה מקדימה להרשאות — רואים בדיוק אילו לשוניות יראה משתמש לפני שמירה/שליחת הזמנה' },
   { v: '2026-06-19e', t: '📌 עמודת התאריך נשארת דביקה בגלילה אופקית בדוח Z, טיפים וקניות' },
   { v: '2026-06-19d', t: '🎯 הודעות "מה חדש" מסוננות עכשיו לפי הרשאות — משתמש מוגבל יראה רק עדכונים רלוונטיים ללשוניות שלו' },
@@ -5978,7 +5979,7 @@ async function openUserMgmt() {
   var managerCount = 0;
   try {
     var mi = 0;
-    var membersSnap = await window.fb.listMembers(currentBusinessId);
+    var membersSnap = await _withTimeout(window.fb.listMembers(currentBusinessId), 10000, 'members');
     membersSnap.forEach(function(d) {
       var m = d.data();
       if (m.role === 'owner') {
@@ -6004,7 +6005,7 @@ async function openUserMgmt() {
       '</div>';
     });
     var ii = 0;
-    var invitesSnap = await window.fb.listInvites(currentBusinessId);
+    var invitesSnap = await _withTimeout(window.fb.listInvites(currentBusinessId), 10000, 'invites');
     invitesSnap.forEach(function(d) {
       var inv = d.data();
       var cid = 'invite-tabs-' + (ii++);
@@ -6162,6 +6163,17 @@ function renderUserGreeting() {
 var LAST_EMAIL_KEY = 'cafeManager_lastEmail';
 function isOwner() { return currentRole === 'owner'; }
 
+// Race any Firebase call against a timeout so a stalled connection shows
+// an error instead of leaving the UI stuck on "טוען..." forever.
+function _withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise(function(_, reject) {
+      setTimeout(function() { reject(new Error('TIMEOUT:' + (label || ''))); }, ms);
+    })
+  ]);
+}
+
 function authInit() {
   document.getElementById('auth-email').value = localStorage.getItem(LAST_EMAIL_KEY) || '';
   // Wait for the Firebase module script to attach window.fb (loads async)
@@ -6282,7 +6294,7 @@ async function authLoadAndShowApp(user) {
   loadState(); // baseline from local cache, in case cloud fetch fails or is empty
   var permUpdatedAt = 0, permSeenAt = 0;
   try {
-    var resolved = await _resolveBusinessAndRole(user);
+    var resolved = await _withTimeout(_resolveBusinessAndRole(user), 12000, 'resolve');
     currentBusinessId = resolved.businessId;
     currentRole = resolved.role;
     currentAllowedTabs = resolved.allowedTabs || [];
@@ -6304,7 +6316,7 @@ async function authLoadAndShowApp(user) {
     currentSeenVersion = '';
   }
   try {
-    var snap = await window.fb.loadData(currentBusinessId);
+    var snap = await _withTimeout(window.fb.loadData(currentBusinessId), 12000, 'loadData');
     if (snap.exists()) {
       var cloudData = snap.data();
       if (cloudData && Array.isArray(cloudData.employees)) {
