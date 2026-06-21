@@ -821,9 +821,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-21d';
+var APP_VERSION  = '2026-06-21e';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-21e', t: '🧭 אשף הגדרה ראשוני שואל סוג עסק בשלב הראשון (תפקידים+דמו מותאמים) · 🏷️ הוסר מותג "מנהל בית הקפה" הקבוע מתלושי שכר · 📋 יומן פעולות מציג מי ביצע ומתעד הזמנות/הרשאות · 🗓️ כפתור "העתק מאתמול" בהזנת שעות · 🔒 חיסום מספרים שליליים בדוח מכירות' },
   { v: '2026-06-21d', t: '💸 לשונית "טיפים" מוסתרת כעת גם למספרה/קוסמטיקה וסטודיו — מוצגת רק למסעדה/קפה' },
   { v: '2026-06-21c', t: '🧹 הוסר כפתור "מה חדש?" מהכותרת' },
   { v: '2026-06-21b', t: '🧮 עמודות "וולט"/"הקפה" בדוח היומי ו-Food Cost% בטבלת השליטה מותאמות/מוסתרות אוטומטית לפי סוג העסק (לא רלוונטי לעסקים שאינם מסעדה/קפה)' },
@@ -1229,7 +1230,8 @@ function customConfirm(opts) {
 
 function logAudit(action, details) {
   if (!S.auditLog) S.auditLog = [];
-  S.auditLog.unshift({ts: Date.now(), action: action, details: details || ''});
+  var who = currentUserName || (window.fb && window.fb.currentUser() && window.fb.currentUser().email) || 'לא ידוע';
+  S.auditLog.unshift({ts: Date.now(), action: action, details: details || '', user: who});
   if (S.auditLog.length > 500) S.auditLog.length = 500;
 }
 
@@ -1243,7 +1245,7 @@ function _filteredAuditLog() {
   if (!auditLogSearch) return log;
   var q = auditLogSearch.toLowerCase();
   return log.filter(function(e) {
-    return (e.action || '').toLowerCase().indexOf(q) >= 0 || (e.details || '').toLowerCase().indexOf(q) >= 0;
+    return (e.action || '').toLowerCase().indexOf(q) >= 0 || (e.details || '').toLowerCase().indexOf(q) >= 0 || (e.user || '').toLowerCase().indexOf(q) >= 0;
   });
 }
 function setAuditLogSearch(val) {
@@ -1255,8 +1257,8 @@ function setAuditLogSearch(val) {
 function exportAuditLog() {
   if (!xlxCheck()) return;
   var log = _filteredAuditLog();
-  var data = [['תאריך ושעה', 'פעולה', 'פרטים']];
-  log.forEach(function(e) { data.push([_auditLogDateStr(e.ts), e.action || '', e.details || '']); });
+  var data = [['תאריך ושעה', 'משתמש', 'פעולה', 'פרטים']];
+  log.forEach(function(e) { data.push([_auditLogDateStr(e.ts), e.user || '', e.action || '', e.details || '']); });
   var ws = XLSX.utils.aoa_to_sheet(data);
   var wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'יומן פעולות');
@@ -1277,7 +1279,8 @@ function renderAuditLog() {
     html += '<div style="max-height:60vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px">' +
       log.map(function(e) {
         return '<div style="display:flex;justify-content:space-between;gap:10px;padding:9px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);font-size:13px">' +
-          '<span style="font-weight:700">' + escHtml(e.action) + (e.details ? ' — <span style="color:var(--text-sec);font-weight:400">' + escHtml(e.details) + '</span>' : '') + '</span>' +
+          '<span style="font-weight:700">' + escHtml(e.action) + (e.details ? ' — <span style="color:var(--text-sec);font-weight:400">' + escHtml(e.details) + '</span>' : '') +
+            (e.user ? ' <span style="color:var(--primary-dark);font-weight:600;font-size:11.5px">· ' + escHtml(e.user) + '</span>' : '') + '</span>' +
           '<span style="color:var(--text-muted);white-space:nowrap;font-size:12px">' + _auditLogDateStr(e.ts) + '</span>' +
         '</div>';
       }).join('') +
@@ -1666,11 +1669,17 @@ function renderEmps() {
   var iact = filtered.filter(function(e){ return !e.active; });
 
   if (!S.employees.length) {
+    var weType    = (S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT;
+    var weIcon    = (BIZ_TYPE_META[weType] || {}).icon || '🏢';
+    var weHidden  = ZREPORT_HIDDEN_CHANNELS[weType] || [];
+    var weZreportLbl = (TAB_LABEL_OVERRIDES[weType] && TAB_LABEL_OVERRIDES[weType].zreport) || TAB_LABELS_BASE.zreport;
+    var weZreportTxt = weZreportLbl.indexOf(' ') === -1 ? weZreportLbl : weZreportLbl.slice(weZreportLbl.indexOf(' ') + 1);
+    var weChannelsTxt = ['💵 מזומן','💳 אשראי'].concat(weHidden.indexOf('wolt')===-1?['🛵 וולט']:[]).concat(weHidden.indexOf('hakafe')===-1?['☕ הקפה']:[]).join(', ');
     c.innerHTML =
       '<div style="max-width:620px;margin:40px auto;text-align:center;animation:slideUp .3s ease both">' +
-        '<div style="font-size:64px;margin-bottom:16px;animation:floatCoffee 4s ease-in-out infinite">☕</div>' +
-        '<h2 style="font-size:26px;font-weight:900;color:var(--text);margin-bottom:8px">ברוך הבא למנהל בית הקפה</h2>' +
-        '<p style="font-size:15px;color:var(--text-sec);margin-bottom:32px;line-height:1.7">מערכת ניהול עסקית מלאה — שעות, משכורות, דוח Z, קניות, טיפים ורווחיות.<br>רוצה לראות איך זה עובד? טען נתוני דוגמה.</p>' +
+        '<div style="font-size:64px;margin-bottom:16px;animation:floatCoffee 4s ease-in-out infinite">' + weIcon + '</div>' +
+        '<h2 style="font-size:26px;font-weight:900;color:var(--text);margin-bottom:8px">ברוך הבא למנהל העסק שלך</h2>' +
+        '<p style="font-size:15px;color:var(--text-sec);margin-bottom:32px;line-height:1.7">מערכת ניהול עסקית מלאה — שעות, משכורות, ' + escHtml(weZreportTxt) + ', קניות ורווחיות.<br>רוצה לראות איך זה עובד? טען נתוני דוגמה.</p>' +
         '<div style="display:flex;flex-direction:column;align-items:center;gap:14px">' +
           '<button class="btn btn-primary" style="font-size:17px;padding:14px 36px;border-radius:12px;box-shadow:0 6px 24px rgba(217,119,87,.35)" onclick="loadDemoData()">🎭 טען נתוני דוגמה — נסה את המערכת</button>' +
           '<span style="font-size:13px;color:var(--text-muted)">— או —</span>' +
@@ -1684,13 +1693,13 @@ function renderEmps() {
           '</div>' +
           '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:16px">' +
             '<div style="font-size:24px;margin-bottom:6px">📊</div>' +
-            '<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:3px">דוח Z ומכירות</div>' +
-            '<div style="font-size:12px;color:var(--text-muted)">מזומן, אשראי, וולט, הקפה</div>' +
+            '<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:3px">' + escHtml(weZreportLbl) + '</div>' +
+            '<div style="font-size:12px;color:var(--text-muted)">' + weChannelsTxt + '</div>' +
           '</div>' +
           '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:16px">' +
             '<div style="font-size:24px;margin-bottom:6px">📋</div>' +
             '<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:3px">רווח והפסד</div>' +
-            '<div style="font-size:12px;color:var(--text-muted)">Food cost, Labor cost, P&L</div>' +
+            '<div style="font-size:12px;color:var(--text-muted)">' + costPctLabel() + ', Labor cost, P&L</div>' +
           '</div>' +
         '</div>' +
       '</div>';
@@ -1851,6 +1860,30 @@ function stepDate(delta) {
 function setHoursDate(ds) {
   selectedHoursDate = ds;
   renderHoursDaily();
+}
+
+function copyYesterdayHours() {
+  var ds = selectedHoursDate || curDate();
+  var d  = new Date(ds + 'T12:00:00');
+  d.setDate(d.getDate() - 1);
+  var prevDs = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  var prevRecs = S.dailyHours[prevDs];
+  if (!prevRecs || !Object.keys(prevRecs).length) { toast('אין נתוני שעות ביום הקודם להעתיק', 'err'); return; }
+  if (!S.dailyHours[ds]) S.dailyHours[ds] = {};
+  var todayRecs = S.dailyHours[ds];
+  var filled = 0;
+  S.employees.filter(function(e){ return e.active; }).forEach(function(emp) {
+    var already = todayRecs[emp.id] && (toNum(todayRecs[emp.id].regHours) || toNum(todayRecs[emp.id].ot125) || toNum(todayRecs[emp.id].ot150));
+    var prev = prevRecs[emp.id];
+    if (!already && prev) {
+      todayRecs[emp.id] = {regHours: toNum(prev.regHours), ot125: toNum(prev.ot125), ot150: toNum(prev.ot150)};
+      filled++;
+    }
+  });
+  if (!filled) { toast('לכל העובדים הפעילים יש כבר נתון היום — לא הועתק כלום', 'err'); return; }
+  persist();
+  renderHoursDaily();
+  toast('✅ הועתקו שעות ל-' + filled + ' עובדים מהיום הקודם — אפשר לערוך כל שדה', 'ok');
 }
 
 /* ── Generic day/month/year dropdown date picker (same UX as employee DOB) ── */
@@ -2221,6 +2254,7 @@ function renderHoursDaily() {
       '</div>' +
       '<input type="date" class="ti" style="padding:8px 10px;border-radius:8px" value="' + ds + '" onchange="setHoursDate(this.value)">' +
       (ds !== today ? '<button class="btn btn-sm" onclick="setHoursDate(\'' + today + '\')" style="border-radius:8px">📅 היום</button>' : '') +
+      '<button class="btn btn-secondary" onclick="copyYesterdayHours()" style="border-radius:8px;font-size:12.5px" title="ימלא שעות לעובדים שעדיין אין להם נתון היום, על בסיס היום הקודם">📋 העתק מאתמול</button>' +
       '<button class="btn btn-secondary" onclick="stepDate(1)" style="padding:10px 20px;font-size:16px;border-radius:10px;font-weight:700">←</button>' +
     '</div>';
 
@@ -2674,7 +2708,13 @@ function onZInput(inp) {
   var ds = inp.dataset.ds;
   var fk = inp.dataset.fk;
   if (!S.zReports[ds]) S.zReports[ds] = {};
-  S.zReports[ds][fk] = (fk === 'reportNum') ? inp.value : toNum(inp.value);
+  if (fk === 'reportNum') {
+    S.zReports[ds][fk] = inp.value;
+  } else {
+    var numVal = Math.max(0, toNum(inp.value));
+    if (numVal !== toNum(inp.value)) inp.value = numVal || '';
+    S.zReports[ds][fk] = numVal;
+  }
   persist();
 
   var rec = S.zReports[ds];
@@ -4887,8 +4927,10 @@ function exportControl() {
 
   var fmt = function(n){ return +n.toFixed(2); };
   var _hiddenCh = ZREPORT_HIDDEN_CHANNELS[(S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT] || [];
+  var bizNameExp = ((S.settings || {}).biz || {}).name || '';
   var data = [
-    ['דוח רווח והפסד — ' + mn],
+    ['דוח רווח והפסד — ' + mn].concat(bizNameExp ? [bizNameExp] : []),
+    ['הופק בתאריך: ' + new Date().toLocaleDateString('he-IL')],
     [],
     ['=== הכנסות ==='],
     ['מזומן',              fmt(zb.cash)],
@@ -5401,9 +5443,11 @@ function printPayslip(empId, ym) {
   html += '@media print{.no-print{display:none!important}body{padding:20px}}';
   html += '</style></head><body>';
 
+  var psBizName = ((S.settings || {}).biz || {}).name || 'מנהל העסק';
+  var psBizIcon = (BIZ_TYPE_META[(S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT] || {}).icon || '🏢';
   html += '<div class="ps-header">';
-  html += '<div class="ps-logo">☕</div>';
-  html += '<h1 class="ps-title">מנהל בית הקפה</h1>';
+  html += '<div class="ps-logo">' + psBizIcon + '</div>';
+  html += '<h1 class="ps-title">' + escHtml(psBizName) + '</h1>';
   html += '<p class="ps-sub">תלוש שכר — ' + monthName + '</p>';
   html += '</div>';
 
@@ -5428,7 +5472,7 @@ function printPayslip(empId, ym) {
   html += '<button class="btn-close" onclick="window.close()">✕ סגור</button>';
   html += '</div>';
 
-  html += '<div class="ps-footer">הופק על ידי <strong>מנהל בית הקפה</strong> · ' + todayStr + '</div>';
+  html += '<div class="ps-footer">הופק על ידי <strong>' + escHtml(psBizName) + '</strong> · ' + todayStr + '</div>';
   html += '</body></html>';
 
   var win = window.open('', '_blank', 'width=760,height=960,scrollbars=yes');
@@ -5459,15 +5503,18 @@ async function loadDemoData() {
   var prevYM = prevY + '-' + String(prevM).padStart(2,'0');
   var curDay = today.getDate();
 
+  var demoType   = (S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT;
+  var roleNames  = DEMO_ROLE_NAMES_BY_TYPE[demoType] || DEMO_ROLE_NAMES_BY_TYPE.cafe;
+
   var emps = [
-    {id:'demo1', name:'שרה לוי',      type:'monthly', num:'123456789', phone:'050-1234567', hourlyRate:0,  monthlySalary:14000, travelPerDay:22, roles:['מנהלת'],  role:'מנהלת',  active:true},
-    {id:'demo2', name:'דני כהן',       type:'hourly',  num:'234567890', phone:'052-2345678', hourlyRate:37, monthlySalary:0,     travelPerDay:22, roles:['מלצר'],   role:'מלצר',   active:true},
-    {id:'demo3', name:'רחל מזרחי',     type:'hourly',  num:'345678901', phone:'054-3456789', hourlyRate:34, monthlySalary:0,     travelPerDay:18, roles:['מלצרית'], role:'מלצרית', active:true},
-    {id:'demo4', name:'יוסי אברהם',    type:'hourly',  num:'456789012', phone:'058-4567890', hourlyRate:42, monthlySalary:0,     travelPerDay:25, roles:['ברמן'],   role:'ברמן',   active:true},
-    {id:'demo5', name:'תמר גרינברג',   type:'hourly',  num:'567890123', phone:'050-5678901', hourlyRate:33, monthlySalary:0,     travelPerDay:18, roles:['קופאית'], role:'קופאית', active:true}
+    {id:'demo1', name:'שרה לוי',      type:'monthly', num:'123456789', phone:'050-1234567', hourlyRate:0,  monthlySalary:14000, travelPerDay:22, roles:[roleNames[0]], role:roleNames[0], active:true},
+    {id:'demo2', name:'דני כהן',       type:'hourly',  num:'234567890', phone:'052-2345678', hourlyRate:37, monthlySalary:0,     travelPerDay:22, roles:[roleNames[1]], role:roleNames[1], active:true},
+    {id:'demo3', name:'רחל מזרחי',     type:'hourly',  num:'345678901', phone:'054-3456789', hourlyRate:34, monthlySalary:0,     travelPerDay:18, roles:[roleNames[2]], role:roleNames[2], active:true},
+    {id:'demo4', name:'יוסי אברהם',    type:'hourly',  num:'456789012', phone:'058-4567890', hourlyRate:42, monthlySalary:0,     travelPerDay:25, roles:[roleNames[3]], role:roleNames[3], active:true},
+    {id:'demo5', name:'תמר גרינברג',   type:'hourly',  num:'567890123', phone:'050-5678901', hourlyRate:33, monthlySalary:0,     travelPerDay:18, roles:[roleNames[4]], role:roleNames[4], active:true}
   ];
 
-  var roles = ['מנהלת','מלצר','מלצרית','ברמן','קופאית'];
+  var roles = roleNames.slice();
 
   function dStr(y,m,d) { return y + '-' + String(m).padStart(2,'0') + '-' + String(d).padStart(2,'0'); }
   function dow(y,m,d)  { return new Date(y, m-1, d).getDay(); }
@@ -6015,6 +6062,25 @@ function costPctLabel() {
   var type = (S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT;
   return COST_PCT_LABEL_OVERRIDES[type] || 'Food Cost %';
 }
+// תפקידים מוצעים באשף ההגדרה ובנתוני הדוגמה — מותאמים לסוג העסק
+var ROLE_SUGGESTIONS_BY_TYPE = {
+  cafe:    ['מלצר/ית', 'טבח/ית', 'בריסטה', 'קופאי/ת', 'מנהל/ת משמרת', 'שליח/ה'],
+  retail:  ['מוכר/ת', 'קופאי/ת', 'מנהל/ת חנות', 'מלאי / קבלת סחורה'],
+  salon:   ['מעצב/ת שיער', 'קוסמטיקאי/ת', 'מניקוריסטית', 'פקיד/ת קבלה'],
+  studio:  ['מאמן/ת', 'מדריך/ה', 'פקיד/ת קבלה'],
+  clinic:  ['רופא/ה', 'אח/ות', 'פיזיותרפיסט/ית', 'פקיד/ת קבלה'],
+  garage:  ['מכונאי/ת', 'יועץ/ת שירות', 'פקיד/ת קבלה'],
+  general: ['עובד/ת', 'מנהל/ת', 'פקיד/ת קבלה']
+};
+var DEMO_ROLE_NAMES_BY_TYPE = {
+  cafe:    ['מנהלת', 'מלצר', 'מלצרית', 'ברמן', 'קופאית'],
+  retail:  ['מנהלת חנות', 'מוכר', 'מוכרת', 'קופאי', 'קופאית'],
+  salon:   ['מנהלת סלון', 'מעצב שיער', 'מעצבת שיער', 'קוסמטיקאית', 'פקידת קבלה'],
+  studio:  ['מנהלת סטודיו', 'מאמן', 'מאמנת', 'מדריך', 'פקידת קבלה'],
+  clinic:  ['מנהלת מרפאה', 'רופא', 'אחות', 'פיזיותרפיסט', 'פקידת קבלה'],
+  garage:  ['מנהל מוסך', 'מכונאי', 'מכונאית', 'יועץ שירות', 'פקידת קבלה'],
+  general: ['מנהלת', 'עובד', 'עובדת', 'עובד', 'פקידת קבלה']
+};
 
 function detectBizTypeFromText(text) {
   var t = (text || '').toLowerCase();
@@ -6237,6 +6303,8 @@ async function sendUserInvite() {
   if (!tabs.length) { toast('בחר לפחות לשונית אחת להרשאה', 'err'); return; }
   try {
     await window.fb.createInvite(email, currentBusinessId, 'manager', tabs);
+    logAudit('הזמנת משתמש/ת', email + ' — הרשאות: ' + tabs.map(function(t){return TAB_LABELS[t]||t;}).join(', '));
+    persist();
     try {
       await sendInviteEmail(email);
       toast('✅ הזמנה נשלחה למייל — בקש מהמוזמן/ת לבדוק את תיבת הדואר', 'ok');
@@ -6253,6 +6321,8 @@ async function saveMemberPermissions(uid, containerId) {
   var tabs = readCheckedTabs(containerId);
   try {
     await window.fb.updateMemberTabs(uid, tabs);
+    logAudit('שינוי הרשאות משתמש/ת', tabs.length ? tabs.map(function(t){return TAB_LABELS[t]||t;}).join(', ') : 'הוסרו כל ההרשאות');
+    persist();
     toast('✅ ההרשאות נשמרו', 'ok');
   } catch (e) {
     toast('שגיאה בשמירת ההרשאות', 'err');
@@ -6263,6 +6333,8 @@ async function saveInvitePermissions(email, containerId) {
   var tabs = readCheckedTabs(containerId);
   try {
     await window.fb.updateInviteTabs(email, tabs);
+    logAudit('שינוי הרשאות הזמנה', email + ' — ' + (tabs.length ? tabs.map(function(t){return TAB_LABELS[t]||t;}).join(', ') : 'הוסרו כל ההרשאות'));
+    persist();
     toast('✅ ההרשאות נשמרו', 'ok');
   } catch (e) {
     toast('שגיאה בשמירת ההרשאות', 'err');
@@ -6279,6 +6351,8 @@ async function removeUserMember(uid) {
   try {
     await window.fb.blockUser(uid, currentBusinessId);
     await window.fb.removeMember(uid);
+    logAudit('הסרת משתמש/ת', uid);
+    persist();
     toast('המשתמש הוסר — לא יוכל/תוכל להתחבר עד שתזמין/י מחדש', 'ok');
     openUserMgmt();
   } catch (e) {
@@ -6289,6 +6363,8 @@ async function removeUserMember(uid) {
 async function cancelUserInvite(email) {
   try {
     await window.fb.deleteInvite(email);
+    logAudit('ביטול הזמנה', email);
+    persist();
     toast('ההזמנה בוטלה', 'ok');
     openUserMgmt();
   } catch (e) {
@@ -6918,15 +6994,33 @@ function isFirstTimeSetup() {
 
 var _wizStep = 0;
 var _wizRoles = [];
+var _wizBizType = BIZ_TYPE_DEFAULT;
+function selectWizBizType(type) {
+  _wizBizType = type;
+  renderSetupWizard();
+}
 function renderSetupWizard() {
   var biz = (S.settings && S.settings.biz) || {};
   var existing = document.getElementById('setup-wizard');
   if (existing) existing.remove();
 
-  var roleSuggestions = ['מלצר/ית','טבח/ית','בריסטה','קופאי/ת','מנהל/ת משמרת','שליח/ה'];
+  var roleSuggestions = ROLE_SUGGESTIONS_BY_TYPE[_wizBizType] || ROLE_SUGGESTIONS_BY_TYPE.cafe;
   var stepsHtml = [
     '<div style="font-size:40px;margin-bottom:10px">👋</div>' +
-    '<h2 style="margin-bottom:6px">ברוך הבא למנהל העסק!</h2>' +
+    '<h2 style="margin-bottom:6px">ברוך הבא! איזה עסק יש לך?</h2>' +
+    '<div style="color:var(--text-muted);font-size:14px;margin-bottom:16px">זה עוזר לנו להציג לך את המערכת בשפה הנכונה — תמיד אפשר לשנות אחר כך.</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+      BIZ_TYPES.map(function(t) {
+        var meta = BIZ_TYPE_META[t];
+        var sel  = t === _wizBizType;
+        return '<div onclick="selectWizBizType(\'' + t + '\')" style="cursor:pointer;border:1.5px solid ' + (sel ? 'var(--primary)' : 'var(--border)') + ';background:' + (sel ? 'var(--primary-light)' : 'var(--surface)') + ';border-radius:10px;padding:10px;text-align:center;font-size:13px;font-weight:700;color:' + (sel ? 'var(--primary-dark)' : 'var(--text)') + '">' +
+          '<div style="font-size:22px;margin-bottom:3px">' + meta.icon + '</div>' + meta.label +
+        '</div>';
+      }).join('') +
+    '</div>',
+
+    '<div style="font-size:40px;margin-bottom:10px">🏢</div>' +
+    '<h2 style="margin-bottom:6px">כמה פרטים על העסק</h2>' +
     '<div style="color:var(--text-muted);font-size:14px;margin-bottom:20px">כמה שאלות קצרות לפני שמתחילים — לוקח דקה.</div>' +
     '<div class="form-group"><label class="form-label">🏢 שם העסק</label>' +
     '<input class="form-control" id="wiz-biz-name" value="' + escHtml(biz.name||'') + '" placeholder="לדוגמה: קפה הפינה"></div>' +
@@ -6950,23 +7044,24 @@ function renderSetupWizard() {
     '<h2 style="margin-bottom:6px">מוכנים להתחיל!</h2>' +
     '<div style="color:var(--text-muted);font-size:14px;line-height:1.7;margin-bottom:18px">' +
       'הצעד הבא: הוסיפו את העובד הראשון שלכם בלשונית <strong>👥 עובדים</strong>.<br><br>' +
-      'משם תוכלו למלא שעות, לחשב משכורות, לתעד מכירות (דוח Z), לנהל טיפים, קניות, ולעקוב אחרי הרווח/הפסד החודשי — הכל במקום אחד.' +
+      'משם תוכלו למלא שעות, לחשב משכורות, לתעד מכירות, לנהל קניות, ולעקוב אחרי הרווח/הפסד החודשי — הכל במקום אחד.' +
     '</div>' +
     '<button class="btn btn-secondary" onclick="dismissSetupWizard();loadDemoData()" style="width:100%;margin-bottom:8px">🎭 או טען נתוני דוגמה לבדיקה</button>'
   ];
 
+  var lastStep = stepsHtml.length - 1;
   var html =
     '<div id="setup-wizard" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10100;display:flex;align-items:center;justify-content:center;direction:rtl;padding:16px">' +
       '<div style="background:#fff;border-radius:20px;padding:32px;max-width:440px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,.3);text-align:right">' +
         '<div style="display:flex;gap:5px;margin-bottom:22px">' +
-          [0,1,2].map(function(i) { return '<div style="height:5px;border-radius:3px;flex:1;background:' + (i <= _wizStep ? 'var(--primary)' : 'var(--border)') + '"></div>'; }).join('') +
+          stepsHtml.map(function(_, i) { return '<div style="height:5px;border-radius:3px;flex:1;background:' + (i <= _wizStep ? 'var(--primary)' : 'var(--border)') + '"></div>'; }).join('') +
         '</div>' +
         '<div id="wiz-body">' + stepsHtml[_wizStep] + '</div>' +
         '<div style="display:flex;justify-content:space-between;margin-top:24px">' +
           (_wizStep === 0
             ? '<button class="btn btn-secondary" onclick="dismissSetupWizard()" style="font-size:12px">דלג להמשך</button>'
             : '<button class="btn btn-secondary" onclick="wizStep(-1)">→ הקודם</button>') +
-          (_wizStep < 2
+          (_wizStep < lastStep
             ? '<button class="btn btn-primary" onclick="wizStep(1)">הבא ←</button>'
             : '<button class="btn btn-primary" onclick="dismissSetupWizard()">סגור והתחל לעבוד</button>') +
         '</div>' +
@@ -7007,6 +7102,12 @@ function addWizCustomRole() {
 function wizStep(delta) {
   if (_wizStep === 0 && delta > 0) {
     if (!S.settings) S.settings = {vat: 17};
+    S.settings.businessType = _wizBizType;
+    persist();
+    applyBusinessType();
+  }
+  if (_wizStep === 1 && delta > 0) {
+    if (!S.settings) S.settings = {vat: 17};
     if (!S.settings.biz) S.settings.biz = {};
     var nameInp = document.getElementById('wiz-biz-name');
     var vatInp  = document.getElementById('wiz-vat');
@@ -7015,7 +7116,7 @@ function wizStep(delta) {
     persist();
     applyBizSettings();
   }
-  if (_wizStep === 1 && delta > 0) {
+  if (_wizStep === 2 && delta > 0) {
     if (!S.roles) S.roles = [];
     _wizRoles.forEach(function(r) { if (S.roles.indexOf(r) === -1) S.roles.push(r); });
     persist();
