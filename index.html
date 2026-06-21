@@ -806,9 +806,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-18u';
+var APP_VERSION  = '2026-06-18v';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-18v', t: '🐛 תיקון: בורר תאריך בניווט שעות יומי הוחזר לתאריך רגיל (זה ניווט, לא מילוי) · 💰 סה"כ הכנסות ללא מע"מ מוצג עכשיו גם בכרטיס ההכנסות בטבלת שליטה' },
   { v: '2026-06-18u', t: '📅 כל שדות התאריך באתר (כולל תוספת/מפרעה במילוי שעות חודשי) עברו לבחירת יום/חודש/שנה כמו בכרטיס עובד' },
   { v: '2026-06-18t', t: '🎨 תצוגות יומי וחודשי בלשונית שעות עוצבו מחדש כמו התצוגה השבועית — עיגולי שם צבעוניים, תאי שעות צבעוניים, כרטיס ניווט' },
   { v: '2026-06-18s', t: '🧹 ניקוי קוד פנימי בתאי השעות — אין שינוי בהתנהגות' },
@@ -2151,7 +2152,7 @@ function renderHoursDaily() {
         '<div style="font-size:21px;font-weight:900;color:var(--text)">' + dateDisp + '</div>' +
         '<div style="font-size:12px;font-weight:700;color:' + (wd===6?'var(--warning)':'var(--success)') + ';margin-top:5px">' + DHE[wd] + (wd===6?' 🔶':(ds===today?' · ✅ היום':'')) + '</div>' +
       '</div>' +
-      buildDateDropdowns('hdate-pick', ds, "setHoursDate(getDateDropdownValue('hdate-pick'))") +
+      '<input type="date" class="ti" style="padding:8px 10px;border-radius:8px" value="' + ds + '" onchange="setHoursDate(this.value)">' +
       (ds !== today ? '<button class="btn btn-sm" onclick="setHoursDate(\'' + today + '\')" style="border-radius:8px">📅 היום</button>' : '') +
       '<button class="btn btn-secondary" onclick="stepDate(1)" style="padding:10px 20px;font-size:16px;border-radius:10px;font-weight:700">←</button>' +
     '</div>';
@@ -3971,6 +3972,7 @@ function renderControl() {
         '<div class="ctrl-total" style="color:var(--success);border-color:var(--success)">' +
           '<span>✅ סה"כ הכנסות</span><span style="font-size:20px">' + ILS(totalIncome) + '</span>' +
         '</div>' +
+        '<div class="ctrl-row" style="margin-top:-2px"><span class="ctrl-label" style="color:var(--text-muted)">ללא מע"מ</span><span class="ctrl-amount" style="color:var(--text-muted);font-size:13px">' + ILS(netSales) + '</span></div>' +
         ((S.settings || {}).showSalesTarget !== false ? (function(){
           var target = toNum(ctrl.salesTarget);
           var pct    = target > 0 ? Math.min(totalIncome / target * 100, 100) : 0;
