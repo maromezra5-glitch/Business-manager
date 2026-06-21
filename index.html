@@ -7,6 +7,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2/dist/chartjs-plugin-datalabels.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script>
+  var EMAILJS_SERVICE_ID  = 'service_0x7ofbo';
+  var EMAILJS_TEMPLATE_ID = 'template_a70klrc';
+  var EMAILJS_PUBLIC_KEY  = 'KT_msus7rILpRLW8j';
+  if (typeof emailjs !== 'undefined') emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+</script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
   import {
@@ -807,9 +814,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-18w';
+var APP_VERSION  = '2026-06-18x';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-18x', t: '📧 הזמנת משתמש/ת שולחת עכשיו מייל אמיתי עם קישור להרשמה (EmailJS)' },
   { v: '2026-06-18w', t: '📊 שדרוג גרפים מקצה לקצה — קו מצטבר וממוצע יומי בדוח Z, אחוזים על העוגות, ערכים על העמודות, וגרף חדש: מגמת Food Cost%/Labor Cost% ל-6 חודשים' },
   { v: '2026-06-18v', t: '🐛 תיקון: בורר תאריך בניווט שעות יומי הוחזר לתאריך רגיל (זה ניווט, לא מילוי) · 💰 סה"כ הכנסות ללא מע"מ מוצג עכשיו גם בכרטיס ההכנסות בטבלת שליטה' },
   { v: '2026-06-18u', t: '📅 כל שדות התאריך באתר (כולל תוספת/מפרעה במילוי שעות חודשי) עברו לבחירת יום/חודש/שנה כמו בכרטיס עובד' },
@@ -5967,6 +5975,17 @@ async function openUserMgmt() {
   document.getElementById('modal-box').innerHTML = html;
 }
 
+async function sendInviteEmail(email) {
+  if (typeof emailjs === 'undefined') return;
+  var bizName = ((S.settings || {}).biz || {}).name || 'מנהל העסק';
+  var signupLink = location.origin + location.pathname;
+  return emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+    to_email: email,
+    business_name: bizName,
+    signup_link: signupLink
+  });
+}
+
 async function sendUserInvite() {
   var inp = document.getElementById('invite-email-inp');
   var email = (inp.value || '').trim();
@@ -5975,7 +5994,12 @@ async function sendUserInvite() {
   if (!tabs.length) { toast('בחר לפחות לשונית אחת להרשאה', 'err'); return; }
   try {
     await window.fb.createInvite(email, currentBusinessId, 'manager', tabs);
-    toast('✅ הזמנה נשלחה — כשיירשם/תירשם עם האימייל הזה, תהיה לו/ה הגישה שבחרת', 'ok');
+    try {
+      await sendInviteEmail(email);
+      toast('✅ הזמנה נשלחה למייל — בקש מהמוזמן/ת לבדוק את תיבת הדואר', 'ok');
+    } catch (mailErr) {
+      toast('⚠️ ההזמנה נרשמה אך שליחת המייל נכשלה — שלח/י לו/ה את הקישור ידנית', 'err');
+    }
     openUserMgmt();
   } catch (e) {
     toast('שגיאה בשליחת ההזמנה', 'err');
