@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>מנהל העסק</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2/dist/chartjs-plugin-datalabels.min.js"></script>
@@ -94,7 +97,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { height: 100%; }
 body {
-  font-family: 'Segoe UI', Arial, sans-serif; font-size: 15px;
+  font-family: 'Rubik', 'Segoe UI', Arial, sans-serif; font-size: 15px;
   color: var(--text); direction: rtl; min-height: 100%;
   background-color: #E6DDD5;
   background-image:
@@ -814,9 +817,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-18x';
+var APP_VERSION  = '2026-06-18y';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-18y', t: '🎨 פונט עברי קריא יותר בכל האתר (Rubik) · 👤 מסך ניהול משתמשים שודרג — כרטיסים ברורים, כפתורי שמירה בולטים, ספירת חברי צוות' },
   { v: '2026-06-18x', t: '📧 הזמנת משתמש/ת שולחת עכשיו מייל אמיתי עם קישור להרשמה (EmailJS)' },
   { v: '2026-06-18w', t: '📊 שדרוג גרפים מקצה לקצה — קו מצטבר וממוצע יומי בדוח Z, אחוזים על העוגות, ערכים על העמודות, וגרף חדש: מגמת Food Cost%/Labor Cost% ל-6 חודשים' },
   { v: '2026-06-18v', t: '🐛 תיקון: בורר תאריך בניווט שעות יומי הוחזר לתאריך רגיל (זה ניווט, לא מילוי) · 💰 סה"כ הכנסות ללא מע"מ מוצג עכשיו גם בכרטיס ההכנסות בטבלת שליטה' },
@@ -1549,6 +1553,7 @@ async function deleteEmp(id) {
 
 function closeModal() {
   document.getElementById('modal').classList.add('hidden');
+  document.getElementById('modal-box').style.maxWidth = '';
   editEmpId = null;
 }
 
@@ -5917,30 +5922,39 @@ function readCheckedTabs(containerId) {
   return out;
 }
 
+function _sectionHeader(text) {
+  return '<div style="font-size:12.5px;font-weight:800;color:var(--text-muted);letter-spacing:.3px;margin:18px 0 8px;text-transform:uppercase">' + text + '</div>';
+}
 async function openUserMgmt() {
   if (!isOwner()) return;
-  document.getElementById('modal-box').innerHTML = '<h2 class="modal-title">👤 ניהול משתמשים</h2><div style="text-align:center;padding:24px;color:var(--text-muted)">טוען...</div>';
+  var box = document.getElementById('modal-box');
+  box.style.maxWidth = '640px';
+  box.innerHTML = '<h2 class="modal-title">👤 ניהול משתמשים</h2><div style="text-align:center;padding:24px;color:var(--text-muted)">טוען...</div>';
   document.getElementById('modal').classList.remove('hidden');
-  var membersHtml = '', invitesHtml = '';
+  var ownerHtml = '', managersHtml = '', invitesHtml = '', loadError = '';
+  var managerCount = 0;
   try {
     var mi = 0;
     var membersSnap = await window.fb.listMembers(currentBusinessId);
     membersSnap.forEach(function(d) {
       var m = d.data();
       if (m.role === 'owner') {
-        membersHtml += '<div style="padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);margin-bottom:6px">' +
-          '<div style="font-weight:700">' + escHtml(m.email||'') + '</div><div style="font-size:12px;color:var(--text-muted)">👑 בעל/ת העסק — גישה מלאה</div>' +
+        ownerHtml += '<div style="padding:12px 16px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-sm);margin-bottom:8px;display:flex;align-items:center;gap:10px">' +
+          '<span style="font-size:20px">👑</span>' +
+          '<div><div style="font-weight:800">' + escHtml(m.email||'') + '</div><div style="font-size:12px;color:var(--text-muted)">בעל/ת העסק — גישה מלאה לכל המערכת</div></div>' +
         '</div>';
         return;
       }
+      managerCount++;
       var cid = 'member-tabs-' + (mi++);
-      membersHtml += '<div style="padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);margin-bottom:6px">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center">' +
-          '<div style="font-weight:700">' + escHtml(m.email||'') + '</div>' +
-          '<button class="btn btn-danger btn-sm" onclick="removeUserMember(\'' + d.id + '\')">🗑️ הסר</button>' +
+      managersHtml += '<div style="padding:14px 16px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-sm);margin-bottom:10px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+          '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:18px">🧑‍💼</span><div><div style="font-weight:800">' + escHtml(m.email||'') + '</div><div style="font-size:11px;color:var(--text-muted)">מנהל/ת משמרת</div></div></div>' +
+          '<button class="btn btn-danger btn-sm" onclick="removeUserMember(\'' + d.id + '\')" title="הסרת גישה למשתמש זה">🗑️ הסר גישה</button>' +
         '</div>' +
+        '<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:4px">הרשאות גישה — אילו לשוניות יוכל/תוכל לראות:</div>' +
         buildTabCheckboxes(cid, m.allowedTabs) +
-        '<button class="btn btn-secondary btn-sm" onclick="saveMemberPermissions(\'' + d.id + '\',\'' + cid + '\')">💾 שמור הרשאות</button>' +
+        '<button class="btn btn-primary btn-sm" onclick="saveMemberPermissions(\'' + d.id + '\',\'' + cid + '\')" style="margin-top:8px">💾 שמור שינויי הרשאות</button>' +
       '</div>';
     });
     var ii = 0;
@@ -5948,31 +5962,37 @@ async function openUserMgmt() {
     invitesSnap.forEach(function(d) {
       var inv = d.data();
       var cid = 'invite-tabs-' + (ii++);
-      invitesHtml += '<div style="padding:10px 14px;background:var(--warning-bg);border:1px solid rgba(200,125,14,.25);border-radius:var(--r-sm);margin-bottom:6px">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center">' +
-          '<div><div style="font-weight:700">' + escHtml(d.id) + '</div><div style="font-size:12px;color:var(--warning)">⏳ ממתין/ה להרשמה</div></div>' +
-          '<button class="btn btn-secondary btn-sm" onclick="cancelUserInvite(\'' + escHtml(d.id) + '\')">ביטול</button>' +
+      invitesHtml += '<div style="padding:14px 16px;background:var(--warning-bg);border:1.5px solid rgba(200,125,14,.3);border-radius:var(--r-sm);margin-bottom:10px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+          '<div><div style="font-weight:800">' + escHtml(d.id) + '</div><div style="font-size:11px;color:var(--warning)">⏳ ממתין/ה להרשמה — נשלח מייל עם קישור</div></div>' +
+          '<button class="btn btn-secondary btn-sm" onclick="cancelUserInvite(\'' + escHtml(d.id) + '\')">✕ בטל הזמנה</button>' +
         '</div>' +
+        '<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:4px">הרשאות שיקבל/תקבל בהרשמה:</div>' +
         buildTabCheckboxes(cid, inv.allowedTabs) +
-        '<button class="btn btn-secondary btn-sm" onclick="saveInvitePermissions(\'' + escHtml(d.id) + '\',\'' + cid + '\')">💾 שמור הרשאות</button>' +
+        '<button class="btn btn-primary btn-sm" onclick="saveInvitePermissions(\'' + escHtml(d.id) + '\',\'' + cid + '\')" style="margin-top:8px">💾 שמור שינויי הרשאות</button>' +
       '</div>';
     });
   } catch (e) {
-    membersHtml = '<div style="color:var(--error)">שגיאה בטעינת רשימת המשתמשים</div>';
+    loadError = '<div style="color:var(--error);padding:14px;background:var(--error-bg);border-radius:var(--r-sm);margin-bottom:10px">⚠️ שגיאה בטעינת רשימת המשתמשים — בדוק/י חיבור לאינטרנט ונסה/נסי שוב</div>';
   }
   var newCid = 'invite-new-tabs';
   var html =
     '<h2 class="modal-title">👤 ניהול משתמשים</h2>' +
-    '<div style="color:var(--text-muted);font-size:13px;margin-bottom:14px">בחר/י בדיוק לאיזה לשוניות תהיה גישה לכל משתמש/ת. אפשר לשנות הרשאות בכל עת.</div>' +
-    '<div style="margin-bottom:18px">' + membersHtml + invitesHtml + '</div>' +
-    '<div class="form-group" style="border-top:1px solid var(--border);padding-top:14px">' +
-      '<label class="form-label">➕ הזמנת משתמש/ת חדש/ה</label>' +
-      '<input type="email" class="form-control" id="invite-email-inp" placeholder="כתובת אימייל" style="margin-bottom:6px">' +
+    '<div style="color:var(--text-muted);font-size:13px;margin-bottom:8px">כל משתמש/ת מקבל/ת גישה רק ללשוניות שתבחר/י עבורו/ה — ניתן לשנות הרשאות בכל עת, גם אחרי שהצטרף/ה.</div>' +
+    loadError +
+    _sectionHeader('👥 חברי הצוות שלך') +
+    ownerHtml + managersHtml +
+    (managerCount === 0 ? '<div style="font-size:13px;color:var(--text-muted);padding:10px 4px">עדיין לא הוספת מנהלי משמרת — הזמן/י את הראשון/ה למטה ⬇️</div>' : '') +
+    (invitesHtml ? _sectionHeader('⏳ הזמנות שממתינות להרשמה') + invitesHtml : '') +
+    _sectionHeader('➕ הזמנת משתמש/ת חדש/ה') +
+    '<div class="form-group">' +
+      '<input type="email" class="form-control" id="invite-email-inp" placeholder="כתובת אימייל" style="margin-bottom:8px">' +
+      '<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:4px">הרשאות גישה — אילו לשוניות יראה/תראה:</div>' +
       buildTabCheckboxes(newCid, []) +
-      '<button class="btn btn-primary" onclick="sendUserInvite()" style="margin-top:6px">שלח הזמנה</button>' +
+      '<button class="btn btn-primary" onclick="sendUserInvite()" style="margin-top:10px">📧 שלח הזמנה במייל</button>' +
     '</div>' +
     '<div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal()">סגור</button></div>';
-  document.getElementById('modal-box').innerHTML = html;
+  box.innerHTML = html;
 }
 
 async function sendInviteEmail(email) {
