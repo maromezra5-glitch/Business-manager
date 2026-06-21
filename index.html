@@ -822,9 +822,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-19b';
+var APP_VERSION  = '2026-06-19c';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-19c', t: '🐛 תיקון: הודעת שינוי הרשאות לא הופיעה אם המשתמש כבר היה מחובר כשהשינוי קרה' },
   { v: '2026-06-19b', t: '🔄 הודעה למנהל/ת משמרת בכניסה הראשונה אחרי שינוי הרשאות — פעם אחת בלבד לכל שינוי' },
   { v: '2026-06-19a', t: '🔒 תיקון אבטחה: הסרת משתמש חוסמת אותו לגמרי מכניסה חזרה, עד הזמנה מחדש' },
   { v: '2026-06-18z', t: '🐛 תיקון: קישורי הזמנה במייל לא היו לחיצים — עברנו משירות Gmail (OAuth) ל-SMTP ב-EmailJS' },
@@ -6300,11 +6301,9 @@ function _watchOwnPermissions(uid) {
     currentAllowedTabs = u.allowedTabs || [];
     if (changed && document.getElementById('app').style.display !== 'none') {
       applyRolePermissions();
-      if (!isOwner()) {
-        toast('🔄 ההרשאות שלך עודכנו', 'ok');
-        // Seen live — don't show the login-time notice again for this same change
-        if (window.fb) window.fb.markPermissionsSeen(uid, u.permissionsUpdatedAt || Date.now()).catch(function(){});
-      }
+      // Live toast is easy to miss — the dedicated popup will still show on the next
+      // login/refresh regardless, so don't mark this change as "seen" here.
+      if (!isOwner()) toast('🔄 ההרשאות שלך עודכנו', 'ok');
     }
   });
 }
