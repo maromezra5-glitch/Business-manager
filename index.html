@@ -822,9 +822,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-19h';
+var APP_VERSION  = '2026-06-21a';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-21a', t: '🏷️ התאמת המערכת לסוג העסק שלכם — בחרו מסעדה/קפה, חנות, מספרה, סטודיו, קליניקה, מוסך או הקלידו בעצמכם, והלשוניות יתאימו את שמן ואת הרלוונטיות שלהן' },
   { v: '2026-06-19h', t: '🔍 חיפוש וייצוא Excel ביומן הפעולות' },
   { v: '2026-06-19g', t: '⏱ הגנה מפני תקיעות בטעינה מהענן — הודעת שגיאה ברורה במקום "טוען..." ללא סוף אם החיבור נתקע' },
   { v: '2026-06-19f', t: '👁️ תצוגה מקדימה להרשאות — רואים בדיוק אילו לשוניות יראה משתמש לפני שמירה/שליחת הזמנה' },
@@ -5923,28 +5924,116 @@ RENDER_MAP = {
    AUTH SYSTEM — Firebase Authentication
 ================================================================ */
 var ALL_TABS = ['employees', 'zreport', 'purchases', 'hours', 'tips', 'payroll', 'control', 'tasks'];
-var TAB_LABELS = {
+var TAB_LABELS_BASE = {
   employees: '👥 עובדים', zreport: '📊 דוח Z', purchases: '🛒 קניות', hours: '⏱ שעות',
   tips: '💸 טיפים', payroll: '💰 משכורות', control: '📋 טבלת שליטה', tasks: '📝 יומן'
 };
+var TAB_LABELS = Object.assign({}, TAB_LABELS_BASE);
+
+/* ===== Business Type customization ===== */
+var BIZ_TYPE_DEFAULT = 'cafe';
+var BIZ_TYPES = ['cafe', 'retail', 'salon', 'studio', 'clinic', 'garage', 'general'];
+var BIZ_TYPE_META = {
+  cafe:    { icon: '🍽️', label: 'מסעדה / קפה' },
+  retail:  { icon: '🏪', label: 'חנות קמעונאית' },
+  salon:   { icon: '💇', label: 'מספרה / קוסמטיקה' },
+  studio:  { icon: '🧘', label: 'סטודיו (כושר / יוגה)' },
+  clinic:  { icon: '⚕️', label: 'מרפאה / קליניקה' },
+  garage:  { icon: '🔧', label: 'מוסך' },
+  general: { icon: '🏢', label: 'עסק כללי / אחר' }
+};
+var BIZ_TYPE_KEYWORDS = {
+  cafe:   ['מסעדה', 'קפה', 'בית קפה', 'בר', 'מאפיה', 'פיצרי', 'קייטרינג'],
+  retail: ['חנות', 'קמעונא', 'בוטיק', 'רשת', 'סטור', 'אופנה'],
+  salon:  ['מספרה', 'קוסמטיק', 'איפור', 'ספא', 'טיפוח', 'מניקור', 'עיצוב שיער'],
+  studio: ['סטודיו', 'כושר', 'יוגה', 'פילאטיס', 'חדר כושר', 'אימון'],
+  clinic: ['מרפאה', 'קליניקה', 'רופא', 'פיזיותרפיה', 'טיפול', 'שיניים'],
+  garage: ['מוסך', 'רכב', 'תיקון רכב', 'צמיגים', 'מכונאי']
+};
+var TAB_LABEL_OVERRIDES = {
+  retail:  { zreport: '📊 מכירות יומיות', purchases: '🛒 הוצאות / רכש' },
+  salon:   { zreport: '📊 הכנסות יומיות', purchases: '🛒 הוצאות / רכש' },
+  studio:  { zreport: '📊 הכנסות יומיות', purchases: '🛒 הוצאות / רכש' },
+  clinic:  { zreport: '📊 הכנסות יומיות', purchases: '🛒 הוצאות / רכש' },
+  garage:  { zreport: '📊 הכנסות יומיות', purchases: '🛒 הוצאות / רכש' },
+  general: { zreport: '📊 הכנסות יומיות', purchases: '🛒 הוצאות / רכש' }
+};
+var PANEL_TITLE_BASE = {
+  employees: '👥 ניהול עובדים', zreport: '📊 דוח Z — מכירות יומיות', purchases: '🛒 קניות מספקים',
+  hours: '⏱ הזנת שעות', tips: '💸 ניהול טיפים', payroll: '💰 דוח משכורות',
+  control: '📋 טבלת שליטה', tasks: '📝 יומן משימות'
+};
+var PANEL_TITLE_OVERRIDES = {
+  retail:  { zreport: '📊 מכירות יומיות', purchases: '🛒 הוצאות / רכש' },
+  salon:   { zreport: '📊 הכנסות יומיות', purchases: '🛒 הוצאות / רכש' },
+  studio:  { zreport: '📊 הכנסות יומיות', purchases: '🛒 הוצאות / רכש' },
+  clinic:  { zreport: '📊 הכנסות יומיות', purchases: '🛒 הוצאות / רכש' },
+  garage:  { zreport: '📊 הכנסות יומיות', purchases: '🛒 הוצאות / רכש' },
+  general: { zreport: '📊 הכנסות יומיות', purchases: '🛒 הוצאות / רכש' }
+};
+var BIZ_TYPE_HIDDEN_TABS = {
+  cafe: [], salon: [], studio: [],
+  retail: ['tips'], clinic: ['tips'], garage: ['tips'], general: ['tips']
+};
+
+function detectBizTypeFromText(text) {
+  var t = (text || '').toLowerCase();
+  for (var i = 0; i < BIZ_TYPES.length; i++) {
+    var kws = BIZ_TYPE_KEYWORDS[BIZ_TYPES[i]];
+    if (!kws) continue;
+    for (var j = 0; j < kws.length; j++) {
+      if (t.indexOf(kws[j].toLowerCase()) !== -1) return BIZ_TYPES[i];
+    }
+  }
+  return 'general';
+}
+
+function applyBusinessType() {
+  var type = (S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT;
+  TAB_LABELS = Object.assign({}, TAB_LABELS_BASE, TAB_LABEL_OVERRIDES[type] || {});
+
+  Object.keys(TAB_LABELS_BASE).forEach(function(name) {
+    var btn = document.getElementById('btn-' + name);
+    if (!btn) return;
+    var full = TAB_LABELS[name];
+    var spaceIdx = full.indexOf(' ');
+    var icon = spaceIdx === -1 ? '' : full.slice(0, spaceIdx);
+    var text = spaceIdx === -1 ? full : full.slice(spaceIdx + 1);
+    btn.innerHTML = '<span class="tab-icon">' + icon + '</span> ' + text;
+  });
+
+  var titles = Object.assign({}, PANEL_TITLE_BASE, PANEL_TITLE_OVERRIDES[type] || {});
+  Object.keys(titles).forEach(function(name) {
+    var h1 = document.querySelector('#tab-' + name + ' .panel-title');
+    if (h1) h1.textContent = titles[name];
+  });
+
+  window._bizTypeHiddenTabs = BIZ_TYPE_HIDDEN_TABS[type] || [];
+  applyRolePermissions();
+}
 
 function applyRolePermissions() {
   var ownerEls   = document.querySelectorAll('.owner-only');
   var logoEl     = document.querySelector('.logo');
+  var hidden     = window._bizTypeHiddenTabs || [];
   if (isOwner()) {
     ownerEls.forEach(function(el) { el.style.display = ''; });
-    document.querySelectorAll('.tab-btn').forEach(function(b) { b.style.display = ''; });
+    document.querySelectorAll('.tab-btn').forEach(function(b) {
+      var name = b.id.replace('btn-', '');
+      b.style.display = hidden.indexOf(name) === -1 ? '' : 'none';
+    });
     if (logoEl) { logoEl.style.cursor = 'pointer'; logoEl.onclick = openBizSettings; }
     return;
   }
   ownerEls.forEach(function(el) { el.style.display = 'none'; });
   if (logoEl) { logoEl.style.cursor = 'default'; logoEl.onclick = null; }
   var allowed = currentAllowedTabs || [];
+  var effectiveAllowed = allowed.filter(function(name) { return hidden.indexOf(name) === -1; });
   document.querySelectorAll('.tab-btn').forEach(function(btn) {
     var name = btn.id.replace('btn-', '');
-    if (allowed.indexOf(name) === -1) btn.style.display = 'none';
+    btn.style.display = effectiveAllowed.indexOf(name) === -1 ? 'none' : '';
   });
-  if (!allowed.length) {
+  if (!effectiveAllowed.length) {
     document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
     document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
     document.querySelector('.tab-contents').insertAdjacentHTML('beforeend',
@@ -5953,13 +6042,18 @@ function applyRolePermissions() {
   }
   var activeTab = document.querySelector('.tab-btn.active');
   var activeName = activeTab ? activeTab.id.replace('btn-', '') : '';
-  if (allowed.indexOf(activeName) === -1) switchTab(allowed[0]);
+  if (effectiveAllowed.indexOf(activeName) === -1) switchTab(effectiveAllowed[0]);
+}
+
+function visibleTabsForBiz() {
+  var hidden = window._bizTypeHiddenTabs || [];
+  return ALL_TABS.filter(function(t) { return hidden.indexOf(t) === -1; });
 }
 
 function buildTabCheckboxes(containerId, checkedTabs) {
   checkedTabs = checkedTabs || [];
   return '<div id="' + containerId + '" style="display:flex;flex-wrap:wrap;gap:4px;margin:8px 0">' +
-    ALL_TABS.map(function(t) {
+    visibleTabsForBiz().map(function(t) {
       var checked = checkedTabs.indexOf(t) >= 0 ? ' checked' : '';
       return '<label style="display:inline-flex;align-items:center;gap:4px;font-size:12.5px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:4px 9px;cursor:pointer">' +
         '<input type="checkbox" data-tab="' + t + '"' + checked + '>' + TAB_LABELS[t] +
@@ -5977,7 +6071,7 @@ function readCheckedTabs(containerId) {
 
 function previewUserPermissions(containerId) {
   var allowed = readCheckedTabs(containerId);
-  var tabsHtml = ALL_TABS.map(function(t) {
+  var tabsHtml = visibleTabsForBiz().map(function(t) {
     var on = allowed.indexOf(t) >= 0;
     return '<span style="display:inline-flex;align-items:center;gap:4px;padding:7px 14px;border-radius:8px;margin:4px;font-size:13px;font-weight:700;' +
       (on ? 'background:var(--primary);color:#fff' : 'background:#f3f4f6;color:#9ca3af;text-decoration:line-through') + '">' +
@@ -6362,7 +6456,7 @@ async function authLoadAndShowApp(user) {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').style.display = '';
   appStart();
-  applyRolePermissions();
+  applyBusinessType();
   renderUserGreeting();
   _watchOwnPermissions(user.uid);
   if (!isOwner() && permUpdatedAt > permSeenAt) {
@@ -6518,6 +6612,8 @@ function applyBizSettings() {
 
 function openBizSettings() {
   var biz = (S.settings && S.settings.biz) || {};
+  var curType  = (S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT;
+  var curLabel = (S.settings && S.settings.businessTypeLabel) || '';
   window._bizLogoTmp = undefined;
   window._bizBgTmp   = undefined;
 
@@ -6525,11 +6621,24 @@ function openBizSettings() {
     ? 'background-image:url(' + biz.bgImage + ');background-size:cover;background-position:center'
     : 'background:' + (biz.bgColor || '#18100D');
 
+  var typeOptionsHtml = BIZ_TYPES.map(function(t) {
+    var meta = BIZ_TYPE_META[t];
+    var sel = (!curLabel && t === curType) ? ' selected' : '';
+    return '<option value="' + t + '"' + sel + '>' + meta.icon + ' ' + meta.label + '</option>';
+  }).join('') + '<option value="custom"' + (curLabel ? ' selected' : '') + '>✏️ אחר — הקלידו בעצמכם</option>';
+
   var html =
     '<h2 class="modal-title">⚙️ הגדרות עסק</h2>' +
 
     '<div class="form-group"><label class="form-label">🏢 שם העסק</label>' +
     '<input class="form-control" id="biz-name-inp" value="' + escHtml(biz.name||'') + '" placeholder="שם העסק שלך" maxlength="60"></div>' +
+
+    '<div class="form-group"><label class="form-label">🏷️ סוג העסק</label>' +
+    '<select class="form-control" id="biz-type-inp" onchange="onBizTypeSelectChange()">' + typeOptionsHtml + '</select>' +
+    '<div id="biz-type-custom-wrap" style="display:' + (curLabel ? 'block' : 'none') + ';margin-top:8px">' +
+    '<input class="form-control" id="biz-type-custom-inp" value="' + escHtml(curLabel) + '" placeholder="הקלידו את סוג העסק שלכם... (למשל: מספרה לנשים)" maxlength="60">' +
+    '</div>' +
+    '<div style="font-size:12px;color:var(--text-muted);margin-top:4px">קובע את שמות הלשוניות וההתאמה למערכת — לדוגמה "דוח Z" יוצג כ"מכירות יומיות" לעסקים שאינם מסעדות.</div></div>' +
 
     '<div class="form-group"><label class="form-label">🌐 אתר האינטרנט</label>' +
     '<div style="display:flex;gap:8px">' +
@@ -6702,6 +6811,12 @@ function clearBizBg() {
   document.getElementById('biz-bg-status').textContent = 'תמונת הרקע תוסר לאחר שמירה';
 }
 
+function onBizTypeSelectChange() {
+  var sel  = document.getElementById('biz-type-inp');
+  var wrap = document.getElementById('biz-type-custom-wrap');
+  if (wrap) wrap.style.display = (sel && sel.value === 'custom') ? 'block' : 'none';
+}
+
 function saveBizSettings() {
   if (!S.settings) S.settings = {};
   var oldBiz  = S.settings.biz || {};
@@ -6715,11 +6830,23 @@ function saveBizSettings() {
     bgColor: (document.getElementById('biz-bg-color-inp') || {}).value || '#18100D',
     accent:  document.getElementById('biz-accent-inp').value     || ''
   };
+
+  var typeSel = document.getElementById('biz-type-inp').value;
+  if (typeSel === 'custom') {
+    var customText = (document.getElementById('biz-type-custom-inp').value || '').trim();
+    S.settings.businessTypeLabel = customText;
+    S.settings.businessType = customText ? detectBizTypeFromText(customText) : BIZ_TYPE_DEFAULT;
+  } else {
+    S.settings.businessTypeLabel = '';
+    S.settings.businessType = typeSel || BIZ_TYPE_DEFAULT;
+  }
+
   window._bizLogoTmp = undefined;
   window._bizBgTmp   = undefined;
   persist();
   closeModal();
   applyBizSettings();
+  applyBusinessType();
   toast('✅ הגדרות העסק נשמרו', 'ok');
 }
 
