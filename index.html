@@ -826,9 +826,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-22a';
+var APP_VERSION  = '2026-06-22b';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-22b', t: '🔒 תיקון: לא ניתן יותר להזין מספרים שליליים בקניות, טיפים, הוצאות, מע"מ, בונוס/מקדמה ופרטי עובד' },
   { v: '2026-06-22a', t: '👁️ תצוגה מקדימה להרשאות משודרגת — מציגה בדיוק אילו נתונים יהיו גלויים בכל לשונית, לא רק את שמה' },
   { v: '2026-06-21h', t: '⚠️ אזהרה אוטומטית אם סכום השעות היומי של עובד עולה על 24 שעות (חשד לכפילות הזנה)' },
   { v: '2026-06-21g', t: '📈 גרפי מגמה בטבלת השליטה הורחבו מ-6 ל-12 חודשים · ✍️ באשף ההגדרה אפשר לתאר את העסק במשפט וסוג העסק יזוהה אוטומטית' },
@@ -1084,7 +1085,7 @@ function applyAdjNote(ds, shift, wIdx, noteIdx) {
 }
 function saveTipsMinPerHr(val) {
   if (!S.settings) S.settings = {};
-  S.settings.tipsMinPerHr = toNum(val) || 35;
+  S.settings.tipsMinPerHr = Math.max(0, toNum(val)) || 35;
   persist();
   renderTips();
 }
@@ -1552,9 +1553,9 @@ async function saveEmp() {
   var phone          = document.getElementById('m-phone').value.trim();
   var dob            = getDobValue();
   var address        = document.getElementById('m-address').value.trim();
-  var hourlyRate     = toNum(document.getElementById('m-rate').value);
-  var monthlySalary  = toNum(document.getElementById('m-sal').value);
-  var travelPerDay   = toNum(document.getElementById('m-travel').value);
+  var hourlyRate     = Math.max(0, toNum(document.getElementById('m-rate').value));
+  var monthlySalary  = Math.max(0, toNum(document.getElementById('m-sal').value));
+  var travelPerDay   = Math.max(0, toNum(document.getElementById('m-travel').value));
 
   if (!name) { toast('נא להזין שם עובד', 'err'); return; }
   if (!editEmpRoles.length) { toast('נא לבחור לפחות תפקיד אחד', 'err'); return; }
@@ -2027,7 +2028,8 @@ function saveMonthExtra(inp, ym) {
   if (!S.monthlyData[ym][empId]) S.monthlyData[ym][empId] = {};
   var strKeys  = ['notes','bonusNote'];
   var dateKeys = ['bonusDate','advanceDate'];
-  S.monthlyData[ym][empId][key] = (strKeys.indexOf(key) >= 0 || dateKeys.indexOf(key) >= 0) ? inp.value : toNum(inp.value);
+  var isTextual = strKeys.indexOf(key) >= 0 || dateKeys.indexOf(key) >= 0;
+  S.monthlyData[ym][empId][key] = isTextual ? inp.value : Math.max(0, toNum(inp.value));
   persist();
 }
 
@@ -3348,7 +3350,8 @@ function renderShiftSection(ds, shift) {
 function updateTipsCalc(ds, shift) {
   var amtEl = document.getElementById('tamt-' + shift);
   if (!amtEl) return;
-  var amount = toNum(amtEl.value);
+  var amount = Math.max(0, toNum(amtEl.value));
+  if (amount !== toNum(amtEl.value)) amtEl.value = amount || '';
 
   var workers = [];
   var i = 0;
@@ -3979,8 +3982,11 @@ function onPurInput(inp) {
   var ym  = ds.slice(0, 7);
   if (!S.purchases[ym]) S.purchases[ym] = {};
   if (!S.purchases[ym][ds]) S.purchases[ym][ds] = {};
-  S.purchases[ym][ds][sup] = toNum(inp.value);
+  var purVal = Math.max(0, toNum(inp.value));
+  if (purVal !== toNum(inp.value)) inp.value = purVal || '';
+  S.purchases[ym][ds][sup] = purVal;
   persist();
+  flashSaved(inp);
 
   var rec = S.purchases[ym][ds];
   var rt  = 0;
@@ -4356,7 +4362,7 @@ function saveControl() {
   if (!S.control[ym]) S.control[ym] = {};
   getFixedExp().forEach(function(e){
     var el = document.getElementById('ce-' + e.k);
-    if (el) S.control[ym][e.k] = toNum(el.value);
+    if (el) S.control[ym][e.k] = Math.max(0, toNum(el.value));
   });
   var noVatFixed = [];
   getFixedExp().forEach(function(e){
@@ -4368,7 +4374,7 @@ function saveControl() {
   var i = 0;
   while (document.getElementById('ex-n-' + i)) {
     var name    = document.getElementById('ex-n-' + i).value.trim();
-    var amount  = toNum(document.getElementById('ex-a-' + i).value);
+    var amount  = Math.max(0, toNum(document.getElementById('ex-a-' + i).value));
     var nvxEl   = document.getElementById('nvx-' + i);
     var noVat   = !!(nvxEl && nvxEl.checked);
     if (name) extras.push({name:name, amount:amount, noVat:noVat});
@@ -4567,7 +4573,7 @@ function removeExtra(i) {
 
 function saveVat(val) {
   if (!S.settings) S.settings = {vat:17};
-  S.settings.vat = toNum(val) || 17;
+  S.settings.vat = Math.max(0, toNum(val)) || 17;
   persist();
   renderControl();
 }
