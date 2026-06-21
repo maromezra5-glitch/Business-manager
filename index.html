@@ -826,9 +826,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-21f';
+var APP_VERSION  = '2026-06-21g';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-21g', t: '📈 גרפי מגמה בטבלת השליטה הורחבו מ-6 ל-12 חודשים · ✍️ באשף ההגדרה אפשר לתאר את העסק במשפט וסוג העסק יזוהה אוטומטית' },
   { v: '2026-06-21f', t: '⌨️ ניווט מהיר ב-Enter בין שורות בטבלאות הזנה · ✅ אינדיקציית "נשמר" מיידית לכל שדה · ⚠️ התראות אוטומטיות על שינויים חריגים בהשוואת חודשים · 🗑️ מעקב ביטולים/הנחות בדוח המכירות היומי · 📱 דחיסת טבלאות במובייל' },
   { v: '2026-06-21e', t: '🧭 אשף הגדרה ראשוני שואל סוג עסק בשלב הראשון (תפקידים+דמו מותאמים) · 🏷️ הוסר מותג "מנהל בית הקפה" הקבוע מתלושי שכר · 📋 יומן פעולות מציג מי ביצע ומתעד הזמנות/הרשאות · 🗓️ כפתור "העתק מאתמול" בהזנת שעות · 🔒 חיסום מספרים שליליים בדוח מכירות' },
   { v: '2026-06-21d', t: '💸 לשונית "טיפים" מוסתרת כעת גם למספרה/קוסמטיקה וסטודיו — מוצגת רק למסעדה/קפה' },
@@ -5808,8 +5809,8 @@ function buildControlCharts(ym) {
   if (!showCharts || typeof Chart === 'undefined') return '';
   return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:20px">' +
     '<div class="card"><div class="card-title">🥧 פילוח הוצאות</div><canvas id="chart-ctrl-expenses" height="220"></canvas></div>' +
-    '<div class="card"><div class="card-title">📊 הכנסות vs הוצאות — 6 חודשים</div><canvas id="chart-ctrl-trend" height="220"></canvas></div>' +
-    '<div class="card" style="grid-column:1/-1"><div class="card-title">📐 ' + costPctLabel() + ' / Labor Cost % — מגמת 6 חודשים</div><canvas id="chart-ctrl-costpct" height="180"></canvas></div>' +
+    '<div class="card"><div class="card-title">📊 הכנסות vs הוצאות — 12 חודשים</div><canvas id="chart-ctrl-trend" height="220"></canvas></div>' +
+    '<div class="card" style="grid-column:1/-1"><div class="card-title">📐 ' + costPctLabel() + ' / Labor Cost % — מגמת 12 חודשים</div><canvas id="chart-ctrl-costpct" height="180"></canvas></div>' +
   '</div>';
 }
 function initControlCharts(ym, totalPayroll, totalPurchases, totalFixed, totalExtra) {
@@ -5836,12 +5837,12 @@ function initControlCharts(ym, totalPayroll, totalPurchases, totalFixed, totalEx
       }
     }
   });
-  // 6 חודשים אחרונים
+  // 12 חודשים אחרונים — מאפשר גם להשוות לאותו חודש בשנה הקודמת
   var vatRate = toNum((S.settings || {}).vat) || 17;
   var months = [], incArr = [], expArr = [], fcArr = [], lcArr = [];
   var y = parseInt(ym.slice(0,4)), m = parseInt(ym.slice(5,7));
   var MHE2 = ['ינו','פבר','מרץ','אפר','מאי','יונ','יול','אוג','ספט','אוק','נוב','דצמ'];
-  for (var i = 5; i >= 0; i--) {
+  for (var i = 11; i >= 0; i--) {
     var cm = m - i; var cy = y;
     if (cm <= 0) { cm += 12; cy--; }
     var ymI = cy + '-' + (cm < 10 ? '0'+cm : cm);
@@ -7046,9 +7047,19 @@ function isFirstTimeSetup() {
 var _wizStep = 0;
 var _wizRoles = [];
 var _wizBizType = BIZ_TYPE_DEFAULT;
+var _wizBizDesc = '';
 function selectWizBizType(type) {
   _wizBizType = type;
   renderSetupWizard();
+}
+function applyWizBizDesc() {
+  var inp = document.getElementById('wiz-biz-desc');
+  var text = (inp && inp.value || '').trim();
+  if (!text) { toast('כתבו תיאור קצר של העסק', 'err'); return; }
+  _wizBizDesc = text;
+  _wizBizType = detectBizTypeFromText(text);
+  renderSetupWizard();
+  toast('✅ זוהה: ' + (BIZ_TYPE_META[_wizBizType] || {}).label, 'ok');
 }
 function renderSetupWizard() {
   var biz = (S.settings && S.settings.biz) || {};
@@ -7059,7 +7070,12 @@ function renderSetupWizard() {
   var stepsHtml = [
     '<div style="font-size:40px;margin-bottom:10px">👋</div>' +
     '<h2 style="margin-bottom:6px">ברוך הבא! איזה עסק יש לך?</h2>' +
-    '<div style="color:var(--text-muted);font-size:14px;margin-bottom:16px">זה עוזר לנו להציג לך את המערכת בשפה הנכונה — תמיד אפשר לשנות אחר כך.</div>' +
+    '<div style="color:var(--text-muted);font-size:14px;margin-bottom:10px">תארו את העסק שלכם במשפט, ואנחנו ננחש את הסוג הקרוב ביותר:</div>' +
+    '<div style="display:flex;gap:6px;margin-bottom:16px">' +
+      '<input class="form-control" id="wiz-biz-desc" value="' + escHtml(_wizBizDesc) + '" placeholder="לדוגמה: מספרה לנשים בתל אביב" onkeydown="if(event.key===\'Enter\'){event.preventDefault();applyWizBizDesc();}">' +
+      '<button class="btn btn-secondary" onclick="applyWizBizDesc()">התאם</button>' +
+    '</div>' +
+    '<div style="color:var(--text-muted);font-size:12.5px;margin-bottom:8px">או בחרו ישירות מהרשימה — תמיד אפשר לשנות אחר כך:</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
       BIZ_TYPES.map(function(t) {
         var meta = BIZ_TYPE_META[t];
@@ -7154,6 +7170,7 @@ function wizStep(delta) {
   if (_wizStep === 0 && delta > 0) {
     if (!S.settings) S.settings = {vat: 17};
     S.settings.businessType = _wizBizType;
+    S.settings.businessTypeLabel = _wizBizDesc || '';
     persist();
     applyBusinessType();
   }
