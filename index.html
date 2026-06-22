@@ -61,6 +61,7 @@
     updateMemberTabs: function(uid, allowedTabs) { return updateDoc(doc(fbDb, 'users', uid), {allowedTabs: allowedTabs, permissionsUpdatedAt: Date.now()}); },
     updateSeenVersion: function(uid, v) { return updateDoc(doc(fbDb, 'users', uid), {seenVersion: v}); },
     markPermissionsSeen: function(uid, ts) { return updateDoc(doc(fbDb, 'users', uid), {permissionsSeenAt: ts}); },
+    updateLastSeen: function(uid) { return updateDoc(doc(fbDb, 'users', uid), {lastSeenAt: Date.now()}); },
     listMembers:   function(businessId) { return getDocs(query(collection(fbDb, 'users'), where('businessId', '==', businessId))); },
     removeMember:  function(uid) { return deleteDoc(doc(fbDb, 'users', uid)); },
 
@@ -834,9 +835,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-22l';
+var APP_VERSION  = '2026-06-22m';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-22m', t: '🟢 נוספה נקודה ירוקה בניהול משתמשים שמראה מי מחובר/ת כרגע (דורש עדכון קטן בכללי Firestore)' },
   { v: '2026-06-22l', t: '📄 נוספה הסכמת תנאי שימוש ופרטיות לגרסת הבטא — מוצגת לבעל/ת העסק בכניסה הראשונה, וזמינה לעיון מתפריט הניהול' },
   { v: '2026-06-22k', t: '🔠 הגדלת גופן המספרים בכרטיסי הסיכום' },
   { v: '2026-06-22j', t: '🔢 כרטיסי סיכום (משכורות, דוח Z, טיפים) מציגים סכומים מעוגלים לשקלים שלמים בשורה אחת — בלי שבירה/חיתוך' },
@@ -6331,6 +6333,10 @@ function previewUserPermissions(containerId) {
 function _sectionHeader(text) {
   return '<div style="font-size:12.5px;font-weight:800;color:var(--text-muted);letter-spacing:.3px;margin:18px 0 8px;text-transform:uppercase">' + text + '</div>';
 }
+function _onlineDotHtml(lastSeenAt) {
+  var online = !!lastSeenAt && (Date.now() - toNum(lastSeenAt) < 120000);
+  return '<span title="' + (online ? 'מחובר/ת כעת' : 'לא מחובר/ת כרגע') + '" style="display:inline-block;width:9px;height:9px;border-radius:50%;flex-shrink:0;background:' + (online ? '#22c55e' : '#d1d5db') + (online ? ';box-shadow:0 0 0 3px rgba(34,197,94,.25)' : '') + '"></span>';
+}
 async function openUserMgmt() {
   if (!isOwner()) return;
   var box = document.getElementById('modal-box');
@@ -6347,7 +6353,7 @@ async function openUserMgmt() {
       if (m.role === 'owner') {
         ownerHtml += '<div style="padding:12px 16px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-sm);margin-bottom:8px;display:flex;align-items:center;gap:10px">' +
           '<span style="font-size:20px">👑</span>' +
-          '<div><div style="font-weight:800">' + escHtml(m.email||'') + '</div><div style="font-size:12px;color:var(--text-muted)">בעל/ת העסק — גישה מלאה לכל המערכת</div></div>' +
+          '<div><div style="font-weight:800;display:flex;align-items:center;gap:6px">' + _onlineDotHtml(m.lastSeenAt) + escHtml(m.email||'') + '</div><div style="font-size:12px;color:var(--text-muted)">בעל/ת העסק — גישה מלאה לכל המערכת</div></div>' +
         '</div>';
         return;
       }
@@ -6355,7 +6361,7 @@ async function openUserMgmt() {
       var cid = 'member-tabs-' + (mi++);
       managersHtml += '<div style="padding:14px 16px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-sm);margin-bottom:10px">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
-          '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:18px">🧑‍💼</span><div><div style="font-weight:800">' + escHtml(m.email||'') + '</div><div style="font-size:11px;color:var(--text-muted)">מנהל/ת משמרת</div></div></div>' +
+          '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:18px">🧑‍💼</span><div><div style="font-weight:800;display:flex;align-items:center;gap:6px">' + _onlineDotHtml(m.lastSeenAt) + escHtml(m.email||'') + '</div><div style="font-size:11px;color:var(--text-muted)">מנהל/ת משמרת</div></div></div>' +
           '<button class="btn btn-danger btn-sm" onclick="removeUserMember(\'' + d.id + '\')" title="הסרת גישה למשתמש זה">🗑️ הסר גישה</button>' +
         '</div>' +
         '<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:4px">הרשאות גישה — אילו לשוניות יוכל/תוכל לראות:</div>' +
@@ -6710,9 +6716,20 @@ async function authLoadAndShowApp(user) {
   applyBusinessType();
   renderUserGreeting();
   _watchOwnPermissions(user.uid);
+  _startPresenceHeartbeat(user.uid);
   if (!isOwner() && permUpdatedAt > permSeenAt) {
     setTimeout(function() { showPermissionsChangedNotice(user.uid, permUpdatedAt); }, 1000);
   }
+}
+
+var _presenceTimer = null;
+function _startPresenceHeartbeat(uid) {
+  if (_presenceTimer) clearInterval(_presenceTimer);
+  if (!window.fb) return;
+  window.fb.updateLastSeen(uid).catch(function(){});
+  _presenceTimer = setInterval(function() {
+    window.fb.updateLastSeen(uid).catch(function(){});
+  }, 45000);
 }
 
 var _stopWatchingPermissions = null;
