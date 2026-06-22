@@ -842,9 +842,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-22t';
+var APP_VERSION  = '2026-06-22u';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-22u', t: '🔒 תיקון אבטחה קריטי: נתוני העסק שנשמרו במטמון המקומי של הדפדפן לא נמחקו כשהוסרה גישת משתמש — מה שאיפשר לו לראות נתונים ישנים גם לאחר ההסרה' },
   { v: '2026-06-22t', t: '🐛 תיקון קריטי: הסרת גישה למשתמש בניהול משתמשים לא עבדה בפועל — היה משתמש ב-ID הלא נכון, מה שהשאיר את המשתמש מחובר' },
   { v: '2026-06-22s', t: '🐛 תיקון קריטי: משתמש עם כמה חברויות נכנס לעיתים לעסק הלא נכון (כולל הרשאות בעלים שגויות) — כעת קליק על קישור הזמנה תמיד נכנס לעסק הנכון, והבחירה נשמרת לפי מכשיר' },
   { v: '2026-06-22r', t: '🏢 תמיכה במספר עסקים לאותו משתמש — מנהל/ת משמרת יכול/ה להיות חבר/ה בכמה עסקים עם אותו אימייל, עם בורר עסק בכותרת. דורש עדכון כללי Firestore — ראו הוראות' },
@@ -6727,7 +6728,6 @@ async function _resolveBusinessAndRole(user) {
 }
 
 async function authLoadAndShowApp(user) {
-  loadState(); // baseline from local cache, in case cloud fetch fails or is empty
   var permUpdatedAt = 0, permSeenAt = 0;
   try {
     var resolved = await _withTimeout(_resolveBusinessAndRole(user), 12000, 'resolve');
@@ -6741,6 +6741,7 @@ async function authLoadAndShowApp(user) {
     permSeenAt = resolved.permissionsSeenAt || 0;
   } catch (e) {
     if (e && e.message === 'ACCESS_REVOKED') {
+      try { localStorage.removeItem(KEY); localStorage.removeItem('cafeManager_cachedBizId'); } catch (e2) {}
       showAccessRevokedScreen();
       return;
     }
@@ -6752,6 +6753,13 @@ async function authLoadAndShowApp(user) {
     currentSeenVersion = '';
     currentAllMemberships = [];
   }
+  // אם המטמון המקומי שייך לעסק אחר (למשל לאחר הסרת גישה או החלפת עסק) — לא להשתמש בו, כדי שלא ידלוף מידע מהעסק הקודם
+  var cachedBizId = localStorage.getItem('cafeManager_cachedBizId');
+  if (cachedBizId && cachedBizId !== currentBusinessId) {
+    try { localStorage.removeItem(KEY); } catch (e3) {}
+  }
+  loadState(); // baseline מקומי — רק אם הוא שייך לעסק הנכון, לאחר הניקוי שלמעלה
+  localStorage.setItem('cafeManager_cachedBizId', currentBusinessId);
   try {
     var snap = await _withTimeout(window.fb.loadData(currentBusinessId), 12000, 'loadData');
     if (snap.exists()) {
@@ -6876,6 +6884,7 @@ async function authSignOut() {
 async function _forceSignOut() {
   if (_stopWatchingPermissions) { _stopWatchingPermissions(); _stopWatchingPermissions = null; }
   if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
+  try { localStorage.removeItem(KEY); localStorage.removeItem('cafeManager_cachedBizId'); } catch (e) {}
   if (window.fb) await window.fb.signOut();
   location.reload();
 }
