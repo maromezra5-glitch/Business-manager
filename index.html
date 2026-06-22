@@ -247,7 +247,7 @@ body {
 .s-card.blue-card { border-top-color: #2563EB; border-color: rgba(37,99,235,.18); background: linear-gradient(145deg,#EEF4FF,#DDE9FF,#F0F5FF); }
 .s-card.purple-card { border-top-color: #7C3AED; border-color: rgba(124,58,237,.18); background: linear-gradient(145deg,#F5F0FF,#EDE6FF,#F8F5FF); }
 .s-label { font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 10px; }
-.s-value { font-size: 26px; font-weight: 900; color: var(--text); line-height: 1.1; letter-spacing: -.5px; }
+.s-value { font-size: 22px; font-weight: 900; color: var(--text); line-height: 1.2; letter-spacing: -.5px; overflow-wrap: anywhere; }
 .s-value.orange { color: var(--primary); }
 .s-value.green { color: var(--success); }
 .s-value.red { color: var(--error); }
@@ -588,6 +588,9 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 
   .emp-grid { grid-template-columns: 1fr; }
   .summary-grid { grid-template-columns: 1fr 1fr; }
+  .s-card { padding: 14px 10px 12px; }
+  .s-value { font-size: 17px; }
+  .s-label { font-size: 10px; }
 
   .modal-box {
     width: 98%; max-width: 98%; padding: 18px 14px;
@@ -830,9 +833,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-22h';
+var APP_VERSION  = '2026-06-22i';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-22i', t: '🔢 תיקון: מספרים גדולים בכרטיסי הסיכום לא נחתכים יותר — גופן קטן יותר ושבירת שורה אוטומטית' },
   { v: '2026-06-22h', t: '🎯 כרטיסי סיכום (משכורות, דוח Z, טבלת שליטה) ממורכזים ומסודרים יותר' },
   { v: '2026-06-22g', t: '🆘 כפתור תמיכה בוואטסאפ נוסף לכותרת — פנייה ישירה אם יש תקלה או שאלה' },
   { v: '2026-06-22f', t: '⚠️ דוח השכר המודפס מתויג כעת בבירור כדוח ברוטו פנימי לרו"ח, לא תלוש רשמי' },
