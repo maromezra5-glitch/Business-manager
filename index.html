@@ -843,9 +843,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-22z';
+var APP_VERSION  = '2026-06-23a';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-23a', t: '🏷️ צומצמה רשימת סוגי העסק למסעדה/קפה, חנות, מספרה ועסק כללי בלבד — הוסרו מוסך/קליניקה/סטודיו שלא היו מתאימים בפועל ליכולות המערכת' },
   { v: '2026-06-22z', t: '🚫 לא ניתן יותר לשלוח הזמנה נוספת לאימייל עם הזמנה ממתינה קיימת — צריך לבטל את הקיימת קודם' },
   { v: '2026-06-22y', t: '🐛 תיקון קריטי: קבלת הזמנה נכשלה בשקט בגלל בדיקת קיום מוקדמת שלא תאמה לכללי Firestore — הזמנות חדשות ייקלטו כעת כראוי' },
   { v: '2026-06-22x', t: '🔍 פרטי החיבור מציגים כעת גם יומן צעדים מפורט של תהליך הזיהוי, לאבחון תקלות הזמנה' },
@@ -6134,30 +6135,21 @@ var TAB_LABELS = Object.assign({}, TAB_LABELS_BASE);
 
 /* ===== Business Type customization ===== */
 var BIZ_TYPE_DEFAULT = 'cafe';
-var BIZ_TYPES = ['cafe', 'retail', 'salon', 'studio', 'clinic', 'garage', 'general'];
+var BIZ_TYPES = ['cafe', 'retail', 'salon', 'general'];
 var BIZ_TYPE_META = {
   cafe:    { icon: '🍽️', label: 'מסעדה / קפה' },
   retail:  { icon: '🏪', label: 'חנות קמעונאית' },
   salon:   { icon: '💇', label: 'מספרה / קוסמטיקה' },
-  studio:  { icon: '🧘', label: 'סטודיו (כושר / יוגה)' },
-  clinic:  { icon: '⚕️', label: 'מרפאה / קליניקה' },
-  garage:  { icon: '🔧', label: 'מוסך' },
   general: { icon: '🏢', label: 'עסק כללי / אחר' }
 };
 var BIZ_TYPE_KEYWORDS = {
   cafe:   ['מסעדה', 'קפה', 'בית קפה', 'בר', 'מאפיה', 'פיצרי', 'קייטרינג'],
   retail: ['חנות', 'קמעונא', 'בוטיק', 'רשת', 'סטור', 'אופנה'],
-  salon:  ['מספרה', 'קוסמטיק', 'איפור', 'ספא', 'טיפוח', 'מניקור', 'עיצוב שיער'],
-  studio: ['סטודיו', 'כושר', 'יוגה', 'פילאטיס', 'חדר כושר', 'אימון'],
-  clinic: ['מרפאה', 'קליניקה', 'רופא', 'פיזיותרפיה', 'טיפול', 'שיניים'],
-  garage: ['מוסך', 'רכב', 'תיקון רכב', 'צמיגים', 'מכונאי']
+  salon:  ['מספרה', 'קוסמטיק', 'איפור', 'ספא', 'טיפוח', 'מניקור', 'עיצוב שיער']
 };
 var TAB_LABEL_OVERRIDES = {
   retail:  { zreport: '📊 מכירות יומיות', purchases: '🛒 הוצאות / רכש' },
   salon:   { zreport: '📊 הכנסות יומיות', purchases: '🛒 הוצאות / רכש' },
-  studio:  { zreport: '📊 הכנסות יומיות', purchases: '🛒 הוצאות / רכש' },
-  clinic:  { zreport: '📊 הכנסות יומיות', purchases: '🛒 הוצאות / רכש' },
-  garage:  { zreport: '📊 הכנסות יומיות', purchases: '🛒 הוצאות / רכש' },
   general: { zreport: '📊 הכנסות יומיות', purchases: '🛒 הוצאות / רכש' }
 };
 var PANEL_TITLE_BASE = {
@@ -6168,26 +6160,20 @@ var PANEL_TITLE_BASE = {
 var PANEL_TITLE_OVERRIDES = {
   retail:  { zreport: '📊 מכירות יומיות', purchases: '🛒 הוצאות / רכש' },
   salon:   { zreport: '📊 הכנסות יומיות', purchases: '🛒 הוצאות / רכש' },
-  studio:  { zreport: '📊 הכנסות יומיות', purchases: '🛒 הוצאות / רכש' },
-  clinic:  { zreport: '📊 הכנסות יומיות', purchases: '🛒 הוצאות / רכש' },
-  garage:  { zreport: '📊 הכנסות יומיות', purchases: '🛒 הוצאות / רכש' },
   general: { zreport: '📊 הכנסות יומיות', purchases: '🛒 הוצאות / רכש' }
 };
 var BIZ_TYPE_HIDDEN_TABS = {
   cafe: [],
-  retail: ['tips'], salon: ['tips'], studio: ['tips'],
-  clinic: ['tips'], garage: ['tips'], general: ['tips']
+  retail: ['tips'], salon: ['tips'], general: ['tips']
 };
 // ערוצי הכנסה "וולט"/"הקפה" הם מושגים ספציפיים למסעדנות — מוסתרים לכל סוג עסק אחר
 var ZREPORT_HIDDEN_CHANNELS = {
   cafe: [],
-  retail: ['wolt', 'hakafe'], salon: ['wolt', 'hakafe'], studio: ['wolt', 'hakafe'],
-  clinic: ['wolt', 'hakafe'], garage: ['wolt', 'hakafe'], general: ['wolt', 'hakafe']
+  retail: ['wolt', 'hakafe'], salon: ['wolt', 'hakafe'], general: ['wolt', 'hakafe']
 };
 // Food Cost % רלוונטי כמדד "עלות סחורה ביחס למחזור" לכל עסק — רק השם משתנה
 var COST_PCT_LABEL_OVERRIDES = {
-  retail: '% עלות סחורה', salon: '% עלות חומרים', studio: '% עלות חומרים',
-  clinic: '% עלות חומרים', garage: '% עלות חלקים', general: '% עלות סחורה/חומרים'
+  retail: '% עלות סחורה', salon: '% עלות חומרים', general: '% עלות סחורה/חומרים'
 };
 function costPctLabel() {
   var type = (S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT;
@@ -6198,18 +6184,12 @@ var ROLE_SUGGESTIONS_BY_TYPE = {
   cafe:    ['מלצר/ית', 'טבח/ית', 'בריסטה', 'קופאי/ת', 'מנהל/ת משמרת', 'שליח/ה'],
   retail:  ['מוכר/ת', 'קופאי/ת', 'מנהל/ת חנות', 'מלאי / קבלת סחורה'],
   salon:   ['מעצב/ת שיער', 'קוסמטיקאי/ת', 'מניקוריסטית', 'פקיד/ת קבלה'],
-  studio:  ['מאמן/ת', 'מדריך/ה', 'פקיד/ת קבלה'],
-  clinic:  ['רופא/ה', 'אח/ות', 'פיזיותרפיסט/ית', 'פקיד/ת קבלה'],
-  garage:  ['מכונאי/ת', 'יועץ/ת שירות', 'פקיד/ת קבלה'],
   general: ['עובד/ת', 'מנהל/ת', 'פקיד/ת קבלה']
 };
 var DEMO_ROLE_NAMES_BY_TYPE = {
   cafe:    ['מנהלת', 'מלצר', 'מלצרית', 'ברמן', 'קופאית'],
   retail:  ['מנהלת חנות', 'מוכר', 'מוכרת', 'קופאי', 'קופאית'],
   salon:   ['מנהלת סלון', 'מעצב שיער', 'מעצבת שיער', 'קוסמטיקאית', 'פקידת קבלה'],
-  studio:  ['מנהלת סטודיו', 'מאמן', 'מאמנת', 'מדריך', 'פקידת קבלה'],
-  clinic:  ['מנהלת מרפאה', 'רופא', 'אחות', 'פיזיותרפיסט', 'פקידת קבלה'],
-  garage:  ['מנהל מוסך', 'מכונאי', 'מכונאית', 'יועץ שירות', 'פקידת קבלה'],
   general: ['מנהלת', 'עובד', 'עובדת', 'עובד', 'פקידת קבלה']
 };
 
