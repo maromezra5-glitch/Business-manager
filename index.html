@@ -676,6 +676,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
       </div>
     </div>
     <a class="hdr-btn" href="https://wa.me/972548757552?text=%D7%94%D7%99%D7%99%2C%20%D7%99%D7%A9%20%D7%9C%D7%99%20%D7%A9%D7%90%D7%9C%D7%94%2F%D7%AA%D7%A7%D7%9C%D7%94%20%D7%91%D7%9E%D7%A2%D7%A8%D7%9B%D7%AA%20%D7%94%D7%A0%D7%99%D7%94%D7%95%D7%9C" target="_blank" rel="noopener" title="תמיכה בוואטסאפ" style="text-decoration:none">🆘 תמיכה</a>
+    <button class="hdr-btn" onclick="showConnectionDebugInfo()" title="פרטי חיבור לאבחון תקלות">🔍 פרטי חיבור</button>
     <button class="hdr-btn" onclick="authSignOut()" title="התנתקות מהחשבון">🚪 התנתק</button>
   </div>
 </header>
@@ -842,9 +843,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-22v';
+var APP_VERSION  = '2026-06-22w';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-22w', t: '🔍 נוסף כפתור "פרטי חיבור" בכותרת לאבחון תקלות הרשאה/חיבור' },
   { v: '2026-06-22v', t: '🔒 תיקון נוסף: ניקוי מטמון ישן חל גם בכניסה הראשונה אחרי העדכון, לא רק במעברים עתידיים' },
   { v: '2026-06-22u', t: '🔒 תיקון אבטחה קריטי: נתוני העסק שנשמרו במטמון המקומי של הדפדפן לא נמחקו כשהוסרה גישת משתמש — מה שאיפשר לו לראות נתונים ישנים גם לאחר ההסרה' },
   { v: '2026-06-22t', t: '🐛 תיקון קריטי: הסרת גישה למשתמש בניהול משתמשים לא עבדה בפועל — היה משתמש ב-ID הלא נכון, מה שהשאיר את המשתמש מחובר' },
@@ -7287,6 +7289,27 @@ function showTermsInfo() {
   var html =
     '<h2 class="modal-title">📄 תנאי שימוש ופרטיות (בטא)</h2>' +
     '<div style="font-size:14px;color:var(--text-sec);line-height:1.7">' + _termsContentHtml() + '</div>' +
+    '<div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal()">סגור</button></div>';
+  document.getElementById('modal-box').innerHTML = html;
+  document.getElementById('modal').classList.remove('hidden');
+}
+
+function showConnectionDebugInfo() {
+  var info = {
+    uid: currentUid,
+    businessId: currentBusinessId,
+    role: currentRole,
+    allowedTabs: currentAllowedTabs,
+    allMemberships: currentAllMemberships,
+    cachedBizId: (function(){ try { return localStorage.getItem('cafeManager_cachedBizId'); } catch(e){ return '—'; } })(),
+    employeesCount: (S.employees || []).length
+  };
+  var html =
+    '<h2 class="modal-title">🔍 פרטי חיבור</h2>' +
+    '<div style="font-size:12.5px;color:var(--text-muted);margin-bottom:10px">לצורך אבחון תקלות — צלם מסך זה ושלח לתמיכה.</div>' +
+    '<pre style="background:#f5f5f5;border-radius:8px;padding:14px;font-size:12px;direction:ltr;text-align:left;white-space:pre-wrap;word-break:break-all;max-height:50vh;overflow-y:auto">' +
+    escHtml(JSON.stringify(info, null, 2)) +
+    '</pre>' +
     '<div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal()">סגור</button></div>';
   document.getElementById('modal-box').innerHTML = html;
   document.getElementById('modal').classList.remove('hidden');
