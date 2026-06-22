@@ -835,9 +835,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-22o';
+var APP_VERSION  = '2026-06-22p';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-22p', t: '🚫 לא ניתן יותר לשלוח הזמנה לעסק למשתמש שכבר רשום בו — מוצגת הודעה להפנייה לניהול הרשאות קיים' },
   { v: '2026-06-22o', t: '🔧 תיקון חשוב: קישור ההזמנה במייל ממלא אוטומטית את כתובת המייל הנכונה ופותח במצב הרשמה — מונע הצטרפות לעסק הלא נכון בגלל הקלדת אימייל שונה' },
   { v: '2026-06-22n', t: '🐛 תיקון: עצירת מעקב הנוכחות (heartbeat) בעת התנתקות' },
   { v: '2026-06-22m', t: '🟢 נוספה נקודה ירוקה בניהול משתמשים שמראה מי מחובר/ת כרגע (דורש עדכון קטן בכללי Firestore)' },
@@ -6436,6 +6437,19 @@ async function sendUserInvite() {
   if (!email) { toast('נא להזין כתובת אימייל', 'err'); return; }
   var tabs = readCheckedTabs('invite-new-tabs');
   if (!tabs.length) { toast('בחר לפחות לשונית אחת להרשאה', 'err'); return; }
+  try {
+    var existingSnap = await _withTimeout(window.fb.listMembers(currentBusinessId), 10000, 'members');
+    var already = false;
+    existingSnap.forEach(function(d) {
+      if ((d.data().email || '').toLowerCase() === email.toLowerCase()) already = true;
+    });
+    if (already) {
+      toast('⚠️ המשתמש/ת הזה/ו כבר רשום/ה לעסק שלך — לשינוי הרשאות עבור/י לרשימת חברי הצוות למעלה', 'err');
+      return;
+    }
+  } catch (e) {
+    // אם בדיקת הכפילות נכשלה (לדוגמה תקלת רשת), לא חוסמים את ההזמנה — רק מדלגים על הבדיקה
+  }
   try {
     await window.fb.createInvite(email, currentBusinessId, 'manager', tabs);
     logAudit('הזמנת משתמש/ת', email + ' — הרשאות: ' + tabs.map(function(t){return TAB_LABELS[t]||t;}).join(', '));
