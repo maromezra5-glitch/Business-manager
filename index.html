@@ -835,9 +835,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-22m';
+var APP_VERSION  = '2026-06-22n';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-22n', t: '🐛 תיקון: עצירת מעקב הנוכחות (heartbeat) בעת התנתקות' },
   { v: '2026-06-22m', t: '🟢 נוספה נקודה ירוקה בניהול משתמשים שמראה מי מחובר/ת כרגע (דורש עדכון קטן בכללי Firestore)' },
   { v: '2026-06-22l', t: '📄 נוספה הסכמת תנאי שימוש ופרטיות לגרסת הבטא — מוצגת לבעל/ת העסק בכניסה הראשונה, וזמינה לעיון מתפריט הניהול' },
   { v: '2026-06-22k', t: '🔠 הגדלת גופן המספרים בכרטיסי הסיכום' },
@@ -6799,6 +6800,7 @@ async function authSignOut() {
 
 async function _forceSignOut() {
   if (_stopWatchingPermissions) { _stopWatchingPermissions(); _stopWatchingPermissions = null; }
+  if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
   if (window.fb) await window.fb.signOut();
   location.reload();
 }
