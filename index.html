@@ -842,9 +842,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-22r';
+var APP_VERSION  = '2026-06-22s';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-22s', t: '🐛 תיקון קריטי: משתמש עם כמה חברויות נכנס לעיתים לעסק הלא נכון (כולל הרשאות בעלים שגויות) — כעת קליק על קישור הזמנה תמיד נכנס לעסק הנכון, והבחירה נשמרת לפי מכשיר' },
   { v: '2026-06-22r', t: '🏢 תמיכה במספר עסקים לאותו משתמש — מנהל/ת משמרת יכול/ה להיות חבר/ה בכמה עסקים עם אותו אימייל, עם בורר עסק בכותרת. דורש עדכון כללי Firestore — ראו הוראות' },
   { v: '2026-06-22q', t: '🔒 תיקון: משתמש שהוסר רואה כעת מסך ברור שמסביר שהוסר (לא טוסט שנעלם לפני שהספיק לקרוא)' },
   { v: '2026-06-22p', t: '🚫 לא ניתן יותר לשלוח הזמנה לעסק למשתמש שכבר רשום בו — מוצגת הודעה להפנייה לניהול הרשאות קיים' },
@@ -6686,6 +6687,8 @@ async function _resolveBusinessAndRole(user) {
         }
         await window.fb.deleteInvite(user.email);
         await window.fb.unblockUser(user.uid, inv.businessId); // legitimately re-invited — clear any prior block for this business
+        // קליק על קישור הזמנה אומר "תיכנס לעסק הזה כעת" — לא להשאיר את הבחירה לסדר אקראי של מסמכים
+        localStorage.setItem('activeBusinessId_' + user.uid, inv.businessId);
       }
     } catch (e) { /* fall through — don't block login over invite-consumption errors */ }
   }
@@ -6709,10 +6712,10 @@ async function _resolveBusinessAndRole(user) {
     return {businessId: user.uid, role: 'owner', allowedTabs: [], name: signupName, seenVersion: '', allMemberships: [{businessId: user.uid, role: 'owner'}]};
   }
 
-  // 4) Pick the active business — remembered choice for this browser session, or the only one, or the first
-  var chosenBizId = sessionStorage.getItem('activeBusinessId');
+  // 4) Pick the active business — remembered choice for this device, or the only one, or the first
+  var chosenBizId = localStorage.getItem('activeBusinessId_' + user.uid);
   var active = memberships.find(function(m){ return m.businessId === chosenBizId; }) || memberships[0];
-  sessionStorage.setItem('activeBusinessId', active.businessId);
+  localStorage.setItem('activeBusinessId_' + user.uid, active.businessId);
 
   return {
     businessId: active.businessId, role: active.role, allowedTabs: active.allowedTabs || [],
@@ -6790,7 +6793,7 @@ function renderBusinessSwitcher() {
 
 function switchActiveBusiness(businessId) {
   if (businessId === currentBusinessId) return;
-  sessionStorage.setItem('activeBusinessId', businessId);
+  if (currentUid) localStorage.setItem('activeBusinessId_' + currentUid, businessId);
   location.reload();
 }
 
