@@ -843,9 +843,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-22y';
+var APP_VERSION  = '2026-06-22z';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-22z', t: '🚫 לא ניתן יותר לשלוח הזמנה נוספת לאימייל עם הזמנה ממתינה קיימת — צריך לבטל את הקיימת קודם' },
   { v: '2026-06-22y', t: '🐛 תיקון קריטי: קבלת הזמנה נכשלה בשקט בגלל בדיקת קיום מוקדמת שלא תאמה לכללי Firestore — הזמנות חדשות ייקלטו כעת כראוי' },
   { v: '2026-06-22x', t: '🔍 פרטי החיבור מציגים כעת גם יומן צעדים מפורט של תהליך הזיהוי, לאבחון תקלות הזמנה' },
   { v: '2026-06-22w', t: '🔍 נוסף כפתור "פרטי חיבור" בכותרת לאבחון תקלות הרשאה/חיבור' },
@@ -6466,6 +6467,19 @@ async function sendUserInvite() {
     }
   } catch (e) {
     // אם בדיקת הכפילות נכשלה (לדוגמה תקלת רשת), לא חוסמים את ההזמנה — רק מדלגים על הבדיקה
+  }
+  try {
+    var pendingSnap = await _withTimeout(window.fb.listInvites(currentBusinessId), 10000, 'invites');
+    var alreadyPending = false;
+    pendingSnap.forEach(function(d) {
+      if (d.id.toLowerCase() === email.toLowerCase()) alreadyPending = true;
+    });
+    if (alreadyPending) {
+      toast('⚠️ יש כבר הזמנה ממתינה לאימייל הזה — בטל/י אותה קודם אם תרצה/י לשלוח הזמנה חדשה', 'err');
+      return;
+    }
+  } catch (e) {
+    // אם בדיקת ההזמנות הממתינות נכשלה — לא חוסמים, רק מדלגים על הבדיקה
   }
   try {
     await window.fb.createInvite(email, currentBusinessId, 'manager', tabs);
