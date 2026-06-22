@@ -828,9 +828,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-22e';
+var APP_VERSION  = '2026-06-22f';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-22f', t: '⚠️ דוח השכר המודפס מתויג כעת בבירור כדוח ברוטו פנימי לרו"ח, לא תלוש רשמי' },
   { v: '2026-06-22e', t: '🔒 הגנת-עומק: פעולות ניהול עסק/משתמשים נבדקות כעת גם בקוד (לא רק בתפריט) שזה בעל/ת העסק' },
   { v: '2026-06-22d', t: '🧹 כרטיס עובד בטיפים נקי יותר — אזור "תיקון" מוסתר כברירת מחדל ונפתח רק בלחיצה על "➕ הוספת תיקון" אם באמת צריך' },
   { v: '2026-06-22c', t: '🔒 חיזוק אבטחה: ניקוי קלט בתצוגה המקדימה של לוגו העסק' },
@@ -5539,8 +5540,9 @@ function printPayslip(empId, ym) {
   html += '<div class="ps-header">';
   html += '<div class="ps-logo">' + psBizIcon + '</div>';
   html += '<h1 class="ps-title">' + escHtml(psBizName) + '</h1>';
-  html += '<p class="ps-sub">תלוש שכר — ' + monthName + '</p>';
+  html += '<p class="ps-sub">דוח שכר ברוטו לחישוב — ' + monthName + '</p>';
   html += '</div>';
+  html += '<div style="background:#FFF7ED;border:1.5px solid #FED7AA;border-radius:10px;padding:10px 14px;margin-bottom:18px;font-size:12px;color:#9A3412;line-height:1.6">⚠️ זהו דוח פנימי לחישוב שכר ברוטו — <strong>אינו תלוש שכר רשמי</strong>. יש להעביר לרואה/ת חשבון או חשב/ת שכר לחישוב ניכויי מס הכנסה, ביטוח לאומי ופנסיה לפני תשלום בפועל.</div>';
 
   html += '<div class="ps-emp">';
   html += '<div class="ps-row"><span class="ps-lbl">שם העובד:</span><span class="ps-val">' + escHtml(emp.name) + '</span></div>';
@@ -5555,7 +5557,7 @@ function printPayslip(empId, ym) {
   html += '<table>';
   html += '<thead><tr><th>סעיף</th><th style="text-align:center;min-width:90px">כמות</th><th style="text-align:center;min-width:90px">תעריף</th><th style="text-align:left;min-width:100px">סכום</th></tr></thead>';
   html += '<tbody>' + rows + '</tbody>';
-  html += '<tfoot><tr><td colspan="3" style="text-align:center;letter-spacing:.4px;font-size:15px">💰 סה"כ לתשלום (ברוטו)</td><td>' + ILS(total) + '</td></tr></tfoot>';
+  html += '<tfoot><tr><td colspan="3" style="text-align:center;letter-spacing:.4px;font-size:15px">💰 סה"כ ברוטו (לפני ניכויי חובה)</td><td>' + ILS(total) + '</td></tr></tfoot>';
   html += '</table>';
 
   html += '<div class="no-print">';
