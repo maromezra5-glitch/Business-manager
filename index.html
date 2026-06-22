@@ -238,6 +238,7 @@ body {
   animation: popIn .28s ease both;
   border-top: 4px solid var(--border);
   position: relative; overflow: hidden;
+  text-align: center;
 }
 .s-card::after { content:''; position:absolute; inset:0; background:linear-gradient(160deg,rgba(255,255,255,.7) 0%,transparent 70%); pointer-events:none; }
 .s-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
@@ -829,9 +830,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-22g';
+var APP_VERSION  = '2026-06-22h';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-22h', t: '🎯 כרטיסי סיכום (משכורות, דוח Z, טבלת שליטה) ממורכזים ומסודרים יותר' },
   { v: '2026-06-22g', t: '🆘 כפתור תמיכה בוואטסאפ נוסף לכותרת — פנייה ישירה אם יש תקלה או שאלה' },
   { v: '2026-06-22f', t: '⚠️ דוח השכר המודפס מתויג כעת בבירור כדוח ברוטו פנימי לרו"ח, לא תלוש רשמי' },
   { v: '2026-06-22e', t: '🔒 הגנת-עומק: פעולות ניהול עסק/משתמשים נבדקות כעת גם בקוד (לא רק בתפריט) שזה בעל/ת העסק' },
