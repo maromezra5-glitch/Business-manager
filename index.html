@@ -842,9 +842,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-22s';
+var APP_VERSION  = '2026-06-22t';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-22t', t: '🐛 תיקון קריטי: הסרת גישה למשתמש בניהול משתמשים לא עבדה בפועל — היה משתמש ב-ID הלא נכון, מה שהשאיר את המשתמש מחובר' },
   { v: '2026-06-22s', t: '🐛 תיקון קריטי: משתמש עם כמה חברויות נכנס לעיתים לעסק הלא נכון (כולל הרשאות בעלים שגויות) — כעת קליק על קישור הזמנה תמיד נכנס לעסק הנכון, והבחירה נשמרת לפי מכשיר' },
   { v: '2026-06-22r', t: '🏢 תמיכה במספר עסקים לאותו משתמש — מנהל/ת משמרת יכול/ה להיות חבר/ה בכמה עסקים עם אותו אימייל, עם בורר עסק בכותרת. דורש עדכון כללי Firestore — ראו הוראות' },
   { v: '2026-06-22q', t: '🔒 תיקון: משתמש שהוסר רואה כעת מסך ברור שמסביר שהוסר (לא טוסט שנעלם לפני שהספיק לקרוא)' },
@@ -6375,12 +6376,12 @@ async function openUserMgmt() {
       managersHtml += '<div style="padding:14px 16px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-sm);margin-bottom:10px">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
           '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:18px">🧑‍💼</span><div><div style="font-weight:800;display:flex;align-items:center;gap:6px">' + _onlineDotHtml(m.lastSeenAt) + escHtml(m.email||'') + '</div><div style="font-size:11px;color:var(--text-muted)">מנהל/ת משמרת</div></div></div>' +
-          '<button class="btn btn-danger btn-sm" onclick="removeUserMember(\'' + d.id + '\')" title="הסרת גישה למשתמש זה">🗑️ הסר גישה</button>' +
+          '<button class="btn btn-danger btn-sm" onclick="removeUserMember(\'' + m.uid + '\')" title="הסרת גישה למשתמש זה">🗑️ הסר גישה</button>' +
         '</div>' +
         '<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:4px">הרשאות גישה — אילו לשוניות יוכל/תוכל לראות:</div>' +
         buildTabCheckboxes(cid, m.allowedTabs) +
         '<div style="display:flex;gap:8px;margin-top:8px">' +
-          '<button class="btn btn-primary btn-sm" onclick="saveMemberPermissions(\'' + d.id + '\',\'' + cid + '\')">💾 שמור שינויי הרשאות</button>' +
+          '<button class="btn btn-primary btn-sm" onclick="saveMemberPermissions(\'' + m.uid + '\',\'' + cid + '\')">💾 שמור שינויי הרשאות</button>' +
           '<button class="btn btn-secondary btn-sm" onclick="previewUserPermissions(\'' + cid + '\')">👁️ תצוגה מקדימה</button>' +
         '</div>' +
       '</div>';
