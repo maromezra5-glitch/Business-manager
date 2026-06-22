@@ -843,9 +843,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-22x';
+var APP_VERSION  = '2026-06-22y';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-22y', t: '🐛 תיקון קריטי: קבלת הזמנה נכשלה בשקט בגלל בדיקת קיום מוקדמת שלא תאמה לכללי Firestore — הזמנות חדשות ייקלטו כעת כראוי' },
   { v: '2026-06-22x', t: '🔍 פרטי החיבור מציגים כעת גם יומן צעדים מפורט של תהליך הזיהוי, לאבחון תקלות הזמנה' },
   { v: '2026-06-22w', t: '🔍 נוסף כפתור "פרטי חיבור" בכותרת לאבחון תקלות הרשאה/חיבור' },
   { v: '2026-06-22v', t: '🔒 תיקון נוסף: ניקוי מטמון ישן חל גם בכניסה הראשונה אחרי העדכון, לא רק במעברים עתידיים' },
@@ -6691,12 +6692,9 @@ async function _resolveBusinessAndRole(user) {
       if (inviteSnap.exists()) {
         var inv = inviteSnap.data();
         _dbg('inviteData', inv);
-        var alreadyMember = await window.fb.getMembership(user.uid, inv.businessId);
-        _dbg('alreadyMember', {exists: alreadyMember.exists()});
-        if (!alreadyMember.exists()) {
-          await window.fb.createMembership(user.uid, inv.businessId, inv.role, user.email, inv.allowedTabs || [], signupName);
-          _dbg('createMembership', 'done');
-        }
+        // setDoc הוא overwrite בטוח — אין צורך לבדוק קיום מראש (ובדיקת קיום על מסמך שלא קיים נכשלת בכללי Firestore)
+        await window.fb.createMembership(user.uid, inv.businessId, inv.role, user.email, inv.allowedTabs || [], signupName);
+        _dbg('createMembership', 'done');
         await window.fb.deleteInvite(user.email);
         _dbg('deleteInvite', 'done');
         await window.fb.unblockUser(user.uid, inv.businessId); // legitimately re-invited — clear any prior block for this business
