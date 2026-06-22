@@ -835,9 +835,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-22p';
+var APP_VERSION  = '2026-06-22q';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-22q', t: '🔒 תיקון: משתמש שהוסר רואה כעת מסך ברור שמסביר שהוסר (לא טוסט שנעלם לפני שהספיק לקרוא)' },
   { v: '2026-06-22p', t: '🚫 לא ניתן יותר לשלוח הזמנה לעסק למשתמש שכבר רשום בו — מוצגת הודעה להפנייה לניהול הרשאות קיים' },
   { v: '2026-06-22o', t: '🔧 תיקון חשוב: קישור ההזמנה במייל ממלא אוטומטית את כתובת המייל הנכונה ופותח במצב הרשמה — מונע הצטרפות לעסק הלא נכון בגלל הקלדת אימייל שונה' },
   { v: '2026-06-22n', t: '🐛 תיקון: עצירת מעקב הנוכחות (heartbeat) בעת התנתקות' },
@@ -6710,8 +6711,7 @@ async function authLoadAndShowApp(user) {
     permSeenAt = resolved.permissionsSeenAt || 0;
   } catch (e) {
     if (e && e.message === 'ACCESS_REVOKED') {
-      toast('⚠️ הגישה שלך למערכת הוסרה — פנה/י לבעל/ת העסק לקבלת הזמנה מחדש', 'err');
-      await _forceSignOut();
+      showAccessRevokedScreen();
       return;
     }
     toast('⚠️ שגיאה בזיהוי החשבון — עובד מהנתונים המקומיים', 'err');
@@ -6825,6 +6825,20 @@ async function _forceSignOut() {
   if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
   if (window.fb) await window.fb.signOut();
   location.reload();
+}
+
+function showAccessRevokedScreen() {
+  if (document.getElementById('access-revoked-screen')) return;
+  var html =
+    '<div id="access-revoked-screen" style="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:10300;display:flex;align-items:center;justify-content:center;direction:rtl;padding:16px">' +
+      '<div style="background:#fff;border-radius:20px;padding:32px;max-width:420px;width:100%;text-align:center;box-shadow:0 24px 70px rgba(0,0,0,.4)">' +
+        '<div style="font-size:48px;margin-bottom:14px">🔒</div>' +
+        '<h2 style="margin-bottom:10px">הגישה שלך למערכת הוסרה</h2>' +
+        '<p style="color:var(--text-muted);font-size:14px;line-height:1.7;margin-bottom:20px">בעל/ת העסק הסיר/ה את הגישה שלך למערכת הניהול. אם זו טעות — פנה/י אליו/ה לקבלת הזמנה מחדש.</p>' +
+        '<button class="btn btn-primary" style="width:100%" onclick="_forceSignOut()">הבנתי, התנתק/י</button>' +
+      '</div>' +
+    '</div>';
+  document.body.insertAdjacentHTML('beforeend', html);
 }
 
 async function changeAccountEmail() {
