@@ -55,19 +55,26 @@
     saveData: function(businessId, data) { return setDoc(doc(fbDb, 'businesses', businessId), data); },
     currentUser: function() { return fbAuth.currentUser; },
 
-    getUserDoc:    function(uid) { return getDoc(doc(fbDb, 'users', uid)); },
-    watchUserDoc:  function(uid, cb) { return onSnapshot(doc(fbDb, 'users', uid), cb); },
-    createUserDoc: function(uid, businessId, role, email, allowedTabs, name) { return setDoc(doc(fbDb, 'users', uid), {businessId: businessId, role: role, email: email || '', name: name || '', allowedTabs: allowedTabs || []}); },
-    updateMemberTabs: function(uid, allowedTabs) { return updateDoc(doc(fbDb, 'users', uid), {allowedTabs: allowedTabs, permissionsUpdatedAt: Date.now()}); },
-    updateSeenVersion: function(uid, v) { return updateDoc(doc(fbDb, 'users', uid), {seenVersion: v}); },
-    markPermissionsSeen: function(uid, ts) { return updateDoc(doc(fbDb, 'users', uid), {permissionsSeenAt: ts}); },
-    updateLastSeen: function(uid) { return updateDoc(doc(fbDb, 'users', uid), {lastSeenAt: Date.now()}); },
-    listMembers:   function(businessId) { return getDocs(query(collection(fbDb, 'users'), where('businessId', '==', businessId))); },
-    removeMember:  function(uid) { return deleteDoc(doc(fbDb, 'users', uid)); },
+    // ===== Memberships — תומך במספר עסקים לאותו משתמש (uid) =====
+    // מזהה מסמך = uid + '_' + businessId, כדי לאפשר בדיקת קיום ישירה בכללי Firestore בלי query
+    _mid: function(uid, businessId) { return uid + '_' + businessId; },
+    getMembership:  function(uid, businessId) { return getDoc(doc(fbDb, 'memberships', uid + '_' + businessId)); },
+    watchMembership: function(uid, businessId, cb) { return onSnapshot(doc(fbDb, 'memberships', uid + '_' + businessId), cb); },
+    getMemberships: function(uid) { return getDocs(query(collection(fbDb, 'memberships'), where('uid', '==', uid))); },
+    createMembership: function(uid, businessId, role, email, allowedTabs, name) {
+      return setDoc(doc(fbDb, 'memberships', uid + '_' + businessId), {uid: uid, businessId: businessId, role: role, email: email || '', name: name || '', allowedTabs: allowedTabs || []});
+    },
+    updateMemberTabs: function(uid, businessId, allowedTabs) { return updateDoc(doc(fbDb, 'memberships', uid + '_' + businessId), {allowedTabs: allowedTabs, permissionsUpdatedAt: Date.now()}); },
+    updateSeenVersion: function(uid, businessId, v) { return updateDoc(doc(fbDb, 'memberships', uid + '_' + businessId), {seenVersion: v}); },
+    markPermissionsSeen: function(uid, businessId, ts) { return updateDoc(doc(fbDb, 'memberships', uid + '_' + businessId), {permissionsSeenAt: ts}); },
+    updateLastSeen: function(uid, businessId) { return updateDoc(doc(fbDb, 'memberships', uid + '_' + businessId), {lastSeenAt: Date.now()}); },
+    listMembers:   function(businessId) { return getDocs(query(collection(fbDb, 'memberships'), where('businessId', '==', businessId))); },
+    removeMember:  function(uid, businessId) { return deleteDoc(doc(fbDb, 'memberships', uid + '_' + businessId)); },
 
-    blockUser:     function(uid, businessId) { return setDoc(doc(fbDb, 'blockedUsers', uid), {blockedAt: Date.now(), businessId: businessId}); },
-    unblockUser:   function(uid) { return deleteDoc(doc(fbDb, 'blockedUsers', uid)).catch(function(){}); },
-    getBlockedDoc: function(uid) { return getDoc(doc(fbDb, 'blockedUsers', uid)); },
+    blockUser:     function(uid, businessId) { return setDoc(doc(fbDb, 'blockedUsers', uid + '_' + businessId), {blockedAt: Date.now(), uid: uid, businessId: businessId}); },
+    unblockUser:   function(uid, businessId) { return deleteDoc(doc(fbDb, 'blockedUsers', uid + '_' + businessId)).catch(function(){}); },
+    getBlockedDoc: function(uid, businessId) { return getDoc(doc(fbDb, 'blockedUsers', uid + '_' + businessId)); },
+    getBlockedDocsForUser: function(uid) { return getDocs(query(collection(fbDb, 'blockedUsers'), where('uid', '==', uid))); },
 
     createInvite: function(email, businessId, role, allowedTabs) { return setDoc(doc(fbDb, 'invites', email.toLowerCase()), {businessId: businessId, role: role, allowedTabs: allowedTabs || [], createdAt: Date.now()}); },
     getInvite:    function(email) { return getDoc(doc(fbDb, 'invites', email.toLowerCase())); },
@@ -835,9 +842,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-22q';
+var APP_VERSION  = '2026-06-22r';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-22r', t: '🏢 תמיכה במספר עסקים לאותו משתמש — מנהל/ת משמרת יכול/ה להיות חבר/ה בכמה עסקים עם אותו אימייל, עם בורר עסק בכותרת. דורש עדכון כללי Firestore — ראו הוראות' },
   { v: '2026-06-22q', t: '🔒 תיקון: משתמש שהוסר רואה כעת מסך ברור שמסביר שהוסר (לא טוסט שנעלם לפני שהספיק לקרוא)' },
   { v: '2026-06-22p', t: '🚫 לא ניתן יותר לשלוח הזמנה לעסק למשתמש שכבר רשום בו — מוצגת הודעה להפנייה לניהול הרשאות קיים' },
   { v: '2026-06-22o', t: '🔧 תיקון חשוב: קישור ההזמנה במייל ממלא אוטומטית את כתובת המייל הנכונה ופותח במצב הרשמה — מונע הצטרפות לעסק הלא נכון בגלל הקלדת אימייל שונה' },
@@ -5394,7 +5402,7 @@ function _buildUpdateHTML(notes, title) {
 function _markVersionSeen(v) {
   currentSeenVersion = v;
   localStorage.setItem('cafeManager_seenVersion', v);
-  if (currentUid && window.fb) window.fb.updateSeenVersion(currentUid, v).catch(function() {});
+  if (currentUid && currentBusinessId && window.fb) window.fb.updateSeenVersion(currentUid, currentBusinessId, v).catch(function() {});
 }
 function _relevantUpdateNotes(notes) {
   if (isOwner()) return notes;
@@ -6471,7 +6479,7 @@ async function saveMemberPermissions(uid, containerId) {
   if (!isOwner()) { toast('פעולה זו שמורה לבעל/ת העסק', 'err'); return; }
   var tabs = readCheckedTabs(containerId);
   try {
-    await window.fb.updateMemberTabs(uid, tabs);
+    await window.fb.updateMemberTabs(uid, currentBusinessId, tabs);
     logAudit('שינוי הרשאות משתמש/ת', tabs.length ? tabs.map(function(t){return TAB_LABELS[t]||t;}).join(', ') : 'הוסרו כל ההרשאות');
     persist();
     toast('✅ ההרשאות נשמרו', 'ok');
@@ -6503,7 +6511,7 @@ async function removeUserMember(uid) {
   if (!ok) return;
   try {
     await window.fb.blockUser(uid, currentBusinessId);
-    await window.fb.removeMember(uid);
+    await window.fb.removeMember(uid, currentBusinessId);
     logAudit('הסרת משתמש/ת', uid);
     persist();
     toast('המשתמש הוסר — לא יוכל/תוכל להתחבר עד שתזמין/י מחדש', 'ok');
@@ -6533,6 +6541,7 @@ var currentRole = null; // 'owner' | 'manager'
 var currentAllowedTabs = [];
 var currentUserName = '';
 var currentSeenVersion = '';
+var currentAllMemberships = []; // כל העסקים שהמשתמש הנוכחי שייך אליהם (לתמיכה בכמה עסקים)
 
 function toggleAdminMenu(e) {
   e.stopPropagation();
@@ -6663,38 +6672,54 @@ function _authErrMsg(e) {
 async function _resolveBusinessAndRole(user) {
   var signupName = _pendingSignupName;
   _pendingSignupName = '';
-  // 1) Already a known member/owner?
-  var userSnap = await window.fb.getUserDoc(user.uid);
-  if (userSnap.exists()) {
-    var u = userSnap.data();
-    return {businessId: u.businessId, role: u.role, allowedTabs: u.allowedTabs || [], name: u.name || '', seenVersion: u.seenVersion || '', permissionsUpdatedAt: u.permissionsUpdatedAt || 0, permissionsSeenAt: u.permissionsSeenAt || 0};
-  }
-  // 2) Were they invited (fresh, or re-invited after a previous removal)?
+
+  // 1) Were they invited (fresh, or re-invited after a previous removal)? Consume the invite if so —
+  //    this creates an ADDITIONAL membership even if they already belong to other businesses.
   if (user.email) {
     try {
       var inviteSnap = await window.fb.getInvite(user.email);
       if (inviteSnap.exists()) {
         var inv = inviteSnap.data();
-        await window.fb.createUserDoc(user.uid, inv.businessId, inv.role, user.email, inv.allowedTabs || [], signupName);
+        var alreadyMember = await window.fb.getMembership(user.uid, inv.businessId);
+        if (!alreadyMember.exists()) {
+          await window.fb.createMembership(user.uid, inv.businessId, inv.role, user.email, inv.allowedTabs || [], signupName);
+        }
         await window.fb.deleteInvite(user.email);
-        await window.fb.unblockUser(user.uid); // legitimately re-invited — clear any prior block
-        return {businessId: inv.businessId, role: inv.role, allowedTabs: inv.allowedTabs || [], name: signupName, seenVersion: ''};
+        await window.fb.unblockUser(user.uid, inv.businessId); // legitimately re-invited — clear any prior block for this business
       }
-    } catch (e) { /* fall through */ }
+    } catch (e) { /* fall through — don't block login over invite-consumption errors */ }
   }
-  // 3) Were they explicitly removed before? Don't let them spin up a new business as a workaround.
-  try {
-    var blockedSnap = await window.fb.getBlockedDoc(user.uid);
-    if (blockedSnap.exists()) {
-      throw { message: 'ACCESS_REVOKED' };
+
+  // 2) Load every business this person belongs to
+  var membershipsSnap = await window.fb.getMemberships(user.uid);
+  var memberships = [];
+  membershipsSnap.forEach(function(d) { memberships.push(d.data()); });
+
+  // 3) No memberships anywhere — either brand-new, or fully removed from their only business.
+  if (!memberships.length) {
+    try {
+      var blockedSnap = await window.fb.getBlockedDocsForUser(user.uid);
+      if (!blockedSnap.empty) throw { message: 'ACCESS_REVOKED' };
+    } catch (e) {
+      if (e && e.message === 'ACCESS_REVOKED') throw e;
+      // any other error (e.g. offline) — don't block a legitimate new signup over a failed read
     }
-  } catch (e) {
-    if (e && e.message === 'ACCESS_REVOKED') throw e;
-    // any other error (e.g. offline) — don't block a legitimate new signup over a failed read
+    // Brand-new signup with no invite, not blocked — they own their own new business
+    await window.fb.createMembership(user.uid, user.uid, 'owner', user.email, [], signupName);
+    return {businessId: user.uid, role: 'owner', allowedTabs: [], name: signupName, seenVersion: '', allMemberships: [{businessId: user.uid, role: 'owner'}]};
   }
-  // 4) Brand-new signup with no invite, not blocked — they own their own new business
-  await window.fb.createUserDoc(user.uid, user.uid, 'owner', user.email, [], signupName);
-  return {businessId: user.uid, role: 'owner', allowedTabs: [], name: signupName, seenVersion: ''};
+
+  // 4) Pick the active business — remembered choice for this browser session, or the only one, or the first
+  var chosenBizId = sessionStorage.getItem('activeBusinessId');
+  var active = memberships.find(function(m){ return m.businessId === chosenBizId; }) || memberships[0];
+  sessionStorage.setItem('activeBusinessId', active.businessId);
+
+  return {
+    businessId: active.businessId, role: active.role, allowedTabs: active.allowedTabs || [],
+    name: active.name || signupName || '', seenVersion: active.seenVersion || '',
+    permissionsUpdatedAt: active.permissionsUpdatedAt || 0, permissionsSeenAt: active.permissionsSeenAt || 0,
+    allMemberships: memberships
+  };
 }
 
 async function authLoadAndShowApp(user) {
@@ -6707,6 +6732,7 @@ async function authLoadAndShowApp(user) {
     currentAllowedTabs = resolved.allowedTabs || [];
     currentUserName = resolved.name || '';
     currentSeenVersion = resolved.seenVersion || '';
+    currentAllMemberships = resolved.allMemberships || [];
     permUpdatedAt = resolved.permissionsUpdatedAt || 0;
     permSeenAt = resolved.permissionsSeenAt || 0;
   } catch (e) {
@@ -6720,6 +6746,7 @@ async function authLoadAndShowApp(user) {
     currentAllowedTabs = [];
     currentUserName = '';
     currentSeenVersion = '';
+    currentAllMemberships = [];
   }
   try {
     var snap = await _withTimeout(window.fb.loadData(currentBusinessId), 12000, 'loadData');
@@ -6738,33 +6765,55 @@ async function authLoadAndShowApp(user) {
   appStart();
   applyBusinessType();
   renderUserGreeting();
-  _watchOwnPermissions(user.uid);
-  _startPresenceHeartbeat(user.uid);
+  renderBusinessSwitcher();
+  _watchOwnPermissions(user.uid, currentBusinessId);
+  _startPresenceHeartbeat(user.uid, currentBusinessId);
   if (!isOwner() && permUpdatedAt > permSeenAt) {
     setTimeout(function() { showPermissionsChangedNotice(user.uid, permUpdatedAt); }, 1000);
   }
 }
 
+function renderBusinessSwitcher() {
+  var existing = document.getElementById('biz-switcher-wrap');
+  if (existing) existing.remove();
+  if (!currentAllMemberships || currentAllMemberships.length < 2) return;
+  var greetEl = document.getElementById('hdr-user-greeting');
+  if (!greetEl || !greetEl.parentNode) return;
+  var html = '<select id="biz-switcher-wrap" class="hdr-btn" style="cursor:pointer" onchange="switchActiveBusiness(this.value)">' +
+    currentAllMemberships.map(function(m) {
+      var sel = m.businessId === currentBusinessId ? ' selected' : '';
+      return '<option value="' + escHtml(m.businessId) + '"' + sel + '>🏢 ' + escHtml(m.businessId === currentBusinessId ? (((S.settings||{}).biz||{}).name || 'העסק הנוכחי') : 'עסק אחר…') + '</option>';
+    }).join('') +
+  '</select>';
+  greetEl.insertAdjacentHTML('afterend', html);
+}
+
+function switchActiveBusiness(businessId) {
+  if (businessId === currentBusinessId) return;
+  sessionStorage.setItem('activeBusinessId', businessId);
+  location.reload();
+}
+
 var _presenceTimer = null;
-function _startPresenceHeartbeat(uid) {
+function _startPresenceHeartbeat(uid, businessId) {
   if (_presenceTimer) clearInterval(_presenceTimer);
   if (!window.fb) return;
-  window.fb.updateLastSeen(uid).catch(function(){});
+  window.fb.updateLastSeen(uid, businessId).catch(function(){});
   _presenceTimer = setInterval(function() {
-    window.fb.updateLastSeen(uid).catch(function(){});
+    window.fb.updateLastSeen(uid, businessId).catch(function(){});
   }, 45000);
 }
 
 var _stopWatchingPermissions = null;
-function _watchOwnPermissions(uid) {
+function _watchOwnPermissions(uid, businessId) {
   if (_stopWatchingPermissions) { _stopWatchingPermissions(); _stopWatchingPermissions = null; }
   if (!window.fb) return;
-  _stopWatchingPermissions = window.fb.watchUserDoc(uid, function(snap) {
+  _stopWatchingPermissions = window.fb.watchMembership(uid, businessId, function(snap) {
     if (!snap.exists()) {
       // Owner removed this user's access entirely
-      toast('⚠️ הגישה שלך למערכת הוסרה', 'err');
       if (_stopWatchingPermissions) { _stopWatchingPermissions(); _stopWatchingPermissions = null; }
-      setTimeout(function() { _forceSignOut(); }, 1500);
+      if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
+      showAccessRevokedScreen();
       return;
     }
     var u = snap.data();
@@ -6790,7 +6839,7 @@ function showPermissionsChangedNotice(uid, ts) {
     '<button onclick="document.getElementById(\'perm-notice-modal\').remove()" style="width:100%;padding:13px;background:#D97757;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer">הבנתי</button>' +
     '</div></div>';
   document.body.insertAdjacentHTML('beforeend', html);
-  if (window.fb && uid) window.fb.markPermissionsSeen(uid, ts).catch(function(){});
+  if (window.fb && uid) window.fb.markPermissionsSeen(uid, currentBusinessId, ts).catch(function(){});
 }
 
 async function authForgotPassword() {
