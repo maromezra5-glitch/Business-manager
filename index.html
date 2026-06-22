@@ -662,6 +662,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
         <button onclick="closeAdminMenu();openUserMgmt()">👤 ניהול משתמשים</button>
         <button onclick="closeAdminMenu();openBizSettings()">🏢 הגדרות עסק</button>
         <button onclick="closeAdminMenu();loadDemoData()">🎭 נתוני דוגמה</button>
+        <button onclick="closeAdminMenu();showTermsInfo()">📄 תנאי שימוש ופרטיות</button>
         <div class="hdr-dropdown-sep"></div>
         <button onclick="closeAdminMenu();confirmReset()" class="danger">🗑️ איפוס נתונים</button>
       </div>
@@ -833,9 +834,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-22k';
+var APP_VERSION  = '2026-06-22l';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-22l', t: '📄 נוספה הסכמת תנאי שימוש ופרטיות לגרסת הבטא — מוצגת לבעל/ת העסק בכניסה הראשונה, וזמינה לעיון מתפריט הניהול' },
   { v: '2026-06-22k', t: '🔠 הגדלת גופן המספרים בכרטיסי הסיכום' },
   { v: '2026-06-22j', t: '🔢 כרטיסי סיכום (משכורות, דוח Z, טיפים) מציגים סכומים מעוגלים לשקלים שלמים בשורה אחת — בלי שבירה/חיתוך' },
   { v: '2026-06-22i', t: '🔢 תיקון: מספרים גדולים בכרטיסי הסיכום לא נחתכים יותר — גופן קטן יותר ושבירת שורה אוטומטית' },
@@ -7109,6 +7111,14 @@ function appStart() {
   renderEmps();
   showBackupBannerIfNeeded();
   applyBizSettings();
+  if (isOwner() && !(S.settings && S.settings.termsAcceptedAt)) {
+    renderTermsGate();
+    return;
+  }
+  continueAppStart();
+}
+
+function continueAppStart() {
   if (isFirstTimeSetup()) {
     localStorage.setItem('cafeManager_seenVersion', APP_VERSION);
     renderSetupWizard();
@@ -7116,6 +7126,52 @@ function appStart() {
     checkForUpdate();
   }
   setTimeout(showTasksReminderIfNeeded, 1300);
+}
+
+function _termsContentHtml() {
+  return (
+    '<p style="margin-bottom:10px">🧪 <strong>זוהי גרסת בטא</strong> — המערכת בבדיקה ובשיפור מתמיד, וייתכנו שינויים ותקלות זמניות.</p>' +
+    '<p style="margin-bottom:10px">☁️ הנתונים שתזין/י (כולל פרטי עובדים, ת"ז ושכר) מאוחסנים בענן (Firebase / Google Cloud), ולא על שרת מקומי.</p>' +
+    '<p style="margin-bottom:10px">📋 המערכת מסייעת בניהול תפעולי יומי בלבד — <strong>אינה מחליפה רואה/ת חשבון או חשב/ת שכר</strong>, ואינה מהווה תלוש שכר רשמי או מערכת שכר מוסמכת. יש להעביר את הנתונים לבעל/ת מקצוע מתאים/ה לפני תשלום שכר בפועל.</p>' +
+    '<p style="margin-bottom:10px">⚠️ כגרסת בטא, אין התחייבות לדיוק או לזמינות מלאה בכל עת — מומלץ לגבות נתונים באופן קבוע (כפתור גיבוי בתפריט הניהול).</p>' +
+    '<p style="margin-bottom:0">🗑️ ניתן לבקש בכל עת מחיקה מלאה של הנתונים שלך מהמערכת, בפנייה דרך כפתור התמיכה בוואטסאפ.</p>'
+  );
+}
+
+function renderTermsGate() {
+  var html =
+    '<div id="terms-gate" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10150;display:flex;align-items:center;justify-content:center;direction:rtl;padding:16px">' +
+      '<div style="background:#fff;border-radius:20px;padding:30px;max-width:480px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 24px 70px rgba(0,0,0,.35);text-align:right">' +
+        '<div style="font-size:34px;margin-bottom:8px">🧪</div>' +
+        '<h2 style="margin-bottom:14px">לפני שמתחילים — תנאי שימוש ופרטיות (בטא)</h2>' +
+        '<div style="font-size:14px;color:var(--text-sec);line-height:1.7">' + _termsContentHtml() + '</div>' +
+        '<label style="display:flex;align-items:center;gap:8px;margin-top:18px;cursor:pointer;font-size:13.5px;font-weight:700">' +
+          '<input type="checkbox" id="terms-accept-chk" style="width:18px;height:18px">קראתי ואני מאשר/ת' +
+        '</label>' +
+        '<button class="btn btn-primary" style="width:100%;margin-top:16px" onclick="acceptTerms()">המשך</button>' +
+      '</div>' +
+    '</div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function acceptTerms() {
+  var chk = document.getElementById('terms-accept-chk');
+  if (!chk || !chk.checked) { toast('יש לאשר את התנאים כדי להמשיך', 'err'); return; }
+  if (!S.settings) S.settings = {};
+  S.settings.termsAcceptedAt = Date.now();
+  persist();
+  var el = document.getElementById('terms-gate');
+  if (el) el.remove();
+  continueAppStart();
+}
+
+function showTermsInfo() {
+  var html =
+    '<h2 class="modal-title">📄 תנאי שימוש ופרטיות (בטא)</h2>' +
+    '<div style="font-size:14px;color:var(--text-sec);line-height:1.7">' + _termsContentHtml() + '</div>' +
+    '<div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal()">סגור</button></div>';
+  document.getElementById('modal-box').innerHTML = html;
+  document.getElementById('modal').classList.remove('hidden');
 }
 
 function isFirstTimeSetup() {
