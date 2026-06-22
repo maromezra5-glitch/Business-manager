@@ -247,7 +247,7 @@ body {
 .s-card.blue-card { border-top-color: #2563EB; border-color: rgba(37,99,235,.18); background: linear-gradient(145deg,#EEF4FF,#DDE9FF,#F0F5FF); }
 .s-card.purple-card { border-top-color: #7C3AED; border-color: rgba(124,58,237,.18); background: linear-gradient(145deg,#F5F0FF,#EDE6FF,#F8F5FF); }
 .s-label { font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 10px; }
-.s-value { font-size: 22px; font-weight: 900; color: var(--text); line-height: 1.2; letter-spacing: -.5px; overflow-wrap: anywhere; }
+.s-value { font-size: 21px; font-weight: 900; color: var(--text); line-height: 1.2; letter-spacing: -.5px; white-space: nowrap; }
 .s-value.orange { color: var(--primary); }
 .s-value.green { color: var(--success); }
 .s-value.red { color: var(--error); }
@@ -833,9 +833,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-22i';
+var APP_VERSION  = '2026-06-22j';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-22j', t: '🔢 כרטיסי סיכום (משכורות, דוח Z, טיפים) מציגים סכומים מעוגלים לשקלים שלמים בשורה אחת — בלי שבירה/חיתוך' },
   { v: '2026-06-22i', t: '🔢 תיקון: מספרים גדולים בכרטיסי הסיכום לא נחתכים יותר — גופן קטן יותר ושבירת שורה אוטומטית' },
   { v: '2026-06-22h', t: '🎯 כרטיסי סיכום (משכורות, דוח Z, טבלת שליטה) ממורכזים ומסודרים יותר' },
   { v: '2026-06-22g', t: '🆘 כפתור תמיכה בוואטסאפ נוסף לכותרת — פנייה ישירה אם יש תקלה או שאלה' },
@@ -1326,6 +1327,9 @@ function toNum(x) {
   return parseFloat(x) || 0;
 }
 
+function ILSr(amount) {
+  return ILS(Math.round(toNum(amount)));
+}
 function ILS(amount) {
   var n = toNum(amount);
   if (n === 0) return '₪ 0';
@@ -2618,13 +2622,13 @@ function renderPayroll() {
     searchHtml +
     alertHtml +
     '<div class="summary-grid">' +
-      '<div class="s-card"><div class="s-label">שכר בסיס</div><div class="s-value">' + ILS(totBase) + '</div></div>' +
-      '<div class="s-card"><div class="s-label">שעות נוספות</div><div class="s-value">' + ILS(totOT) + '</div></div>' +
-      '<div class="s-card"><div class="s-label">נסיעות</div><div class="s-value">' + ILS(totTrav) + '</div></div>' +
-      '<div class="s-card"><div class="s-label">תוספות</div><div class="s-value">' + ILS(totBon) + '</div></div>' +
-      (totSuppl > 0 ? '<div class="s-card" style="border-color:#7C3AED"><div class="s-label" style="color:#5B21B6">⚡ השלמת טיפים</div><div class="s-value" style="color:#7C3AED">+' + ILS(totSuppl) + '</div></div>' : '') +
-      (totAdv > 0 ? '<div class="s-card" style="border-color:var(--error)"><div class="s-label">💳 מפרעות</div><div class="s-value red">−' + ILS(totAdv) + '</div></div>' : '') +
-      '<div class="s-card green-card"><div class="s-label">💰 סה"כ לתשלום</div><div class="s-value green">' + ILS(grand) + '</div></div>' +
+      '<div class="s-card"><div class="s-label">שכר בסיס</div><div class="s-value">' + ILSr(totBase) + '</div></div>' +
+      '<div class="s-card"><div class="s-label">שעות נוספות</div><div class="s-value">' + ILSr(totOT) + '</div></div>' +
+      '<div class="s-card"><div class="s-label">נסיעות</div><div class="s-value">' + ILSr(totTrav) + '</div></div>' +
+      '<div class="s-card"><div class="s-label">תוספות</div><div class="s-value">' + ILSr(totBon) + '</div></div>' +
+      (totSuppl > 0 ? '<div class="s-card" style="border-color:#7C3AED"><div class="s-label" style="color:#5B21B6">⚡ השלמת טיפים</div><div class="s-value" style="color:#7C3AED">+' + ILSr(totSuppl) + '</div></div>' : '') +
+      (totAdv > 0 ? '<div class="s-card" style="border-color:var(--error)"><div class="s-label">💳 מפרעות</div><div class="s-value red">−' + ILSr(totAdv) + '</div></div>' : '') +
+      '<div class="s-card green-card"><div class="s-label">💰 סה"כ לתשלום</div><div class="s-value green">' + ILSr(grand) + '</div></div>' +
     '</div>' +
     '<div class="table-wrap"><table>' +
       '<thead><tr>' +
@@ -2718,10 +2722,10 @@ function renderZ() {
   var nvStyle = 'color:#2563eb;font-size:12px;font-weight:600';
 
   var summaryCardsHtml = fields.map(function(f) {
-    return '<div class="s-card"><div class="s-label">' + f.l + '</div><div class="s-value" id="zs-' + f.k + '">' + ILS(totals[f.k]) + '</div><div style="' + nvStyle + ';margin-top:2px" id="zs-' + f.k + '-net">ללא מע"מ: ' + zNetLabel(totals[f.k]) + '</div></div>';
+    return '<div class="s-card"><div class="s-label">' + f.l + '</div><div class="s-value" id="zs-' + f.k + '">' + ILSr(totals[f.k]) + '</div><div style="' + nvStyle + ';margin-top:2px" id="zs-' + f.k + '-net">ללא מע"מ: ' + zNetLabel(totals[f.k]) + '</div></div>';
   }).join('') +
-    '<div class="s-card" style="border-color:#fecaca"><div class="s-label" style="color:#b91c1c">🗑️ ביטולים/הנחות</div><div class="s-value" id="zs-voids" style="color:#b91c1c">' + ILS(voidsTotal) + '</div><div style="font-size:11px;color:var(--text-muted);margin-top:2px">לתיעוד בלבד, לא בהכנסות</div></div>' +
-    '<div class="s-card green-card"><div class="s-label">📊 סה"כ חודש</div><div class="s-value green" id="zs-grand">' + ILS(grand) + '</div><div style="font-size:12px;font-weight:700;color:#1d4ed8;margin-top:2px" id="zs-grand-net">ללא מע"מ: ' + ILS(grandNet) + '</div></div>';
+    '<div class="s-card" style="border-color:#fecaca"><div class="s-label" style="color:#b91c1c">🗑️ ביטולים/הנחות</div><div class="s-value" id="zs-voids" style="color:#b91c1c">' + ILSr(voidsTotal) + '</div><div style="font-size:11px;color:var(--text-muted);margin-top:2px">לתיעוד בלבד, לא בהכנסות</div></div>' +
+    '<div class="s-card green-card"><div class="s-label">📊 סה"כ חודש</div><div class="s-value green" id="zs-grand">' + ILSr(grand) + '</div><div style="font-size:12px;font-weight:700;color:#1d4ed8;margin-top:2px" id="zs-grand-net">ללא מע"מ: ' + ILSr(grandNet) + '</div></div>';
 
   var tfootTotalCells = fields.map(function(f) {
     return '<td id="zf-' + f.k + '"><strong>' + ILS(totals[f.k]) + '</strong></td>';
@@ -2793,11 +2797,11 @@ function onZInput(inp) {
   var vatF2 = 1 + vat2 / 100;
   function g(id){ return document.getElementById(id); }
   function zn(v){ return v > 0 ? ILS(v / vatF2) : '—'; }
-  if(g('zs-cash'))       g('zs-cash').textContent       = ILS(totals.cash);
-  if(g('zs-credit'))     g('zs-credit').textContent     = ILS(totals.credit);
-  if(g('zs-wolt'))       g('zs-wolt').textContent       = ILS(totals.wolt);
-  if(g('zs-hakafe'))     g('zs-hakafe').textContent     = ILS(totals.hakafe);
-  if(g('zs-grand'))      g('zs-grand').textContent      = ILS(grand);
+  if(g('zs-cash'))       g('zs-cash').textContent       = ILSr(totals.cash);
+  if(g('zs-credit'))     g('zs-credit').textContent     = ILSr(totals.credit);
+  if(g('zs-wolt'))       g('zs-wolt').textContent       = ILSr(totals.wolt);
+  if(g('zs-hakafe'))     g('zs-hakafe').textContent     = ILSr(totals.hakafe);
+  if(g('zs-grand'))      g('zs-grand').textContent      = ILSr(grand);
   if(g('zs-cash-net'))   g('zs-cash-net').textContent   = 'ללא מע"מ: ' + zn(totals.cash);
   if(g('zs-credit-net')) g('zs-credit-net').textContent = 'ללא מע"מ: ' + zn(totals.credit);
   if(g('zs-wolt-net'))   g('zs-wolt-net').textContent   = 'ללא מע"מ: ' + zn(totals.wolt);
@@ -2813,7 +2817,7 @@ function onZInput(inp) {
   if(g('zf-wolt-net'))   g('zf-wolt-net').textContent   = zn(totals.wolt);
   if(g('zf-hakafe-net')) g('zf-hakafe-net').textContent = zn(totals.hakafe);
   if(g('zf-grand-net'))  g('zf-grand-net').innerHTML    = '<strong>' + ILS(grand / vatF2) + '</strong>';
-  if(g('zs-voids'))      g('zs-voids').textContent      = ILS(voidsTotal2);
+  if(g('zs-voids'))      g('zs-voids').textContent      = ILSr(voidsTotal2);
   if(g('zf-voids'))      g('zf-voids').innerHTML        = '<strong style="color:#b91c1c">' + ILS(voidsTotal2) + '</strong>';
 }
 
@@ -3490,10 +3494,10 @@ function updateTipsCalc(ds, shift) {
   var tots = monthTipTotals(document.getElementById('tips-month').value);
   defs2.forEach(function(def2) {
     var el = document.getElementById('ts-shift-' + def2.id);
-    if (el) el.textContent = ILS(tots[def2.id] || 0);
+    if (el) el.textContent = ILSr(tots[def2.id] || 0);
   });
   var tsGrand = document.getElementById('ts-grand');
-  if (tsGrand) tsGrand.textContent = ILS(tots.total);
+  if (tsGrand) tsGrand.textContent = ILSr(tots.total);
 }
 
 function addTipsWorker(ds, shift) {
@@ -3641,7 +3645,7 @@ function renderTips() {
 
   // Summary cards
   var summaryCards = defs.map(function(def) {
-    return '<div class="s-card"><div class="s-label">' + escHtml(def.name) + '</div><div class="s-value orange" id="ts-shift-' + def.id + '">' + ILS(tots[def.id] || 0) + '</div></div>';
+    return '<div class="s-card"><div class="s-label">' + escHtml(def.name) + '</div><div class="s-value orange" id="ts-shift-' + def.id + '">' + ILSr(tots[def.id] || 0) + '</div></div>';
   }).join('');
 
   // Table header
@@ -3656,7 +3660,7 @@ function renderTips() {
     shiftSettingsHtml +
     '<div class="summary-grid">' +
       summaryCards +
-      '<div class="s-card accent"><div class="s-label">💸 סה"כ טיפים חודש</div><div class="s-value orange" id="ts-grand">' + ILS(tots.total) + '</div></div>' +
+      '<div class="s-card accent"><div class="s-label">💸 סה"כ טיפים חודש</div><div class="s-value orange" id="ts-grand">' + ILSr(tots.total) + '</div></div>' +
     '</div>' +
     '<div class="table-wrap"><table>' +
       '<thead><tr>' +
