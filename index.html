@@ -835,9 +835,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-22n';
+var APP_VERSION  = '2026-06-22o';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-22o', t: '🔧 תיקון חשוב: קישור ההזמנה במייל ממלא אוטומטית את כתובת המייל הנכונה ופותח במצב הרשמה — מונע הצטרפות לעסק הלא נכון בגלל הקלדת אימייל שונה' },
   { v: '2026-06-22n', t: '🐛 תיקון: עצירת מעקב הנוכחות (heartbeat) בעת התנתקות' },
   { v: '2026-06-22m', t: '🟢 נוספה נקודה ירוקה בניהול משתמשים שמראה מי מחובר/ת כרגע (דורש עדכון קטן בכללי Firestore)' },
   { v: '2026-06-22l', t: '📄 נוספה הסכמת תנאי שימוש ופרטיות לגרסת הבטא — מוצגת לבעל/ת העסק בכניסה הראשונה, וזמינה לעיון מתפריט הניהול' },
@@ -6420,7 +6421,7 @@ async function openUserMgmt() {
 async function sendInviteEmail(email) {
   if (typeof emailjs === 'undefined') return;
   var bizName = ((S.settings || {}).biz || {}).name || 'מנהל העסק';
-  var signupLink = location.origin + location.pathname;
+  var signupLink = location.origin + location.pathname + '?invite=' + encodeURIComponent(email);
   return emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
     to_email: email,
     business_name: bizName,
@@ -6560,6 +6561,13 @@ function _withTimeout(promise, ms, label) {
 
 function authInit() {
   document.getElementById('auth-email').value = localStorage.getItem(LAST_EMAIL_KEY) || '';
+  try {
+    var inviteEmail = new URLSearchParams(location.search).get('invite');
+    if (inviteEmail) {
+      document.getElementById('auth-email').value = inviteEmail;
+      if (_authMode !== 'signup') authToggleMode();
+    }
+  } catch (e) {}
   // Wait for the Firebase module script to attach window.fb (loads async)
   var tries = 0;
   (function waitForFb() {
