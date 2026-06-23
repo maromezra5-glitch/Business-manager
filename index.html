@@ -263,6 +263,26 @@ body {
 
 /* ── TABLES ── */
 .table-wrap { overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 220px); border-radius: var(--r); border: 1px solid var(--border); background: var(--surface); }
+.tw-scroll-bar {
+  position: sticky; top: 6px; left: 0; right: 0; z-index: 50;
+  display: flex; justify-content: space-between;
+  margin-bottom: -46px; padding: 0 6px;
+  pointer-events: none;
+}
+.tw-scroll-btn {
+  pointer-events: auto;
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 1.5px solid var(--border); background: rgba(255,255,255,.96);
+  box-shadow: 0 3px 12px rgba(0,0,0,.2); cursor: pointer;
+  font-size: 15px; font-weight: 900; color: var(--primary);
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, transform .1s;
+}
+.tw-scroll-btn:hover { background: var(--primary-light); }
+.tw-scroll-btn:active { transform: scale(.9); }
+@media (max-width: 720px) {
+  .tw-scroll-btn { width: 30px; height: 30px; font-size: 13px; }
+}
 table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
 thead th {
   background: #F0EBE6; color: var(--text); font-weight: 800;
@@ -843,9 +863,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-23b';
+var APP_VERSION  = '2026-06-23c';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-23c', t: '◀▶ הוסרה ניווט בחצים-מקלדת (לא היה נחוץ), נוספו במקום כפתורי גלילה לחיצים בכל הטבלאות הרחבות (שעות, קניות, דוח Z וכו׳) לנוחות מי שמתקשה עם גלגלת הגלילה' },
   { v: '2026-06-23b', t: '🧮 תיקון: Labor Cost בטבלת השליטה מחושב לפי עלות שכר מלאה (לפני הורדת מפרעות), לא הסכום נטו שנותר לתשלום · ⌨️ ניווט בין תאים בחצים (שמאל/ימין) בטבלאות הזנה' },
   { v: '2026-06-23a', t: '🏷️ צומצמה רשימת סוגי העסק למסעדה/קפה, חנות, מספרה ועסק כללי בלבד — הוסרו מוסך/קליניקה/סטודיו שלא היו מתאימים בפועל ליכולות המערכת' },
   { v: '2026-06-22z', t: '🚫 לא ניתן יותר לשלוח הזמנה נוספת לאימייל עם הזמנה ממתינה קיימת — צריך לבטל את הקיימת קודם' },
@@ -7483,62 +7504,60 @@ function dismissSetupWizard() {
 }
 
 function _cursorEdgeInfo(el) {
-  try {
-    return { start: el.selectionStart, end: el.selectionEnd, length: el.value.length };
-  } catch (e) {
-    return null; // type=number וכו' — לא ניתן לקרוא מיקום סמן, נתייחס כאילו תמיד בקצה
-  }
-}
-
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') { closeModal(); return; }
-
-  if (e.key === 'Enter') {
-    var el = e.target;
-    if (!el || el.tagName !== 'INPUT') return;
-    var td = el.closest('td');
-    if (!td) return;
-    var tr = td.closest('tr');
-    if (!tr || !tr.parentElement || tr.parentElement.tagName !== 'TBODY') return;
-    var cellIndex = Array.prototype.indexOf.call(tr.children, td);
-    var nextTr = tr.nextElementSibling;
-    if (!nextTr) return;
-    var nextTd = nextTr.children[cellIndex];
-    var nextInput = nextTd && nextTd.querySelector('input');
-    if (nextInput) {
-      e.preventDefault();
-      nextInput.focus();
-      if (nextInput.select) nextInput.select();
-    }
-    return;
-  }
-
-  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-    var el2 = e.target;
-    if (!el2 || el2.tagName !== 'INPUT') return;
-    var td2 = el2.closest('td');
-    if (!td2) return;
-    var tr2 = td2.closest('tr');
-    if (!tr2 || !tr2.parentElement || tr2.parentElement.tagName !== 'TBODY') return;
-    var pos = _cursorEdgeInfo(el2);
-    var atStart = !pos || pos.start === 0;
-    var atEnd   = !pos || pos.end === pos.length;
-    var cellIndex2 = Array.prototype.indexOf.call(tr2.children, td2);
-    var targetTd = null;
-    // הטבלה ב-RTL — סדר ה-DOM עולה פירושו תזוזה ויזואלית שמאלה
-    if (e.key === 'ArrowRight' && atEnd) {
-      targetTd = tr2.children[cellIndex2 - 1];
-    } else if (e.key === 'ArrowLeft' && atStart) {
-      targetTd = tr2.children[cellIndex2 + 1];
-    }
-    var targetInput = targetTd && targetTd.querySelector('input');
-    if (targetInput) {
-      e.preventDefault();
-      targetInput.focus();
-      if (targetInput.select) targetInput.select();
-    }
+  if (e.key !== 'Enter') return;
+  var el = e.target;
+  if (!el || el.tagName !== 'INPUT') return;
+  var td = el.closest('td');
+  if (!td) return;
+  var tr = td.closest('tr');
+  if (!tr || !tr.parentElement || tr.parentElement.tagName !== 'TBODY') return;
+  var cellIndex = Array.prototype.indexOf.call(tr.children, td);
+  var nextTr = tr.nextElementSibling;
+  if (!nextTr) return;
+  var nextTd = nextTr.children[cellIndex];
+  var nextInput = nextTd && nextTd.querySelector('input');
+  if (nextInput) {
+    e.preventDefault();
+    nextInput.focus();
+    if (nextInput.select) nextInput.select();
   }
 });
+
+/* ── כפתורי גלילה אופקית (◀ ▶) על טבלאות רחבות — לנוחות מי שמתקשה עם גלגלת הגלילה ── */
+function _scrollTableWrap(btn, dir) {
+  var wrap = btn.closest('.table-wrap');
+  if (wrap) wrap.scrollBy({left: dir * 220, behavior: 'smooth'});
+}
+function _ensureTableScrollButtons() {
+  document.querySelectorAll('.table-wrap').forEach(function(wrap) {
+    if (wrap.querySelector('.tw-scroll-bar')) return;
+    if (wrap.scrollWidth <= wrap.clientWidth + 4) return; // אין צורך בכפתורים אם הטבלה לא גולשת
+    var bar = document.createElement('div');
+    bar.className = 'tw-scroll-bar';
+    var leftBtn = document.createElement('button');
+    leftBtn.className = 'tw-scroll-btn tw-scroll-left';
+    leftBtn.type = 'button';
+    leftBtn.title = 'גלילה שמאלה';
+    leftBtn.textContent = '◀';
+    leftBtn.onclick = function(){ _scrollTableWrap(leftBtn, 1); };
+    var rightBtn = document.createElement('button');
+    rightBtn.className = 'tw-scroll-btn tw-scroll-right';
+    rightBtn.type = 'button';
+    rightBtn.title = 'גלילה ימינה';
+    rightBtn.textContent = '▶';
+    rightBtn.onclick = function(){ _scrollTableWrap(rightBtn, -1); };
+    bar.appendChild(leftBtn);
+    bar.appendChild(rightBtn);
+    wrap.insertBefore(bar, wrap.firstChild);
+  });
+}
+var _twObserver = new MutationObserver(function() {
+  clearTimeout(window._twObserverTimer);
+  window._twObserverTimer = setTimeout(_ensureTableScrollButtons, 150);
+});
+_twObserver.observe(document.body, {childList: true, subtree: true});
 </script>
 </body>
 </html>
