@@ -412,6 +412,24 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 .exp-card-del { position: absolute; top: 6px; left: 6px; background: none; border: none; cursor: pointer; font-size: 13px; color: var(--text-muted); opacity: 0; transition: opacity .14s, color .14s; line-height: 1; padding: 2px; }
 .exp-card:hover .exp-card-del { opacity: 1; }
 .exp-card-del:hover { color: var(--error); }
+.exp-list { display: flex; flex-direction: column; gap: 7px; margin-bottom: 4px; }
+.exp-list-row { display: flex; align-items: center; gap: 10px; background: #fff; border: 1.5px solid var(--border); border-radius: var(--r-sm); padding: 9px 12px; animation: popIn .18s ease both; transition: border-color .14s, box-shadow .14s; }
+.exp-list-row:hover { border-color: var(--primary); box-shadow: 0 4px 14px rgba(0,0,0,.07); }
+.exp-list-emoji { font-size: 19px; line-height: 1; flex-shrink: 0; }
+.exp-list-label { font-size: 13px; font-weight: 800; color: var(--text-sec); flex: 1; min-width: 0; }
+.exp-list-name-inp { font-size: 13px; font-weight: 800; color: var(--text-sec); flex: 1; min-width: 0; border: none; background: transparent; padding: 2px 0; font-family: inherit; outline: none; border-bottom: 1.5px dashed var(--border); }
+.exp-list-name-inp:focus { border-bottom-color: var(--primary); }
+.exp-list-input { width: 86px; font-size: 15px; font-weight: 900; border: none; border-bottom: 2px solid var(--border); background: transparent; text-align: center; padding: 2px 0; color: var(--text); font-family: inherit; outline: none; flex-shrink: 0; }
+.exp-list-input:focus { border-bottom-color: var(--primary); }
+.exp-list-novat { display: flex; align-items: center; gap: 4px; font-size: 10.5px; color: var(--text-muted); font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+.exp-list-novat input { cursor: pointer; accent-color: var(--primary); }
+.exp-list-sub { font-size: 10.5px; color: #2563eb; font-weight: 700; white-space: nowrap; flex-shrink: 0; min-width: 76px; text-align: left; }
+.exp-list-del { background: none; border: none; cursor: pointer; font-size: 14px; color: var(--text-muted); flex-shrink: 0; padding: 2px; }
+.exp-list-del:hover { color: var(--error); }
+@media (max-width: 600px) {
+  .exp-list-row { flex-wrap: wrap; }
+  .exp-list-sub { width: 100%; text-align: right; min-width: 0; }
+}
 
 /* ── PL RESULT ── */
 .pl-box { border-radius: 20px; padding: 40px 34px; text-align: center; border: 2.5px solid; animation: popIn .35s ease; position: relative; overflow: hidden; }
@@ -863,9 +881,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-23f';
+var APP_VERSION  = '2026-06-24a';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-24a', t: '📋 חדש: תצוגת רשימה חכמה (עם אימוג׳ים) להוצאות בטבלת שליטה — לחיצה אחת להחליף בין כרטיסים לרשימה' },
   { v: '2026-06-23f', t: '🔄 תיקון: סמלי החצים בכפתורי הגלילה הוחלפו כדי שיצביעו לכיוון הנכון ויזואלית' },
   { v: '2026-06-23e', t: '🔄 תיקון: כיוון כפתורי הגלילה בטבלאות הפוך לכיוון הנכון' },
   { v: '2026-06-23d', t: '🐛 תיקון קריטי: שגיאת תחביר שמנעה מהאתר להיטען בכלל — תוקן' },
@@ -1010,6 +1029,7 @@ var hoursRoleFilter = '';
 var hoursNameSearch = '';
 var payrollNameSearch = '';
 var showCharts = false;
+var expenseListView = false;
 var _chartInstances = {};
 if (typeof Chart !== 'undefined' && typeof ChartDataLabels !== 'undefined') {
   Chart.register(ChartDataLabels);
@@ -4170,12 +4190,23 @@ function renderControl() {
     var parts    = e.l.split(' ');
     var emoji    = parts[0];
     var label    = parts.slice(1).join(' ');
+    var subTxt   = preVat > 0 ? 'ללא מע"מ: ' + ILS(preVat) : isNoVatF ? '✓ ללא מע"מ' : '';
+    if (expenseListView) {
+      return '<div class="exp-list-row" id="exp-card-' + e.k + '">' +
+        '<span class="exp-list-emoji">' + emoji + '</span>' +
+        '<span class="exp-list-label">' + escHtml(label) + '</span>' +
+        '<input type="number" class="exp-list-input" id="ce-' + e.k + '" min="0" value="' + (amt || '') + '" placeholder="₪0" onchange="saveControlAndRefresh()">' +
+        '<label class="exp-list-novat"><input type="checkbox" id="nvf-' + e.k + '" ' + (isNoVatF ? 'checked' : '') + ' onchange="saveControlAndRefresh()">ללא מע"מ</label>' +
+        '<span class="exp-list-sub">' + subTxt + '</span>' +
+        '<button class="exp-list-del" onclick="removeFixedCat(\'' + e.k + '\')" title="הסר קטגוריה">✕</button>' +
+      '</div>';
+    }
     return '<div class="exp-card" id="exp-card-' + e.k + '">' +
       '<button class="exp-card-del" onclick="removeFixedCat(\'' + e.k + '\')" title="הסר קטגוריה">✕</button>' +
       '<div class="exp-card-emoji">' + emoji + '</div>' +
       '<div class="exp-card-label">' + escHtml(label) + '</div>' +
       '<input type="number" class="exp-card-input" id="ce-' + e.k + '" min="0" value="' + (amt || '') + '" placeholder="₪0" onchange="saveControlAndRefresh()">' +
-      '<div class="exp-card-sub">' + (preVat > 0 ? 'ללא מע"מ: ' + ILS(preVat) : isNoVatF ? '✓ ללא מע"מ' : '') + '</div>' +
+      '<div class="exp-card-sub">' + subTxt + '</div>' +
       '<label class="exp-card-novat"><input type="checkbox" id="nvf-' + e.k + '" ' + (isNoVatF ? 'checked' : '') + ' onchange="saveControlAndRefresh()">ללא מע"מ</label>' +
     '</div>';
   }).join('');
@@ -4183,13 +4214,25 @@ function renderControl() {
   var extraCards = extras.map(function(ex, i){
     var isNoVatEx = !!ex.noVat;
     var exPreVat  = (!isNoVatEx && toNum(ex.amount) > 0) ? toNum(ex.amount) / (1 + vat/100) : 0;
+    var exSubTxt  = exPreVat > 0 ? 'ללא מע"מ: ' + ILS(exPreVat) : isNoVatEx ? '✓ ללא מע"מ' : '';
+    var exEmoji   = ex.name ? _emojiForExpense(ex.name) : '✏️';
+    if (expenseListView) {
+      return '<div class="exp-list-row">' +
+        '<span class="exp-list-emoji">' + exEmoji + '</span>' +
+        '<input type="text" class="exp-list-name-inp" id="ex-n-' + i + '" value="' + escHtml(ex.name) + '" placeholder="שם הוצאה" onchange="saveControlAndRefresh()">' +
+        '<input type="number" class="exp-list-input" id="ex-a-' + i + '" value="' + (ex.amount||'') + '" min="0" placeholder="₪0" onchange="saveControlAndRefresh()">' +
+        '<label class="exp-list-novat"><input type="checkbox" id="nvx-' + i + '" ' + (isNoVatEx ? 'checked' : '') + ' onchange="saveControlAndRefresh()">ללא מע"מ</label>' +
+        '<span class="exp-list-sub">' + exSubTxt + '</span>' +
+        '<button class="exp-list-del" onclick="removeExtra(' + i + ')" title="הסר">✕</button>' +
+      '</div>';
+    }
     return '<div class="exp-card" style="border-color:rgba(124,58,237,.25);background:rgba(124,58,237,.03)">' +
       '<button class="exp-card-del" onclick="removeExtra(' + i + ')" title="הסר">✕</button>' +
-      '<div class="exp-card-emoji">✏️</div>' +
+      '<div class="exp-card-emoji">' + exEmoji + '</div>' +
       '<input type="text" class="ti" id="ex-n-' + i + '" value="' + escHtml(ex.name) + '" placeholder="שם הוצאה" ' +
         'style="font-size:12px;font-weight:800;border:none;border-bottom:2px solid var(--border);border-radius:0;padding:2px 0;background:transparent;width:100%;text-align:center" onchange="saveControlAndRefresh()">' +
       '<input type="number" class="exp-card-input" id="ex-a-' + i + '" value="' + (ex.amount||'') + '" min="0" placeholder="₪0" onchange="saveControlAndRefresh()">' +
-      '<div class="exp-card-sub">' + (exPreVat > 0 ? 'ללא מע"מ: ' + ILS(exPreVat) : isNoVatEx ? '✓ ללא מע"מ' : '') + '</div>' +
+      '<div class="exp-card-sub">' + exSubTxt + '</div>' +
       '<label class="exp-card-novat"><input type="checkbox" id="nvx-' + i + '" ' + (isNoVatEx ? 'checked' : '') + ' onchange="saveControlAndRefresh()">ללא מע"מ</label>' +
     '</div>';
   }).join('');
@@ -4246,14 +4289,17 @@ function renderControl() {
         '<div class="ctrl-row"><span class="ctrl-label">👥 שכר עובדים</span><span class="ctrl-amount" style="color:var(--text)">' + ILS(totalPayroll)   + '</span></div>' +
         '<div class="ctrl-row"><span class="ctrl-label">🛒 קניות ספקים (עם מע"מ)</span><span class="ctrl-amount" style="color:var(--text)">' + ILS(totalPurchases) + '</span></div>' +
         (totalPurchases > 0 ? '<div class="ctrl-row" style="padding-right:18px"><span class="ctrl-label" style="color:#2563eb;font-size:14px;font-weight:700">↳ ללא מע"מ (' + vat + '%)</span><span class="ctrl-amount" style="color:#2563eb;font-size:15px;font-weight:900">' + ILS(totalPurchases / (1 + vat/100)) + '</span></div>' : '') +
-        '<div class="ctrl-section-title">🏷️ הוצאות קבועות</div>' +
-        '<div class="exp-cards-grid" id="fixed-cards-grid">' + fixedCards + '</div>' +
+        '<div class="ctrl-section-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px">' +
+          '<span>🏷️ הוצאות קבועות</span>' +
+          '<button class="btn btn-secondary btn-sm" onclick="toggleExpenseView()" style="font-size:11px;white-space:nowrap">' + (expenseListView ? '🔲 תצוגת כרטיסים' : '📋 תצוגת רשימה') + '</button>' +
+        '</div>' +
+        '<div class="' + (expenseListView ? 'exp-list' : 'exp-cards-grid') + '" id="fixed-cards-grid">' + fixedCards + '</div>' +
         '<div style="display:flex;align-items:center;gap:8px;margin:6px 0 14px;flex-wrap:wrap">' +
           '<input type="text" class="ti" id="new-fixed-name" placeholder="➕ שם הוצאה קבועה חדשה..." style="font-size:13px;flex:1;min-width:120px">' +
           '<button class="btn btn-secondary btn-sm" onclick="addFixedCat()" style="white-space:nowrap">+ הוסף קטגוריה</button>' +
         '</div>' +
         '<div class="ctrl-section-title">✨ הוצאות נוספות / חד-פעמיות</div>' +
-        '<div class="exp-cards-grid" id="extras-list">' + extraCards + '</div>' +
+        '<div class="' + (expenseListView ? 'exp-list' : 'exp-cards-grid') + '" id="extras-list">' + extraCards + '</div>' +
         '<button class="btn btn-secondary btn-sm" style="margin-top:6px;margin-bottom:14px" onclick="addExtra()">➕ הוסף הוצאה</button>' +
         '<div class="ctrl-total" style="color:var(--error);border-color:var(--error)">' +
           '<span>❌ סה"כ הוצאות (עם מע"מ)</span><span>' + ILS(totalExpenses) + '</span>' +
@@ -4673,6 +4719,11 @@ function toggleSalesTarget() {
 
 function toggleFCMode() {
   fcWithVat = !fcWithVat;
+  renderControl();
+}
+
+function toggleExpenseView() {
+  expenseListView = !expenseListView;
   renderControl();
 }
 
