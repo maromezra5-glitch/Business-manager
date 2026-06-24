@@ -61,9 +61,10 @@
     getMembership:  function(uid, businessId) { return getDoc(doc(fbDb, 'memberships', uid + '_' + businessId)); },
     watchMembership: function(uid, businessId, cb) { return onSnapshot(doc(fbDb, 'memberships', uid + '_' + businessId), cb); },
     getMemberships: function(uid) { return getDocs(query(collection(fbDb, 'memberships'), where('uid', '==', uid))); },
-    createMembership: function(uid, businessId, role, email, allowedTabs, name) {
-      return setDoc(doc(fbDb, 'memberships', uid + '_' + businessId), {uid: uid, businessId: businessId, role: role, email: email || '', name: name || '', allowedTabs: allowedTabs || []});
+    createMembership: function(uid, businessId, role, email, allowedTabs, name, businessName) {
+      return setDoc(doc(fbDb, 'memberships', uid + '_' + businessId), {uid: uid, businessId: businessId, role: role, email: email || '', name: name || '', businessName: businessName || '', allowedTabs: allowedTabs || []});
     },
+    setMembershipBusinessName: function(uid, businessId, businessName) { return updateDoc(doc(fbDb, 'memberships', uid + '_' + businessId), {businessName: businessName || ''}); },
     updateMemberTabs: function(uid, businessId, allowedTabs) { return updateDoc(doc(fbDb, 'memberships', uid + '_' + businessId), {allowedTabs: allowedTabs, permissionsUpdatedAt: Date.now()}); },
     updateSeenVersion: function(uid, businessId, v) { return updateDoc(doc(fbDb, 'memberships', uid + '_' + businessId), {seenVersion: v}); },
     markPermissionsSeen: function(uid, businessId, ts) { return updateDoc(doc(fbDb, 'memberships', uid + '_' + businessId), {permissionsSeenAt: ts}); },
@@ -76,7 +77,7 @@
     getBlockedDoc: function(uid, businessId) { return getDoc(doc(fbDb, 'blockedUsers', uid + '_' + businessId)); },
     getBlockedDocsForUser: function(uid) { return getDocs(query(collection(fbDb, 'blockedUsers'), where('uid', '==', uid))); },
 
-    createInvite: function(email, businessId, role, allowedTabs) { return setDoc(doc(fbDb, 'invites', email.toLowerCase()), {businessId: businessId, role: role, allowedTabs: allowedTabs || [], createdAt: Date.now()}); },
+    createInvite: function(email, businessId, role, allowedTabs, businessName) { return setDoc(doc(fbDb, 'invites', email.toLowerCase()), {businessId: businessId, role: role, allowedTabs: allowedTabs || [], businessName: businessName || '', createdAt: Date.now()}); },
     getInvite:    function(email) { return getDoc(doc(fbDb, 'invites', email.toLowerCase())); },
     deleteInvite: function(email) { return deleteDoc(doc(fbDb, 'invites', email.toLowerCase())); },
     listInvites:  function(businessId) { return getDocs(query(collection(fbDb, 'invites'), where('businessId', '==', businessId))); },
@@ -264,9 +265,9 @@ body {
 /* ── TABLES ── */
 .table-wrap { overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 220px); border-radius: var(--r); border: 1px solid var(--border); background: var(--surface); }
 .tw-scroll-bar {
-  position: sticky; top: 6px; left: 0; right: 0; z-index: 50;
+  position: sticky; bottom: 6px; left: 0; right: 0; z-index: 20;
   display: flex; justify-content: space-between;
-  margin-bottom: -46px; padding: 0 6px;
+  padding: 0 6px; margin-top: 8px;
   pointer-events: none;
 }
 .tw-scroll-btn {
@@ -881,9 +882,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-24a';
+var APP_VERSION  = '2026-06-24b';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-24b', t: '🔒 אבטחה: אכיפת הרשאות לשוניות בפועל (לא רק הסתרת כפתור) · 🖼️ הגבלת גודל קובץ בהעלאת לוגו/רקע · 💾 תיקון: כשל באחסון מקומי לא חוסם יותר סנכרון לענן · 🔄 תיקון מיקום כפתורי הגלילה (לא חופפים כותרת טבלה) · 🏢 שם עסק אמיתי במחליף עסקים · ✉️ ולידציית אימייל בהזמנות · 🛡️ אזהרה לפני סגירת חלון פתוח בטעות' },
   { v: '2026-06-24a', t: '📋 חדש: תצוגת רשימה חכמה (עם אימוג׳ים) להוצאות בטבלת שליטה — לחיצה אחת להחליף בין כרטיסים לרשימה' },
   { v: '2026-06-23f', t: '🔄 תיקון: סמלי החצים בכפתורי הגלילה הוחלפו כדי שיצביעו לכיוון הנכון ויזואלית' },
   { v: '2026-06-23e', t: '🔄 תיקון: כיוון כפתורי הגלילה בטבלאות הפוך לכיוון הנכון' },
@@ -1250,21 +1252,31 @@ function loadState() {
 function persist() {
   try {
     localStorage.setItem(KEY, JSON.stringify(S));
-    scheduleFirestoreSync();
   } catch(e) {
     toast('⚠️ נגמר מקום בדפדפן! גבה את הנתונים עכשיו לפני שיאבדו', 'err');
   }
+  // הסנכרון לענן רץ בכל מקרה, גם אם השמירה המקומית נכשלה (מכסת אחסון מלאה) —
+  // אחרת הנתונים האחרונים לא נשמרים בשום מקום עד הפעולה הבאה.
+  scheduleFirestoreSync();
 }
 
 var _fsSyncTimer = null;
+var _fsSyncInFlight = false;
+var _fsSyncPending = false;
 function scheduleFirestoreSync() {
   if (!currentBusinessId || !window.fb) return;
   clearTimeout(_fsSyncTimer);
-  _fsSyncTimer = setTimeout(function() {
-    window.fb.saveData(currentBusinessId, S).catch(function() {
-      toast('⚠️ סנכרון לענן נכשל — הנתונים נשמרו מקומית בלבד', 'err');
-    });
-  }, 2500);
+  _fsSyncTimer = setTimeout(_runFirestoreSync, 2500);
+}
+function _runFirestoreSync() {
+  if (_fsSyncInFlight) { _fsSyncPending = true; return; }
+  _fsSyncInFlight = true;
+  window.fb.saveData(currentBusinessId, S).catch(function() {
+    toast('⚠️ סנכרון לענן נכשל — הנתונים נשמרו מקומית בלבד', 'err');
+  }).then(function() {
+    _fsSyncInFlight = false;
+    if (_fsSyncPending) { _fsSyncPending = false; _runFirestoreSync(); }
+  });
 }
 
 // Use before reloading the page after a bulk data replace (restore/demo/import) —
@@ -1362,6 +1374,7 @@ function exportAuditLog() {
   XLSX.writeFile(wb, 'יומן_פעולות_' + curDate() + '.xlsx');
 }
 function renderAuditLog() {
+  if (!_guardModalSwitch('auditLog')) return;
   var log = _filteredAuditLog();
   var html =
     '<h2 class="modal-title">📋 יומן פעולות אחרונות</h2>' +
@@ -1460,7 +1473,19 @@ function toast(msg, type) {
 ================================================================ */
 var RENDER_MAP = {};
 
+function isTabAllowed(name) {
+  var hidden = (typeof window !== 'undefined' && window._bizTypeHiddenTabs) || [];
+  if (hidden.indexOf(name) >= 0) return false;
+  if (typeof isOwner === 'function' && isOwner()) return true;
+  var allowed = (typeof currentAllowedTabs !== 'undefined' && currentAllowedTabs) || [];
+  return allowed.indexOf(name) >= 0;
+}
+
 function switchTab(name) {
+  if (typeof currentRole !== 'undefined' && currentRole && !isTabAllowed(name)) {
+    if (typeof toast === 'function') toast('אין לך הרשאה לגישה לטאב הזה', 'err');
+    return;
+  }
   document.querySelectorAll('.tab-btn').forEach(function(b) {
     b.classList.toggle('active', b.id === 'btn-' + name);
   });
@@ -1539,6 +1564,7 @@ function getDobValue() {
 }
 
 function openEmpModal(id) {
+  if (!_guardModalSwitch('empModal')) return;
   id = id || null;
   editEmpId = id;
   var emp = id ? S.employees.find(function(x){ return x.id === id; }) : null;
@@ -1706,6 +1732,19 @@ function closeModal() {
   document.getElementById('modal').classList.add('hidden');
   document.getElementById('modal-box').style.maxWidth = '';
   editEmpId = null;
+  _currentModalKey = null;
+}
+
+// מונע מצב שבו פתיחת חלון (מודאל) חדש דורסת בשתיקה חלון אחר שכבר פתוח עם שינויים לא-שמורים —
+// אותו מודאל (אותו key) מתעדכן בלי שאלה (לדוגמה חיפוש בתוך יומן הפעולות הפתוח), רק מעבר בין שני מודאלים שונים נשאל.
+var _currentModalKey = null;
+function _guardModalSwitch(key) {
+  var modalEl = document.getElementById('modal');
+  if (modalEl && !modalEl.classList.contains('hidden') && _currentModalKey && _currentModalKey !== key) {
+    if (!confirm('יש לך חלון פתוח כרגע — לסגור אותו ולפתוח את החדש? (שינויים שלא נשמרו בו יאבדו)')) return false;
+  }
+  _currentModalKey = key;
+  return true;
 }
 
 
@@ -3053,8 +3092,11 @@ function getDetailedSupplementReport(ym) {
         if (hrs <= 0) return;
         var base     = perHr > 0 ? hrs * perHr : 0;
         var adj      = toNum(w.adjust);
-        var final    = base + adj;
+        var final    = base + adj; // מה שהעובד בפועל "מקבל" כטיפ — כולל גם תיקונים שליליים
         var minGuar  = hrs * minPerHr;
+        // suppBase (בסיס ההשלמה למינימום) מתעלם מתיקונים שליליים בכוונה: תיקון ידני שמוריד טיפ
+        // (לדוגמה טעות הקלדה/קנס) לא אמור "להפעיל" השלמה גבוהה יותר מהמגיע — לכן ההשלמה
+        // מחושבת על הבסיס המקורי (base + תיקון חיובי בלבד), לא על final שכולל גם הורדות.
         var suppBase = base + Math.max(0, adj);
         var suppl    = Math.max(0, minGuar - suppBase);
         if (!byEmp[w.empId]) byEmp[w.empId] = { totalHours:0, totalTips:0, totalSuppl:0, shifts:[], adjRows:[] };
@@ -4899,6 +4941,7 @@ function exportTips() {
 }
 
 function openEmpDetail(empId, ym, showTips) {
+  if (!_guardModalSwitch('empDetail')) return;
   var emp  = S.employees.find(function(e){ return e.id === empId; });
   if (!emp) return;
   var rec     = aggregateMonth(empId, ym);
@@ -5703,6 +5746,13 @@ async function loadDemoData() {
       confirmText: 'טען נתוני דוגמה', danger: true
     });
     if (!ok) return;
+  } else {
+    var okEmpty = await customConfirm({
+      title: 'טעינת נתוני דוגמה',
+      message: 'יוטענו נתונים פיקטיביים (עובדים, שעות, משכורות) כדי שתוכל/י להתנסות במערכת. ניתן למחוק אותם בכל שלב מתפריט הניהול.',
+      confirmText: 'טען נתוני דוגמה'
+    });
+    if (!okEmpty) return;
   }
 
   var today  = new Date();
@@ -6419,6 +6469,7 @@ function _onlineDotHtml(lastSeenAt) {
 }
 async function openUserMgmt() {
   if (!isOwner()) return;
+  if (!_guardModalSwitch('userMgmt')) return;
   var box = document.getElementById('modal-box');
   box.style.maxWidth = '640px';
   box.innerHTML = '<h2 class="modal-title">👤 ניהול משתמשים</h2><div style="text-align:center;padding:24px;color:var(--text-muted)">טוען...</div>';
@@ -6512,6 +6563,7 @@ async function sendUserInvite() {
   var inp = document.getElementById('invite-email-inp');
   var email = (inp.value || '').trim();
   if (!email) { toast('נא להזין כתובת אימייל', 'err'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('כתובת האימייל לא תקינה', 'err'); return; }
   var tabs = readCheckedTabs('invite-new-tabs');
   if (!tabs.length) { toast('בחר לפחות לשונית אחת להרשאה', 'err'); return; }
   try {
@@ -6541,7 +6593,8 @@ async function sendUserInvite() {
     // אם בדיקת ההזמנות הממתינות נכשלה — לא חוסמים, רק מדלגים על הבדיקה
   }
   try {
-    await window.fb.createInvite(email, currentBusinessId, 'manager', tabs);
+    var inviteBizName = ((S.settings || {}).biz || {}).name || '';
+    await window.fb.createInvite(email, currentBusinessId, 'manager', tabs, inviteBizName);
     logAudit('הזמנת משתמש/ת', email + ' — הרשאות: ' + tabs.map(function(t){return TAB_LABELS[t]||t;}).join(', '));
     persist();
     try {
@@ -6766,7 +6819,7 @@ async function _resolveBusinessAndRole(user) {
         var inv = inviteSnap.data();
         _dbg('inviteData', inv);
         // setDoc הוא overwrite בטוח — אין צורך לבדוק קיום מראש (ובדיקת קיום על מסמך שלא קיים נכשלת בכללי Firestore)
-        await window.fb.createMembership(user.uid, inv.businessId, inv.role, user.email, inv.allowedTabs || [], signupName);
+        await window.fb.createMembership(user.uid, inv.businessId, inv.role, user.email, inv.allowedTabs || [], signupName, inv.businessName || '');
         _dbg('createMembership', 'done');
         await window.fb.deleteInvite(user.email);
         _dbg('deleteInvite', 'done');
@@ -6880,7 +6933,10 @@ function renderBusinessSwitcher() {
   var html = '<select id="biz-switcher-wrap" class="hdr-btn" style="cursor:pointer" onchange="switchActiveBusiness(this.value)">' +
     currentAllMemberships.map(function(m) {
       var sel = m.businessId === currentBusinessId ? ' selected' : '';
-      return '<option value="' + escHtml(m.businessId) + '"' + sel + '>🏢 ' + escHtml(m.businessId === currentBusinessId ? (((S.settings||{}).biz||{}).name || 'העסק הנוכחי') : 'עסק אחר…') + '</option>';
+      var label = m.businessId === currentBusinessId
+        ? (((S.settings||{}).biz||{}).name || 'העסק הנוכחי')
+        : (m.businessName || 'עסק ללא שם');
+      return '<option value="' + escHtml(m.businessId) + '"' + sel + '>🏢 ' + escHtml(label) + '</option>';
     }).join('') +
   '</select>';
   greetEl.insertAdjacentHTML('afterend', html);
@@ -7065,6 +7121,7 @@ function applyBizSettings() {
 }
 
 function openBizSettings() {
+  if (!_guardModalSwitch('bizSettings')) return;
   var biz = (S.settings && S.settings.biz) || {};
   var curType  = (S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT;
   var curLabel = (S.settings && S.settings.businessTypeLabel) || '';
@@ -7201,13 +7258,32 @@ function _setBizLogoPreview(src) {
   window._bizLogoTmp = src;
 }
 
+var UPLOAD_MAX_BYTES = 5 * 1024 * 1024;
+
 function handleLogoUpload(input) {
   var file = input.files[0];
   if (!file) return;
+  if (file.size > UPLOAD_MAX_BYTES) {
+    toast('הקובץ גדול מ-5MB — בחר/י תמונה קטנה יותר', 'err');
+    input.value = '';
+    return;
+  }
   var reader = new FileReader();
   reader.onload = function(e) {
-    _setBizLogoPreview(e.target.result);
-    document.getElementById('biz-logo-status').textContent = '✅ לוגו הועלה';
+    var img = new Image();
+    img.onload = function() {
+      var MAX = 500;
+      var w = img.width, h = img.height;
+      if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      var isPng = /png/i.test(file.type);
+      var compressed = isPng ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.85);
+      _setBizLogoPreview(compressed);
+      document.getElementById('biz-logo-status').textContent = '✅ לוגו הועלה';
+    };
+    img.src = e.target.result;
   };
   reader.readAsDataURL(file);
   input.value = '';
@@ -7223,6 +7299,11 @@ function clearBizLogo() {
 function handleBgUpload(input) {
   var file = input.files[0];
   if (!file) return;
+  if (file.size > UPLOAD_MAX_BYTES) {
+    toast('הקובץ גדול מ-5MB — בחר/י תמונה קטנה יותר', 'err');
+    input.value = '';
+    return;
+  }
   var reader = new FileReader();
   reader.onload = function(e) {
     var img = new Image();
@@ -7303,6 +7384,18 @@ function saveBizSettings() {
   applyBizSettings();
   applyBusinessType();
   toast('✅ הגדרות העסק נשמרו', 'ok');
+  _syncBusinessNameToMembers(S.settings.biz.name);
+}
+
+// מפרסם את שם העסק המעודכן לכל חברי הצוות (כדי שמחליף העסקים שלהם יציג שם אמיתי ולא "עסק אחר…")
+function _syncBusinessNameToMembers(name) {
+  if (!window.fb || !currentBusinessId) return;
+  window.fb.listMembers(currentBusinessId).then(function(snap) {
+    snap.forEach(function(d) {
+      var m = d.data();
+      window.fb.setMembershipBusinessName(m.uid, currentBusinessId, name).catch(function(){});
+    });
+  }).catch(function(){});
 }
 
 function appStart() {
@@ -7333,11 +7426,11 @@ function continueAppStart() {
 
 function _termsContentHtml() {
   return (
-    '<p style="margin-bottom:10px">🧪 <strong>זוהי גרסת בטא</strong> — המערכת בבדיקה ובשיפור מתמיד, וייתכנו שינויים ותקלות זמניות.</p>' +
-    '<p style="margin-bottom:10px">☁️ הנתונים שתזין/י (כולל פרטי עובדים, ת"ז ושכר) מאוחסנים בענן (Firebase / Google Cloud), ולא על שרת מקומי.</p>' +
-    '<p style="margin-bottom:10px">📋 המערכת מסייעת בניהול תפעולי יומי בלבד — <strong>אינה מחליפה רואה/ת חשבון או חשב/ת שכר</strong>, ואינה מהווה תלוש שכר רשמי או מערכת שכר מוסמכת. יש להעביר את הנתונים לבעל/ת מקצוע מתאים/ה לפני תשלום שכר בפועל.</p>' +
-    '<p style="margin-bottom:10px">⚠️ כגרסת בטא, אין התחייבות לדיוק או לזמינות מלאה בכל עת — מומלץ לגבות נתונים באופן קבוע (כפתור גיבוי בתפריט הניהול).</p>' +
-    '<p style="margin-bottom:0">🗑️ ניתן לבקש בכל עת מחיקה מלאה של הנתונים שלך מהמערכת, בפנייה דרך כפתור התמיכה בוואטסאפ.</p>'
+    '<p style="margin-bottom:10px">🚀 <strong>מנהל העסק</strong> נבנה כדי לחסוך לך זמן בניהול היומיומי — שעות עבודה, משכורות, טיפים, דוחות ורווחיות, הכול במקום אחד.</p>' +
+    '<p style="margin-bottom:10px">☁️ הנתונים שלך מאוחסנים בענן מאובטח (Google Firebase) — לא תלויים במחשב בודד, וניתן לגבות אותם בקלות בכל עת.</p>' +
+    '<p style="margin-bottom:10px">🧪 בשקיפות מלאה: המערכת בגרסת בטא ומתעדכנת באופן שוטף לפי משוב מבעלי עסקים כמוך — ייתכנו שיפורים ותיקונים מעת לעת.</p>' +
+    '<p style="margin-bottom:10px">📋 המערכת מספקת כלי ניהול תפעולי וחישובי הכנה לשכר — מומלץ להמשיך לעבוד לצדה עם רואה/ת חשבון או חשב/ת שכר לצורך דיווחים רשמיים (מס הכנסה, ביטוח לאומי, פנסיה).</p>' +
+    '<p style="margin-bottom:0">💾 טיפ: מומלץ לגבות את הנתונים שלך מעת לעת מכפתור הגיבוי בתפריט הניהול — לוקח כמה שניות. ובכל שלב, ניתן לבקש מחיקה מלאה של הנתונים שלך בפנייה דרך כפתור התמיכה בוואטסאפ.</p>'
   );
 }
 
@@ -7345,8 +7438,8 @@ function renderTermsGate() {
   var html =
     '<div id="terms-gate" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10150;display:flex;align-items:center;justify-content:center;direction:rtl;padding:16px">' +
       '<div style="background:#fff;border-radius:20px;padding:30px;max-width:480px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 24px 70px rgba(0,0,0,.35);text-align:right">' +
-        '<div style="font-size:34px;margin-bottom:8px">🧪</div>' +
-        '<h2 style="margin-bottom:14px">לפני שמתחילים — תנאי שימוש ופרטיות (בטא)</h2>' +
+        '<div style="font-size:34px;margin-bottom:8px">🎉</div>' +
+        '<h2 style="margin-bottom:14px">ברוך/ה הבא/ה ל"מנהל העסק"</h2>' +
         '<div style="font-size:14px;color:var(--text-sec);line-height:1.7">' + _termsContentHtml() + '</div>' +
         '<label style="display:flex;align-items:center;gap:8px;margin-top:18px;cursor:pointer;font-size:13.5px;font-weight:700">' +
           '<input type="checkbox" id="terms-accept-chk" style="width:18px;height:18px">קראתי ואני מאשר/ת' +
@@ -7369,6 +7462,7 @@ function acceptTerms() {
 }
 
 function showTermsInfo() {
+  if (!_guardModalSwitch('termsInfo')) return;
   var html =
     '<h2 class="modal-title">📄 תנאי שימוש ופרטיות (בטא)</h2>' +
     '<div style="font-size:14px;color:var(--text-sec);line-height:1.7">' + _termsContentHtml() + '</div>' +
@@ -7378,6 +7472,7 @@ function showTermsInfo() {
 }
 
 function showConnectionDebugInfo() {
+  if (!_guardModalSwitch('connDebug')) return;
   var info = {
     uid: currentUid,
     businessId: currentBusinessId,
@@ -7603,7 +7698,7 @@ function _ensureTableScrollButtons() {
     rightBtn.onclick = function(){ _scrollTableWrap(rightBtn, -1); };
     bar.appendChild(leftBtn);
     bar.appendChild(rightBtn);
-    wrap.insertBefore(bar, wrap.firstChild);
+    wrap.appendChild(bar);
   });
 }
 var _twObserver = new MutationObserver(function() {
