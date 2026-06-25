@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -265,13 +265,10 @@ body {
 /* ── TABLES ── */
 .table-wrap { overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 220px); border-radius: var(--r); border: 1px solid var(--border); background: var(--surface); }
 .tw-scroll-bar {
-  position: sticky; bottom: 6px; left: 0; right: 0; z-index: 20;
   display: flex; justify-content: space-between;
-  padding: 0 6px; margin-top: 8px;
-  pointer-events: none;
+  padding: 8px 6px 0;
 }
 .tw-scroll-btn {
-  pointer-events: auto;
   width: 36px; height: 36px; border-radius: 50%;
   border: 1.5px solid var(--border); background: rgba(255,255,255,.96);
   box-shadow: 0 3px 12px rgba(0,0,0,.2); cursor: pointer;
@@ -310,6 +307,8 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 .ti { padding: 6px 8px; border: 1.5px solid var(--border); border-radius: var(--r-xs); font-size: 13.5px; text-align: center; background: #fff; transition: border-color .15s, box-shadow .15s; font-family: inherit; }
 .ti:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(217,119,87,.14); }
 .field-saved-flash { border-color: #10b981 !important; box-shadow: 0 0 0 3px rgba(16,185,129,.22) !important; }
+.ti-pos { border-color: var(--success) !important; box-shadow: 0 0 0 2px rgba(30,125,75,.14) !important; }
+.ti-neg { border-color: var(--error) !important; box-shadow: 0 0 0 2px rgba(192,57,43,.14) !important; }
 .ti-w60 { width: 60px; }
 .ti-w70 { width: 70px; }
 .ti-w80 { width: 80px; }
@@ -882,9 +881,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-24b';
+var APP_VERSION  = '2026-06-25a';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-25a', t: '🛒 אפשר זיכויים/החזרות בטבלת קניות (ערכים שליליים) · 🔤 מיון ספקים אלפביתי אוטומטי · 🟢🔴 סימון ירוק/אדום לפי סימן הסכום נשמר לפי הערך עצמו · 🔄 כפתורי גלילה אופקית עוברים מתחת לטבלה במקום לצוף מעל השורות · 🖼️ תיקון התאמת תמונת רקע בהגדרות עסק כך שלא נראית חתוכה' },
   { v: '2026-06-24b', t: '🔒 אבטחה: אכיפת הרשאות לשוניות בפועל (לא רק הסתרת כפתור) · 🖼️ הגבלת גודל קובץ בהעלאת לוגו/רקע · 💾 תיקון: כשל באחסון מקומי לא חוסם יותר סנכרון לענן · 🔄 תיקון מיקום כפתורי הגלילה (לא חופפים כותרת טבלה) · 🏢 שם עסק אמיתי במחליף עסקים · ✉️ ולידציית אימייל בהזמנות · 🛡️ אזהרה לפני סגירת חלון פתוח בטעות' },
   { v: '2026-06-24a', t: '📋 חדש: תצוגת רשימה חכמה (עם אימוג׳ים) להוצאות בטבלת שליטה — לחיצה אחת להחליף בין כרטיסים לרשימה' },
   { v: '2026-06-23f', t: '🔄 תיקון: סמלי החצים בכפתורי הגלילה הוחלפו כדי שיצביעו לכיוון הנכון ויזואלית' },
@@ -4027,6 +4027,7 @@ function addSupplier() {
   if (!name) return;
   if (S.suppliers.indexOf(name) !== -1) { toast('ספק זה כבר קיים', 'err'); return; }
   S.suppliers.push(name);
+  S.suppliers.sort(function(a, b) { return a.localeCompare(b, 'he'); });
   persist();
   inp.value = '';
   renderSuppliersMgmt();
@@ -4078,12 +4079,15 @@ function renderPurchasesTable() {
     tbody += '<tr class="' + (wd===6?'tr-shabbat':'') + '">';
     tbody += dateCell(d, wd, ds);
     sups.forEach(function(s){
-      tbody += '<td><input type="number" class="ti ti-w80" min="0" step="1"' +
+      var v   = toNum(rec[s]);
+      var cls = v < 0 ? ' ti-neg' : (v > 0 ? ' ti-pos' : '');
+      tbody += '<td><input type="number" class="ti ti-w80' + cls + '" step="1"' +
         ' data-pds="' + ds + '" data-psup="' + escHtml(s) + '"' +
-        ' value="' + (toNum(rec[s]) || '') + '" placeholder="0"' +
+        ' value="' + (v || '') + '" placeholder="0"' +
         ' oninput="onPurInput(this)"></td>';
     });
-    tbody += '<td data-prt="' + ds + '"><strong style="color:' + (dt>0?'var(--primary)':'var(--text-muted)') + '">' + (dt>0?ILS(dt):'—') + '</strong></td>';
+    var dtColor = dt>0 ? 'var(--primary)' : (dt<0 ? 'var(--error)' : 'var(--text-muted)');
+    tbody += '<td data-prt="' + ds + '"><strong style="color:' + dtColor + '">' + (dt!==0?ILS(dt):'—') + '</strong></td>';
     tbody += '</tr>';
   }
 
@@ -4097,17 +4101,19 @@ function renderPurchasesTable() {
 
   var tfootCells = '<td class="sticky-col"><strong>סה"כ עם מע"מ</strong></td>';
   sups.forEach(function(s){
-    tfootCells += '<td data-stot="' + escHtml(s) + '"><strong>' + (sTotals[s]>0?ILS(sTotals[s]):'—') + '</strong></td>';
+    var stColor = sTotals[s]>0 ? 'var(--primary)' : (sTotals[s]<0 ? 'var(--error)' : 'inherit');
+    tfootCells += '<td data-stot="' + escHtml(s) + '"><strong style="color:' + stColor + '">' + (sTotals[s]!==0?ILS(sTotals[s]):'—') + '</strong></td>';
   });
-  tfootCells += '<td id="pur-grand"><strong style="color:var(--primary);font-size:15px">' + ILS(grandTotal) + '</strong></td>';
+  var grandColor = grandTotal>0 ? 'var(--primary)' : (grandTotal<0 ? 'var(--error)' : 'var(--text-muted)');
+  tfootCells += '<td id="pur-grand"><strong style="color:' + grandColor + ';font-size:15px">' + ILS(grandTotal) + '</strong></td>';
 
   var preVatStyle = 'color:#2563eb;font-size:12.5px;font-weight:600';
   var tfootPreVat = '<td class="sticky-col" style="' + preVatStyle + '">ללא מע"מ (' + vat + '%)</td>';
   sups.forEach(function(s){
-    var pre = sTotals[s] > 0 ? sTotals[s] / vatFactor : 0;
-    tfootPreVat += '<td style="' + preVatStyle + '">' + (pre>0?ILS(pre):'—') + '</td>';
+    var pre = sTotals[s] !== 0 ? sTotals[s] / vatFactor : 0;
+    tfootPreVat += '<td style="' + preVatStyle + '">' + (pre!==0?ILS(pre):'—') + '</td>';
   });
-  tfootPreVat += '<td style="' + preVatStyle + '"><strong>' + (grandTotal>0?ILS(grandTotal/vatFactor):'—') + '</strong></td>';
+  tfootPreVat += '<td style="' + preVatStyle + '"><strong>' + (grandTotal!==0?ILS(grandTotal/vatFactor):'—') + '</strong></td>';
 
   cont.innerHTML =
     '<div class="table-wrap"><table>' +
@@ -4127,30 +4133,34 @@ function onPurInput(inp) {
   var ym  = ds.slice(0, 7);
   if (!S.purchases[ym]) S.purchases[ym] = {};
   if (!S.purchases[ym][ds]) S.purchases[ym][ds] = {};
-  var purVal = Math.max(0, toNum(inp.value));
-  if (purVal !== toNum(inp.value)) inp.value = purVal || '';
+  var purVal = toNum(inp.value);
   S.purchases[ym][ds][sup] = purVal;
   persist();
-  flashSaved(inp);
+  inp.classList.remove('ti-pos', 'ti-neg');
+  if (purVal < 0) inp.classList.add('ti-neg');
+  else if (purVal > 0) inp.classList.add('ti-pos');
 
   var rec = S.purchases[ym][ds];
   var rt  = 0;
   S.suppliers.forEach(function(s){ rt += toNum(rec[s]); });
+  var rtColor = rt>0 ? 'var(--success)' : (rt<0 ? 'var(--error)' : 'var(--text-muted)');
   var rtEl = document.querySelector('[data-prt="' + ds + '"]');
-  if (rtEl) rtEl.innerHTML = '<strong style="color:' + (rt>0?'var(--success)':'var(--text-muted)') + '">' + (rt>0?ILS(rt):'—') + '</strong>';
+  if (rtEl) rtEl.innerHTML = '<strong style="color:' + rtColor + '">' + (rt!==0?ILS(rt):'—') + '</strong>';
 
   var days = daysInMonth(ym);
   var ct = 0;
   for (var d2 = 1; d2 <= days; d2++) ct += toNum((S.purchases[ym][dateFull(ym,d2)] || {})[sup]);
+  var ctColor = ct>0 ? 'var(--primary)' : (ct<0 ? 'var(--error)' : 'inherit');
   var ctEl = document.querySelector('[data-stot="' + sup + '"]');
-  if (ctEl) ctEl.innerHTML = '<strong>' + (ct>0?ILS(ct):'—') + '</strong>';
+  if (ctEl) ctEl.innerHTML = '<strong style="color:' + ctColor + '">' + (ct!==0?ILS(ct):'—') + '</strong>';
 
   var grand = 0;
   S.suppliers.forEach(function(s){
     for (var d3=1; d3<=days; d3++) grand += toNum((S.purchases[ym][dateFull(ym,d3)] || {})[s]);
   });
+  var grandColor = grand>0 ? 'var(--primary)' : (grand<0 ? 'var(--error)' : 'var(--text-muted)');
   var gEl = document.getElementById('pur-grand');
-  if (gEl) gEl.innerHTML = '<strong style="color:var(--primary);font-size:15px">' + ILS(grand) + '</strong>';
+  if (gEl) gEl.innerHTML = '<strong style="color:' + grandColor + ';font-size:15px">' + ILS(grand) + '</strong>';
 }
 
 /* ================================================================
@@ -7102,9 +7112,10 @@ function applyBizSettings() {
   if (header) {
     if (bgImage) {
       header.style.backgroundImage    = 'linear-gradient(rgba(0,0,0,0.52),rgba(0,0,0,0.52)), url("' + bgImage + '")';
-      header.style.backgroundSize     = 'cover';
-      header.style.backgroundPosition = 'center';
-      header.style.backgroundColor    = '';
+      header.style.backgroundSize     = 'cover, contain';
+      header.style.backgroundPosition = 'center, center';
+      header.style.backgroundRepeat   = 'no-repeat, no-repeat';
+      header.style.backgroundColor    = '#18100D';
       header.style.borderBottom       = 'none';
     } else if (bgColor) {
       header.style.background         = bgColor;
@@ -7129,7 +7140,7 @@ function openBizSettings() {
   window._bizBgTmp   = undefined;
 
   var bgPreview = biz.bgImage
-    ? 'background-image:url(' + biz.bgImage + ');background-size:cover;background-position:center'
+    ? 'background-color:' + (biz.bgColor || '#18100D') + ';background-image:url(' + biz.bgImage + ');background-size:contain;background-position:center;background-repeat:no-repeat'
     : 'background:' + (biz.bgColor || '#18100D');
 
   var typeOptionsHtml = BIZ_TYPES.map(function(t) {
@@ -7328,9 +7339,11 @@ function handleBgUpload(input) {
 function _setBizBgPreview(src) {
   var preview = document.getElementById('biz-bg-preview');
   if (preview) {
+    preview.style.backgroundColor   = (((S.settings||{}).biz||{}).bgColor) || '#18100D';
     preview.style.backgroundImage   = 'url(' + src + ')';
-    preview.style.backgroundSize    = 'cover';
+    preview.style.backgroundSize    = 'contain';
     preview.style.backgroundPosition= 'center';
+    preview.style.backgroundRepeat  = 'no-repeat';
   }
   window._bizBgTmp = src;
 }
@@ -7680,7 +7693,8 @@ function _scrollTableWrap(btn, dir) {
 }
 function _ensureTableScrollButtons() {
   document.querySelectorAll('.table-wrap').forEach(function(wrap) {
-    if (wrap.querySelector('.tw-scroll-bar')) return;
+    var next = wrap.nextElementSibling;
+    if (next && next.classList.contains('tw-scroll-bar')) return;
     if (wrap.scrollWidth <= wrap.clientWidth + 4) return; // אין צורך בכפתורים אם הטבלה לא גולשת
     var bar = document.createElement('div');
     bar.className = 'tw-scroll-bar';
@@ -7698,7 +7712,7 @@ function _ensureTableScrollButtons() {
     rightBtn.onclick = function(){ _scrollTableWrap(rightBtn, -1); };
     bar.appendChild(leftBtn);
     bar.appendChild(rightBtn);
-    wrap.appendChild(bar);
+    wrap.parentNode.insertBefore(bar, wrap.nextSibling);
   });
 }
 var _twObserver = new MutationObserver(function() {
