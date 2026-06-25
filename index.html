@@ -178,6 +178,78 @@
 [data-theme="dark"] .tw-scroll-btn { background: rgba(34,28,24,.94); }
 [data-theme="dark"] .tw-scroll-btn:hover { background: rgba(217,119,87,.25); }
 [data-theme="dark"] .modal-box { box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255,255,255,.06); }
+
+/* ── DARK MODE: catch-all for many places that set colors via inline style="" instead of CSS variables (modals, tips, hours grid, supplement reports) ── */
+[data-theme="dark"] [style*="background:#fff" i],
+[data-theme="dark"] [style*="background:#f9f9f9" i],
+[data-theme="dark"] [style*="background:#f9fafb" i],
+[data-theme="dark"] [style*="background:#F9F5F2" i],
+[data-theme="dark"] [style*="background:#F6F3F0" i],
+[data-theme="dark"] [style*="background:#FBF8F5" i],
+[data-theme="dark"] [style*="background:#fcfcfc" i] {
+  background-color: var(--surface) !important;
+}
+[data-theme="dark"] [style*="background:#f3f4f6" i],
+[data-theme="dark"] [style*="background:#f8fafc" i],
+[data-theme="dark"] [style*="background:#f5f5f5" i],
+[data-theme="dark"] [style*="background:#fafafa" i],
+[data-theme="dark"] [style*="background:#e5e7eb" i],
+[data-theme="dark"] [style*="background:#EEE" i],
+[data-theme="dark"] [style*="background:#F8FAF8" i] {
+  background-color: #2A2118 !important;
+}
+[data-theme="dark"] [style*="background:#f0fdf4" i] { background-color: rgba(34,197,94,.16) !important; }
+[data-theme="dark"] [style*="background:#fef9c3" i],
+[data-theme="dark"] [style*="background:#fef3c7" i] { background-color: rgba(217,119,6,.22) !important; }
+[data-theme="dark"] [style*="background:#fee2e2" i] { background-color: rgba(220,38,38,.2) !important; }
+[data-theme="dark"] [style*="background:#fff1f2" i],
+[data-theme="dark"] [style*="background:#fff7f7" i],
+[data-theme="dark"] [style*="background:#fef2f2" i],
+[data-theme="dark"] [style*="background:#fff5f5" i] { background-color: rgba(220,38,38,.16) !important; }
+[data-theme="dark"] [style*="background:#fffbeb" i] { background-color: rgba(180,83,9,.2) !important; }
+[data-theme="dark"] [style*="background:#e0f2fe" i] { background-color: rgba(3,105,161,.22) !important; }
+[data-theme="dark"] [style*="background:#FFF7ED" i] { background-color: rgba(217,119,87,.16) !important; }
+[data-theme="dark"] [style*="background:linear-gradient(135deg,#FFF3E0,#FDDBA8)" i],
+[data-theme="dark"] [style*="background:linear-gradient(135deg,#FFEAD7,#FFD9B3)" i] { background: linear-gradient(135deg,#3A2A1C,#4A3420) !important; }
+[data-theme="dark"] [style*="background:linear-gradient(135deg,#EEF2FF,#C7D2FE)" i] { background: linear-gradient(135deg,#262C42,#323A57) !important; }
+[data-theme="dark"] [style*="background:linear-gradient(135deg,#F3F4F6,#E5E7EB)" i] { background: linear-gradient(135deg,#2E2C29,#3A3733) !important; }
+
+/* hardcoded light-mode text colors that become unreadable on a dark background */
+[data-theme="dark"] [style*="color:#1A1514" i],
+[data-theme="dark"] [style*="color:#1A1A1A" i],
+[data-theme="dark"] [style*="color:#374151" i],
+[data-theme="dark"] [style*="color:#333" i] { color: var(--text) !important; }
+[data-theme="dark"] [style*="color:#6B6460" i] { color: var(--text-sec) !important; }
+[data-theme="dark"] [style*="color:#9C9490" i],
+[data-theme="dark"] [style*="color:#9ca3af" i] { color: var(--text-muted) !important; }
+[data-theme="dark"] [style*="color:#92400e" i],
+[data-theme="dark"] [style*="color:#b45309" i] { color: #FBBF74 !important; }
+[data-theme="dark"] [style*="color:#991b1b" i],
+[data-theme="dark"] [style*="color:#dc2626" i] { color: #FCA5A5 !important; }
+[data-theme="dark"] [style*="color:#15803d" i],
+[data-theme="dark"] [style*="color:#16a34a" i] { color: #6EE7A0 !important; }
+[data-theme="dark"] [style*="color:#0369a1" i] { color: #7DD3FC !important; }
+[data-theme="dark"] [style*="color:#7C2D12" i] { color: #FFD9B3 !important; }
+[data-theme="dark"] [style*="color:#3730A3" i] { color: #C7D2FE !important; }
+
+/* tips screen (worker cards / shift blocks / supplement banners) */
+[data-theme="dark"] .twc2-time-step { background: rgba(0,0,0,.32); border-color: rgba(255,255,255,.18); }
+[data-theme="dark"] .twc2-time-step:hover { background: rgba(0,0,0,.5); border-color: rgba(255,255,255,.3); }
+[data-theme="dark"] .twc2-hrs-chip { background: rgba(0,0,0,.28); border-color: rgba(255,255,255,.22); }
+[data-theme="dark"] .twc2-head { background: rgba(255,255,255,.03); }
+[data-theme="dark"] .twc2-suppl-ok { background: rgba(34,197,94,.14); color: #6EE7A0; }
+[data-theme="dark"] .twc2-suppl-bad { background: linear-gradient(135deg, rgba(220,38,38,.18), rgba(220,38,38,.28)); border-top-color: rgba(220,38,38,.4); }
+[data-theme="dark"] .suppl-emp-bad { background: rgba(220,38,38,.12); }
+[data-theme="dark"] .suppl-emp-ok { background: rgba(255,255,255,.03); }
+[data-theme="dark"] .shift-card.morning-card { background: rgba(217,119,87,.1); }
+[data-theme="dark"] .shift-card.evening-card { background: rgba(91,111,181,.1); }
+[data-theme="dark"] .tips-morning { background: rgba(217,119,87,.1); }
+[data-theme="dark"] .tips-evening { background: rgba(91,111,181,.1); }
+[data-theme="dark"] .srpt-emp-hdr { background: linear-gradient(135deg, rgba(220,38,38,.16), rgba(220,38,38,.26)); }
+[data-theme="dark"] .srpt-ok { background: rgba(255,255,255,.02); }
+[data-theme="dark"] .srpt-tbl th { background: rgba(255,255,255,.05); }
+[data-theme="dark"] .backup-banner { background: linear-gradient(90deg, rgba(217,119,87,.14), rgba(217,119,87,.08)); color: #E8B894; }
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { height: 100%; }
 body {
@@ -951,9 +1023,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-25e';
+var APP_VERSION  = '2026-06-25f';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-25f', t: '🌙 שיפור גדול במצב כהה: טבלת השעות השבועית, מסך הטיפים, חלוני "מה חדש"/תזכורות וכל המקומות שצבעו עצמם בקוד קשיח — כולם מותאמים כעת למצב כהה' },
   { v: '2026-06-25e', t: '🌙 חדש: מצב כהה! כפתור בכותרת + מעבר אוטומטי לפי העדפות המכשיר, וצבע העסק שלך מתאים את עצמו אוטומטית כדי שיישאר קריא · 🗑️ הוסר כפתור "פרטי חיבור" מהכותרת' },
   { v: '2026-06-25c', t: '🐛 תיקון נוסף: כפתור הגלילה הימני בטבלאות לא עבד בכלל (באג שנשאר מהתיקון הקודם)' },
   { v: '2026-06-25b', t: '🐛 תיקון: כפתורי גלילה אופקית בטבלאות חזרו לעבוד · 🖼️ תמונת רקע (העלאה ידנית או מציאה אוטומטית מקישור) חזרה למלא את כל השטח כמו קודם' },
