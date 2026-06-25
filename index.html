@@ -881,9 +881,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-25a';
+var APP_VERSION  = '2026-06-25b';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-25b', t: '🐛 תיקון: כפתורי גלילה אופקית בטבלאות חזרו לעבוד · 🖼️ תמונת רקע (העלאה ידנית או מציאה אוטומטית מקישור) חזרה למלא את כל השטח כמו קודם' },
   { v: '2026-06-25a', t: '🛒 אפשר זיכויים/החזרות בטבלת קניות (ערכים שליליים) · 🔤 מיון ספקים אלפביתי אוטומטי · 🟢🔴 סימון ירוק/אדום לפי סימן הסכום נשמר לפי הערך עצמו · 🔄 כפתורי גלילה אופקית עוברים מתחת לטבלה במקום לצוף מעל השורות · 🖼️ תיקון התאמת תמונת רקע בהגדרות עסק כך שלא נראית חתוכה' },
   { v: '2026-06-24b', t: '🔒 אבטחה: אכיפת הרשאות לשוניות בפועל (לא רק הסתרת כפתור) · 🖼️ הגבלת גודל קובץ בהעלאת לוגו/רקע · 💾 תיקון: כשל באחסון מקומי לא חוסם יותר סנכרון לענן · 🔄 תיקון מיקום כפתורי הגלילה (לא חופפים כותרת טבלה) · 🏢 שם עסק אמיתי במחליף עסקים · ✉️ ולידציית אימייל בהזמנות · 🛡️ אזהרה לפני סגירת חלון פתוח בטעות' },
   { v: '2026-06-24a', t: '📋 חדש: תצוגת רשימה חכמה (עם אימוג׳ים) להוצאות בטבלת שליטה — לחיצה אחת להחליף בין כרטיסים לרשימה' },
@@ -7112,10 +7113,9 @@ function applyBizSettings() {
   if (header) {
     if (bgImage) {
       header.style.backgroundImage    = 'linear-gradient(rgba(0,0,0,0.52),rgba(0,0,0,0.52)), url("' + bgImage + '")';
-      header.style.backgroundSize     = 'cover, contain';
-      header.style.backgroundPosition = 'center, center';
-      header.style.backgroundRepeat   = 'no-repeat, no-repeat';
-      header.style.backgroundColor    = '#18100D';
+      header.style.backgroundSize     = 'cover';
+      header.style.backgroundPosition = 'center';
+      header.style.backgroundColor    = '';
       header.style.borderBottom       = 'none';
     } else if (bgColor) {
       header.style.background         = bgColor;
@@ -7140,7 +7140,7 @@ function openBizSettings() {
   window._bizBgTmp   = undefined;
 
   var bgPreview = biz.bgImage
-    ? 'background-color:' + (biz.bgColor || '#18100D') + ';background-image:url(' + biz.bgImage + ');background-size:contain;background-position:center;background-repeat:no-repeat'
+    ? 'background-image:url(' + biz.bgImage + ');background-size:cover;background-position:center'
     : 'background:' + (biz.bgColor || '#18100D');
 
   var typeOptionsHtml = BIZ_TYPES.map(function(t) {
@@ -7339,11 +7339,9 @@ function handleBgUpload(input) {
 function _setBizBgPreview(src) {
   var preview = document.getElementById('biz-bg-preview');
   if (preview) {
-    preview.style.backgroundColor   = (((S.settings||{}).biz||{}).bgColor) || '#18100D';
     preview.style.backgroundImage   = 'url(' + src + ')';
-    preview.style.backgroundSize    = 'contain';
+    preview.style.backgroundSize    = 'cover';
     preview.style.backgroundPosition= 'center';
-    preview.style.backgroundRepeat  = 'no-repeat';
   }
   window._bizBgTmp = src;
 }
@@ -7687,8 +7685,7 @@ document.addEventListener('keydown', function(e) {
 });
 
 /* ── כפתורי גלילה אופקית (◀ ▶) על טבלאות רחבות — לנוחות מי שמתקשה עם גלגלת הגלילה ── */
-function _scrollTableWrap(btn, dir) {
-  var wrap = btn.closest('.table-wrap');
+function _scrollTableWrap(wrap, dir) {
   if (wrap) wrap.scrollBy({left: dir * 220, behavior: 'smooth'});
 }
 function _ensureTableScrollButtons() {
@@ -7703,7 +7700,7 @@ function _ensureTableScrollButtons() {
     leftBtn.type = 'button';
     leftBtn.title = 'גלילה שמאלה';
     leftBtn.textContent = '▶';
-    leftBtn.onclick = function(){ _scrollTableWrap(leftBtn, 1); };
+    leftBtn.onclick = function(){ _scrollTableWrap(wrap, 1); };
     var rightBtn = document.createElement('button');
     rightBtn.className = 'tw-scroll-btn tw-scroll-right';
     rightBtn.type = 'button';
