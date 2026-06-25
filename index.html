@@ -1,6 +1,17 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
+<script>
+(function() {
+  try {
+    var t = localStorage.getItem('themeOverride');
+    if (t !== 'dark' && t !== 'light') {
+      t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+    }
+    document.documentElement.setAttribute('data-theme', t);
+  } catch (e) {}
+})();
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>מנהל העסק</title>
@@ -108,6 +119,65 @@
   --glow-primary: 0 0 24px rgba(217,119,87,.28);
   --glow-success: 0 0 20px rgba(30,125,75,.22);
 }
+[data-theme="dark"] {
+  --primary-light: rgba(217,119,87,.18);
+  --bg: #17120F;
+  --surface: #221C18;
+  --border: #3C322B;
+  --text: #F1EBE6;
+  --text-sec: #C7BDB4;
+  --text-muted: #8E847B;
+  --success-bg: rgba(30,125,75,.2);
+  --warning-bg: rgba(200,125,14,.2);
+  --error-bg: rgba(192,57,43,.2);
+  --shadow-sm: 0 1px 4px rgba(0,0,0,.45), 0 1px 2px rgba(0,0,0,.3);
+  --shadow-md: 0 6px 22px rgba(0,0,0,.55);
+  --shadow-lg: 0 14px 40px rgba(0,0,0,.65);
+}
+[data-theme="dark"] body {
+  background-color: #14100D;
+  background-image:
+    radial-gradient(ellipse at 5% 0%, rgba(217,119,87,.10) 0%, transparent 45%),
+    radial-gradient(ellipse at 95% 100%, rgba(30,125,75,.07) 0%, transparent 40%);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #4A4038, #39312A); }
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+[data-theme="dark"] thead th,
+[data-theme="dark"] thead .sticky-col { background: #2A2118; }
+[data-theme="dark"] tbody tr:nth-child(even) { background: rgba(255,255,255,.025); }
+[data-theme="dark"] tbody tr:hover { background: rgba(217,119,87,.09); }
+[data-theme="dark"] .tr-total,
+[data-theme="dark"] .tr-total .sticky-col { background: #302720 !important; }
+[data-theme="dark"] .tr-total td { border-top-color: #4A3F36; }
+[data-theme="dark"] .tr-shabbat td { background: rgba(200,125,14,.14) !important; color: #E3AE63; }
+[data-theme="dark"] .ti,
+[data-theme="dark"] .form-control,
+[data-theme="dark"] .exp-card,
+[data-theme="dark"] .exp-list-row,
+[data-theme="dark"] .twc2,
+[data-theme="dark"] .srpt-emp,
+[data-theme="dark"] .hdr-dropdown-menu,
+[data-theme="dark"] #biz-bg-preview,
+[data-theme="dark"] #biz-logo-preview {
+  background: var(--surface);
+}
+[data-theme="dark"] .badge-hourly  { background: rgba(36,81,179,.25);  color: #A7C2F5; }
+[data-theme="dark"] .badge-monthly { background: rgba(27,107,65,.25); color: #93D8AF; }
+[data-theme="dark"] .s-card.accent     { background: linear-gradient(145deg,#2E2018,#241A14,#2A1F18); }
+[data-theme="dark"] .s-card.green-card { background: linear-gradient(145deg,#15261D,#102219,#16241B); }
+[data-theme="dark"] .s-card.blue-card  { background: linear-gradient(145deg,#15202E,#101A26,#16212F); }
+[data-theme="dark"] .s-card.purple-card{ background: linear-gradient(145deg,#241A2E,#1D1526,#251B2F); }
+[data-theme="dark"] .s-card::after { background: linear-gradient(160deg,rgba(255,255,255,.04) 0%,transparent 70%); }
+[data-theme="dark"] .pl-box.profit { background: linear-gradient(145deg,#15261D,#102219,#16241B); }
+[data-theme="dark"] .pl-box.loss   { background: linear-gradient(145deg,#2E1816,#261210,#2A1614); }
+[data-theme="dark"] .pl-box::before { background: linear-gradient(160deg,rgba(255,255,255,.04) 0%,transparent 70%); }
+[data-theme="dark"] .ctrl-row { border-bottom-color: rgba(255,255,255,.07); }
+[data-theme="dark"] .chip,
+[data-theme="dark"] .role-chip { background: rgba(217,119,87,.18); color: #F0BC9F; }
+[data-theme="dark"] .role-chip.active { background: var(--primary); color: #fff; }
+[data-theme="dark"] .tw-scroll-btn { background: rgba(34,28,24,.94); }
+[data-theme="dark"] .tw-scroll-btn:hover { background: rgba(217,119,87,.25); }
+[data-theme="dark"] .modal-box { box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255,255,255,.06); }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { height: 100%; }
 body {
@@ -714,7 +784,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
       </div>
     </div>
     <a class="hdr-btn" href="https://wa.me/972548757552?text=%D7%94%D7%99%D7%99%2C%20%D7%99%D7%A9%20%D7%9C%D7%99%20%D7%A9%D7%90%D7%9C%D7%94%2F%D7%AA%D7%A7%D7%9C%D7%94%20%D7%91%D7%9E%D7%A2%D7%A8%D7%9B%D7%AA%20%D7%94%D7%A0%D7%99%D7%94%D7%95%D7%9C" target="_blank" rel="noopener" title="תמיכה בוואטסאפ" style="text-decoration:none">🆘 תמיכה</a>
-    <button class="hdr-btn" onclick="showConnectionDebugInfo()" title="פרטי חיבור לאבחון תקלות">🔍 פרטי חיבור</button>
+    <button class="hdr-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="החלפת מצב כהה/בהיר">🌙</button>
     <button class="hdr-btn" onclick="authSignOut()" title="התנתקות מהחשבון">🚪 התנתק</button>
   </div>
 </header>
@@ -881,10 +951,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-25d';
+var APP_VERSION  = '2026-06-25e';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
-  { v: '2026-06-25d', t: '🐛 תיקון: בחודש עם זיכוי קניות שגדול מהקניות עצמן, "רווח ללא מע"מ" ו-"% עלות סחורה" בטבלת שליטה ובדוחות התעלמו מהזיכוי במקום להפחית אותו' },
+  { v: '2026-06-25e', t: '🌙 חדש: מצב כהה! כפתור בכותרת + מעבר אוטומטי לפי העדפות המכשיר, וצבע העסק שלך מתאים את עצמו אוטומטית כדי שיישאר קריא · 🗑️ הוסר כפתור "פרטי חיבור" מהכותרת' },
   { v: '2026-06-25c', t: '🐛 תיקון נוסף: כפתור הגלילה הימני בטבלאות לא עבד בכלל (באג שנשאר מהתיקון הקודם)' },
   { v: '2026-06-25b', t: '🐛 תיקון: כפתורי גלילה אופקית בטבלאות חזרו לעבוד · 🖼️ תמונת רקע (העלאה ידנית או מציאה אוטומטית מקישור) חזרה למלא את כל השטח כמו קודם' },
   { v: '2026-06-25a', t: '🛒 אפשר זיכויים/החזרות בטבלת קניות (ערכים שליליים) · 🔤 מיון ספקים אלפביתי אוטומטי · 🟢🔴 סימון ירוק/אדום לפי סימן הסכום נשמר לפי הערך עצמו · 🔄 כפתורי גלילה אופקית עוברים מתחת לטבלה במקום לצוף מעל השורות · 🖼️ תיקון התאמת תמונת רקע בהגדרות עסק כך שלא נראית חתוכה' },
@@ -7071,7 +7141,88 @@ async function changeAccountEmail() {
 
 document.addEventListener('DOMContentLoaded', function() {
   authInit();
+  initTheme();
 });
+
+/* ================================================================
+   THEME (DARK MODE)
+================================================================ */
+function _hexToHsl(hex) {
+  hex = (hex || '').replace('#', '');
+  if (hex.length === 3) hex = hex.split('').map(function(c){ return c + c; }).join('');
+  var r = parseInt(hex.substr(0,2),16)/255, g = parseInt(hex.substr(2,2),16)/255, b = parseInt(hex.substr(4,2),16)/255;
+  var max = Math.max(r,g,b), min = Math.min(r,g,b);
+  var h = 0, s = 0, l = (max+min)/2;
+  if (max !== min) {
+    var d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h /= 6;
+  }
+  return [h*360, s*100, l*100];
+}
+function _hslToHex(h, s, l) {
+  h /= 360; s /= 100; l /= 100;
+  var r, g, b;
+  if (s === 0) { r = g = b = l; }
+  else {
+    var hue2rgb = function(p, q, t) {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q-p)*6*t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q-p)*(2/3-t)*6;
+      return p;
+    };
+    var q = l < 0.5 ? l*(1+s) : l+s-l*s;
+    var p = 2*l - q;
+    r = hue2rgb(p, q, h+1/3); g = hue2rgb(p, q, h); b = hue2rgb(p, q, h-1/3);
+  }
+  var toHex = function(x){ var v = Math.round(x*255).toString(16); return v.length===1?'0'+v:v; };
+  return '#' + toHex(r) + toHex(g) + toHex(b);
+}
+function _adjustAccentForDark(hex) {
+  try {
+    var hsl = _hexToHsl(hex);
+    var h = hsl[0], s = hsl[1], l = hsl[2];
+    if (l < 55) l = 55;
+    if (l > 78) l = 78;
+    s = Math.min(Math.max(s, 35), 85);
+    return _hslToHex(h, s, l);
+  } catch (e) { return hex; }
+}
+function _resolveTheme() {
+  var override = localStorage.getItem('themeOverride');
+  if (override === 'dark' || override === 'light') return override;
+  return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+}
+function _applyAccentColor() {
+  var accent = (((S.settings || {}).biz || {}).accent) || '';
+  if (!accent) { document.documentElement.style.removeProperty('--primary'); return; }
+  var theme = _resolveTheme();
+  document.documentElement.style.setProperty('--primary', theme === 'dark' ? _adjustAccentForDark(accent) : accent);
+}
+function applyTheme() {
+  var theme = _resolveTheme();
+  document.documentElement.setAttribute('data-theme', theme);
+  var btn = document.getElementById('theme-toggle-btn');
+  if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+  _applyAccentColor();
+}
+function toggleTheme() {
+  localStorage.setItem('themeOverride', _resolveTheme() === 'dark' ? 'light' : 'dark');
+  applyTheme();
+}
+function initTheme() {
+  applyTheme();
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function() {
+      if (!localStorage.getItem('themeOverride')) applyTheme();
+    });
+  }
+}
 
 /* ================================================================
    BUSINESS SETTINGS
@@ -7081,7 +7232,6 @@ function applyBizSettings() {
   var name    = biz.name    || '';
   var logo    = biz.logo    || '';
   var bgColor = biz.bgColor || '';
-  var accent  = biz.accent  || '';
 
   // כותרת — שם עסק
   var hdrName = document.getElementById('hdr-biz-name');
@@ -7128,9 +7278,8 @@ function applyBizSettings() {
     }
   }
 
-  // צבע ראשי
-  if (accent) document.documentElement.style.setProperty('--primary', accent);
-  else        document.documentElement.style.removeProperty('--primary');
+  // צבע ראשי — מתאים את עצמו אוטומטית למצב כהה/בהיר
+  _applyAccentColor();
 }
 
 function openBizSettings() {
