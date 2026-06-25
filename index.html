@@ -881,9 +881,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-25c';
+var APP_VERSION  = '2026-06-25d';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-25d', t: '🐛 תיקון: בחודש עם זיכוי קניות שגדול מהקניות עצמן, "רווח ללא מע"מ" ו-"% עלות סחורה" בטבלת שליטה ובדוחות התעלמו מהזיכוי במקום להפחית אותו' },
   { v: '2026-06-25c', t: '🐛 תיקון נוסף: כפתור הגלילה הימני בטבלאות לא עבד בכלל (באג שנשאר מהתיקון הקודם)' },
   { v: '2026-06-25b', t: '🐛 תיקון: כפתורי גלילה אופקית בטבלאות חזרו לעבוד · 🖼️ תמונת רקע (העלאה ידנית או מציאה אוטומטית מקישור) חזרה למלא את כל השטח כמו קודם' },
   { v: '2026-06-25a', t: '🛒 אפשר זיכויים/החזרות בטבלת קניות (ערכים שליליים) · 🔤 מיון ספקים אלפביתי אוטומטי · 🟢🔴 סימון ירוק/אדום לפי סימן הסכום נשמר לפי הערך עצמו · 🔄 כפתורי גלילה אופקית עוברים מתחת לטבלה במקום לצוף מעל השורות · 🖼️ תיקון התאמת תמונת רקע בהגדרות עסק כך שלא נראית חתוכה' },
@@ -4230,7 +4231,7 @@ function renderControl() {
     var amt = toNum(ex.amount);
     return s + (ex.noVat ? amt : (amt > 0 ? amt / vatFactor : 0));
   }, 0);
-  var totalExpensesNoVat = totalPayroll + (totalPurchases > 0 ? totalPurchases / vatFactor : 0) + totalFixedNoVat + totalExtraNoVat;
+  var totalExpensesNoVat = totalPayroll + (totalPurchases !== 0 ? totalPurchases / vatFactor : 0) + totalFixedNoVat + totalExtraNoVat;
   var pl = totalIncome - totalExpenses;
   var plNoVat = netSales - totalExpensesNoVat;
   var isProfit = pl >= 0;
@@ -4342,7 +4343,7 @@ function renderControl() {
         '<div class="ctrl-section-title">⚡ אוטומטי</div>' +
         '<div class="ctrl-row"><span class="ctrl-label">👥 שכר עובדים</span><span class="ctrl-amount" style="color:var(--text)">' + ILS(totalPayroll)   + '</span></div>' +
         '<div class="ctrl-row"><span class="ctrl-label">🛒 קניות ספקים (עם מע"מ)</span><span class="ctrl-amount" style="color:var(--text)">' + ILS(totalPurchases) + '</span></div>' +
-        (totalPurchases > 0 ? '<div class="ctrl-row" style="padding-right:18px"><span class="ctrl-label" style="color:#2563eb;font-size:14px;font-weight:700">↳ ללא מע"מ (' + vat + '%)</span><span class="ctrl-amount" style="color:#2563eb;font-size:15px;font-weight:900">' + ILS(totalPurchases / (1 + vat/100)) + '</span></div>' : '') +
+        (totalPurchases !== 0 ? '<div class="ctrl-row" style="padding-right:18px"><span class="ctrl-label" style="color:#2563eb;font-size:14px;font-weight:700">↳ ללא מע"מ (' + vat + '%)</span><span class="ctrl-amount" style="color:#2563eb;font-size:15px;font-weight:900">' + ILS(totalPurchases / (1 + vat/100)) + '</span></div>' : '') +
         '<div class="ctrl-section-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px">' +
           '<span>🏷️ הוצאות קבועות</span>' +
           '<button class="btn btn-secondary btn-sm" onclick="toggleExpenseView()" style="font-size:11px;white-space:nowrap">' + (expenseListView ? '🔲 תצוגת כרטיסים' : '📋 תצוגת רשימה') + '</button>' +
@@ -5184,10 +5185,10 @@ function exportControl() {
     totalFixedNoVat += (_noVatFixed.indexOf(e.k) >= 0) ? amt : (amt > 0 ? amt / vatFactor : 0);
   });
   var totalExtraNoVat = extras.reduce(function(s,ex){ var a=toNum(ex.amount); return s+(ex.noVat?a:(a>0?a/vatFactor:0)); }, 0);
-  var totalExpensesNoVat = totalPayroll + (totalPurchases>0?totalPurchases/vatFactor:0) + totalFixedNoVat + totalExtraNoVat;
+  var totalExpensesNoVat = totalPayroll + (totalPurchases!==0?totalPurchases/vatFactor:0) + totalFixedNoVat + totalExtraNoVat;
   var pl      = totalIncome - totalExpenses;
   var plNoVat = netSales   - totalExpensesNoVat;
-  var fc = totalPurchases > 0 && netSales > 0 ? (totalPurchases / vatFactor) / netSales * 100 : 0;
+  var fc = totalPurchases !== 0 && netSales > 0 ? (totalPurchases / vatFactor) / netSales * 100 : 0;
   var lc = netSales > 0 ? totalPayroll / netSales * 100 : 0;
 
   var fmt = function(n){ return +n.toFixed(2); };
@@ -5264,7 +5265,7 @@ function printControlPL() {
   extras.forEach(function(ex) { if (toNum(ex.amount) > 0) extraRows += payslipRow(ex.name || 'הוצאה נוספת', '', '', ILS(toNum(ex.amount))); });
   var totalExpenses = totalPayroll + totalPurchases + totalFixed + totalExtra;
   var pl      = totalIncome - totalExpenses;
-  var fc = totalPurchases > 0 && netSales > 0 ? (totalPurchases / vatFactor) / netSales * 100 : 0;
+  var fc = totalPurchases !== 0 && netSales > 0 ? (totalPurchases / vatFactor) / netSales * 100 : 0;
   var lc = netSales > 0 ? totalPayroll / netSales * 100 : 0;
   var today = new Date();
   var todayStr = today.getDate() + '/' + (today.getMonth()+1) + '/' + today.getFullYear();
@@ -6043,7 +6044,7 @@ function initControlCharts(ym, totalPayroll, totalPurchases, totalFixed, totalEx
     type: 'doughnut',
     data: {
       labels: ['שכר עובדים','קניות ספקים','הוצאות קבועות','הוצאות נוספות'],
-      datasets: [{ data: [totalPayroll, totalPurchases, totalFixed, totalExtra].map(function(v){ return +v.toFixed(0); }), backgroundColor: ['#6366f1','#f59e0b','#ef4444','#8b5cf6'], borderWidth: 2, borderColor: '#fff', hoverOffset: 8 }]
+      datasets: [{ data: [totalPayroll, totalPurchases, totalFixed, totalExtra].map(function(v){ return +Math.max(0, v).toFixed(0); }), backgroundColor: ['#6366f1','#f59e0b','#ef4444','#8b5cf6'], borderWidth: 2, borderColor: '#fff', hoverOffset: 8 }]
     },
     options: {
       cutout: '62%',
