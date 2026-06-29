@@ -891,7 +891,8 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 
 <!-- ═══ TAB NAV ═══ -->
 <nav class="tab-nav">
-  <button class="tab-btn active" id="btn-employees" onclick="switchTab('employees')"><span class="tab-icon">👥</span> עובדים</button>
+  <button class="tab-btn active" id="btn-home"      onclick="switchTab('home')"><span class="tab-icon">🏠</span> היום</button>
+  <button class="tab-btn" id="btn-employees" onclick="switchTab('employees')"><span class="tab-icon">👥</span> עובדים</button>
   <button class="tab-btn" id="btn-zreport"   onclick="switchTab('zreport')"><span class="tab-icon">📊</span> דוח Z</button>
   <button class="tab-btn" id="btn-purchases" onclick="switchTab('purchases')"><span class="tab-icon">🛒</span> קניות</button>
   <button class="tab-btn" id="btn-hours"     onclick="switchTab('hours')"><span class="tab-icon">⏱</span> שעות</button>
@@ -904,8 +905,16 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 <!-- ═══ TAB CONTENT ═══ -->
 <main class="tab-contents">
 
+  <!-- TAB 0: HOME / TODAY -->
+  <div id="tab-home" class="tab-panel active">
+    <div class="panel-header">
+      <h1 class="panel-title">🏠 היום</h1>
+    </div>
+    <div id="home-content"></div>
+  </div>
+
   <!-- TAB 1: EMPLOYEES -->
-  <div id="tab-employees" class="tab-panel active">
+  <div id="tab-employees" class="tab-panel">
     <div class="panel-header">
       <h1 class="panel-title">👥 ניהול עובדים</h1>
       <div class="panel-actions">
@@ -1042,9 +1051,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-29b';
+var APP_VERSION  = '2026-06-29c';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-29c', t: '🏠 חדש: לשונית "היום" — תמונת מצב מהירה בכניסה (הכנסות היום, מי עבד, השלמות טיפים, משימות שעבר זמנן), מותאמת להרשאות של כל משתמש' },
   { v: '2026-06-29b', t: '↩️ שדות ת.ז ומספר עובד הוחזרו לעיצוב הבולט (כחול/ירוק) — לבקשת המשתמש' },
   { v: '2026-06-29a', t: '📝 לשונית "יומן" שונתה ל"משימות" (זו רשימת מטלות, לא יומן) · 🪪 שדות ת.ז/מספר עובד בהקמת עובד הפכו לרגילים ומסומנים כאופציונליים · 👥 מסכי "אין עובדים" בשעות/משכורות מנחים כעת איך להמשיך · ❓ הסברים קצרים נוספו ל-Food Cost, Labor Cost, מע"מ והשלמות טיפים' },
   { v: '2026-06-25h', t: '✉️ הודעת "שכחתי סיסמה" עודכנה להיות מדויקת יותר — Firebase לא חושף אם מייל קיים במערכת מטעמי אבטחה' },
@@ -1643,6 +1653,7 @@ function toast(msg, type) {
 var RENDER_MAP = {};
 
 function isTabAllowed(name) {
+  if (name === 'home') return true;
   var hidden = (typeof window !== 'undefined' && window._bizTypeHiddenTabs) || [];
   if (hidden.indexOf(name) >= 0) return false;
   if (typeof isOwner === 'function' && isOwner()) return true;
@@ -1945,6 +1956,67 @@ async function confirmReset() {
   renderEmps();
   toast('כל הנתונים נמחקו בהצלחה', 'err');
   renderSetupWizard();
+}
+
+/* ================================================================
+   TAB 0 — HOME / TODAY
+================================================================ */
+function renderToday() {
+  var cont = document.getElementById('home-content');
+  if (!cont) return;
+  var today = curDate();
+  var ym    = today.slice(0, 7);
+  var cards = '';
+
+  if (isTabAllowed('zreport')) {
+    var hiddenChannels = ZREPORT_HIDDEN_CHANNELS[(S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT] || [];
+    var zrec = S.zReports[today] || {};
+    var todayIncome = ['cash', 'credit', 'wolt', 'hakafe']
+      .filter(function(k){ return hiddenChannels.indexOf(k) === -1; })
+      .reduce(function(s, k){ return s + toNum(zrec[k]); }, 0);
+    cards += '<div class="s-card accent"><div class="s-label">💰 הכנסות היום</div><div class="s-value orange">' +
+      (todayIncome > 0 ? ILS(todayIncome) : '—') + '</div>' +
+      (todayIncome === 0 ? '<div class="s-sub">עדיין לא הוזן דוח Z להיום</div>' : '') +
+    '</div>';
+  }
+
+  if (isTabAllowed('hours')) {
+    var dayRec = S.dailyHours[today] || {};
+    var workedIds = {};
+    S.employees.forEach(function(e) {
+      var rp = dayRec[e.id] || {};
+      if (toNum(rp.regHours) + toNum(rp.ot125) + toNum(rp.ot150) > 0) { workedIds[e.id] = true; return; }
+      var prefix = e.id + '|';
+      Object.keys(dayRec).forEach(function(k) {
+        if (k.indexOf(prefix) !== 0) return;
+        var r = dayRec[k];
+        if (toNum(r.regHours) + toNum(r.ot125) + toNum(r.ot150) > 0) workedIds[e.id] = true;
+      });
+    });
+    var workedCount = Object.keys(workedIds).length;
+    var activeCount = S.employees.filter(function(e){ return e.active; }).length;
+    cards += '<div class="s-card"><div class="s-label">👥 עבדו היום</div><div class="s-value">' + workedCount + ' / ' + activeCount + '</div></div>';
+  }
+
+  if (isTabAllowed('tips')) {
+    var suppl     = getDetailedSupplementReport(ym);
+    var needIds   = Object.keys(suppl).filter(function(id){ return suppl[id].totalSuppl > 0; });
+    var supplTotal = needIds.reduce(function(s, id){ return s + suppl[id].totalSuppl; }, 0);
+    cards += '<div class="s-card' + (needIds.length ? '' : ' green-card') + '"><div class="s-label">⚡ השלמות טיפים החודש</div><div class="s-value' + (needIds.length ? ' red' : ' green') + '">' +
+      (needIds.length ? needIds.length + ' עובדים' : '✓ הכל תקין') + '</div>' +
+      (needIds.length ? '<div class="s-sub">סה"כ להשלים: ' + ILS(supplTotal) + '</div>' : '') +
+    '</div>';
+  }
+
+  if (isTabAllowed('tasks')) {
+    var overdueCount = (S.tasks || []).filter(function(t){ return !t.done && t.dueDate && t.dueDate < today; }).length;
+    cards += '<div class="s-card' + (overdueCount ? '' : ' green-card') + '"><div class="s-label">📝 משימות שעבר זמנן</div><div class="s-value' + (overdueCount ? ' red' : ' green') + '">' +
+      (overdueCount || '✓ אין') + '</div></div>';
+  }
+
+  cont.innerHTML = cards
+    ? '<div class="summary-grid">' + cards + '</div>'
+    : '<div class="empty"><div class="empty-icon">🏠</div><div class="empty-title">ברוכים הבאים!</div><div class="empty-text">פנה/י לבעל/ת העסק להגדרת הרשאות גישה</div></div>';
 }
 
 /* ================================================================
@@ -6421,6 +6493,7 @@ function renderTasks(focusInput) {
 
 // Register renderers
 RENDER_MAP = {
+  home:      renderToday,
   employees: renderEmps,
   hours:     renderHours,
   payroll:   renderPayroll,
@@ -6549,7 +6622,7 @@ function applyRolePermissions() {
     ownerEls.forEach(function(el) { el.style.display = ''; });
     document.querySelectorAll('.tab-btn').forEach(function(b) {
       var name = b.id.replace('btn-', '');
-      b.style.display = hidden.indexOf(name) === -1 ? '' : 'none';
+      b.style.display = (name === 'home' || hidden.indexOf(name) === -1) ? '' : 'none';
     });
     if (logoEl) { logoEl.style.cursor = 'pointer'; logoEl.onclick = openBizSettings; }
     return;
@@ -6560,18 +6633,12 @@ function applyRolePermissions() {
   var effectiveAllowed = allowed.filter(function(name) { return hidden.indexOf(name) === -1; });
   document.querySelectorAll('.tab-btn').forEach(function(btn) {
     var name = btn.id.replace('btn-', '');
-    btn.style.display = effectiveAllowed.indexOf(name) === -1 ? 'none' : '';
+    btn.style.display = (name === 'home' || effectiveAllowed.indexOf(name) !== -1) ? '' : 'none';
   });
-  if (!effectiveAllowed.length) {
-    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
-    document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
-    document.querySelector('.tab-contents').insertAdjacentHTML('beforeend',
-      '<div class="empty" id="no-perms-msg"><div class="empty-icon">🔒</div><div class="empty-title">אין לך עדיין הרשאות גישה</div><div class="empty-text">פנה/י לבעל/ת העסק להגדרת הרשאות</div></div>');
-    return;
-  }
+  // 'home' תמיד מותר ומשמש כברירת מחדל בטוחה — כולל למשתמש שעדיין לא קיבל אף הרשאה
   var activeTab = document.querySelector('.tab-btn.active');
   var activeName = activeTab ? activeTab.id.replace('btn-', '') : '';
-  if (effectiveAllowed.indexOf(activeName) === -1) switchTab(effectiveAllowed[0]);
+  if (activeName !== 'home' && effectiveAllowed.indexOf(activeName) === -1) switchTab('home');
 }
 
 function visibleTabsForBiz() {
@@ -7663,6 +7730,7 @@ function appStart() {
   initSelects();
   updateHeaderDate();
   renderEmps();
+  renderToday();
   showBackupBannerIfNeeded();
   applyBizSettings();
   if (isOwner() && !(S.settings && S.settings.termsAcceptedAt)) {
