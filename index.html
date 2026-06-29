@@ -1069,9 +1069,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-30a';
+var APP_VERSION  = '2026-06-30b';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-30b', t: '💾 העדפות תצוגה (רשימה/כרטיסים בהוצאות, הצגת גרפים, מע"מ ב-Food Cost, תצוגת שעות) נשמרות כעת ולא מתאפסות ברענון או בכניסה מחדש' },
   { v: '2026-06-30a', t: '🛡️ ביקורת קוד מקיפה (8 סוכנים): תיקון באג קריטי בכניסה (לא מקדם עובד לבעלים בטעות), הגנה מאיבוד נתונים בכשל שמירה, מע"מ 0% תקין, הוצאה בלי שם לא נמחקת בשתיקה, תיקוני מצב כהה (Food Cost/Labor Cost + מסך כניסה), הגנה מגרש בשמות תפקיד/ספק' },
   { v: '2026-06-29f', t: '🚀 חדש: צ\'קליסט "צעדים ראשונים" במסך "היום" לעסק חדש · 📄 ייצוא תקציר קריא לאקסל (עובדים+הגדרות) מתפריט הניהול' },
   { v: '2026-06-29e', t: '🐛 תיקון: בלשונית השעות, שעות דו-ספרתיות (כמו 14:00 או 23:45) לא נכנסו לתיבה והוצגו חתוכות — התיבה הורחבה' },
@@ -1225,14 +1226,21 @@ var empNameSearch = '';
 var hoursMode = 'daily';
 var selectedHoursDate = '';
 var selectedWeekStart = '';
-var fcWithVat = false;
+// העדפות תצוגה אישיות — נשמרות ב-localStorage כדי שלא יתאפסו ברענון/כניסה מחדש
+function _loadUiPref(key, fallback) {
+  try { var v = localStorage.getItem('cafeManager_' + key); return v === null ? fallback : v === '1'; } catch (e) { return fallback; }
+}
+function _saveUiPref(key, val) {
+  try { localStorage.setItem('cafeManager_' + key, val ? '1' : '0'); } catch (e) {}
+}
+var fcWithVat = _loadUiPref('fcWithVat', false);
 var editEmpRoles = [];
 var tipsRoleFilter = '';
 var hoursRoleFilter = '';
 var hoursNameSearch = '';
 var payrollNameSearch = '';
-var showCharts = false;
-var expenseListView = false;
+var showCharts = _loadUiPref('showCharts', false);
+var expenseListView = _loadUiPref('expenseListView', false);
 var _chartInstances = {};
 if (typeof Chart !== 'undefined' && typeof ChartDataLabels !== 'undefined') {
   Chart.register(ChartDataLabels);
@@ -2301,7 +2309,7 @@ function aggregateMonthByRole(empId, ym) {
 
 function setHoursMode(mode) {
   hoursMode = mode;
-  try { sessionStorage.setItem('cafeHoursMode', mode); } catch(e) {}
+  try { localStorage.setItem('cafeHoursMode', mode); } catch(e) {}
   var mw   = document.getElementById('hours-month-wrap');
   var btnD = document.getElementById('hmode-daily');
   var btnW = document.getElementById('hmode-weekly');
@@ -5112,11 +5120,13 @@ function toggleSalesTarget() {
 
 function toggleFCMode() {
   fcWithVat = !fcWithVat;
+  _saveUiPref('fcWithVat', fcWithVat);
   renderControl();
 }
 
 function toggleExpenseView() {
   expenseListView = !expenseListView;
+  _saveUiPref('expenseListView', expenseListView);
   renderControl();
 }
 
@@ -6300,6 +6310,7 @@ function updateHeaderDate() {
 ================================================================ */
 function toggleCharts() {
   showCharts = !showCharts;
+  _saveUiPref('showCharts', showCharts);
   var curTab = document.querySelector('.tab-btn.active');
   if (curTab) {
     var name = curTab.id.replace('btn-', '');
@@ -7885,7 +7896,7 @@ function _syncBusinessNameToMembers(name) {
 function appStart() {
   if (!window._cloudDataLoaded) loadState();
   selectedHoursDate = curDate();
-  try { var savedMode = sessionStorage.getItem('cafeHoursMode'); if (savedMode) hoursMode = savedMode; } catch(e) {}
+  try { var savedMode = localStorage.getItem('cafeHoursMode'); if (savedMode) hoursMode = savedMode; } catch(e) {}
   initSelects();
   updateHeaderDate();
   renderEmps();
