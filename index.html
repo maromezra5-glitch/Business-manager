@@ -217,7 +217,8 @@
 [data-theme="dark"] [style*="background:#fafafa" i],
 [data-theme="dark"] [style*="background:#e5e7eb" i],
 [data-theme="dark"] [style*="background:#EEE" i],
-[data-theme="dark"] [style*="background:#F8FAF8" i] {
+[data-theme="dark"] [style*="background:#F8FAF8" i],
+[data-theme="dark"] [style*="background:#FAFAF8" i] {
   background-color: #2A2118 !important;
 }
 [data-theme="dark"] [style*="background:#f0fdf4" i] { background-color: rgba(34,197,94,.16) !important; }
@@ -766,6 +767,12 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
   cursor: pointer; margin-top: 6px; transition: background .15s, transform .1s;
 }
 .auth-btn-main:hover { background: #B85E3E; transform: translateY(-1px); }
+[data-theme="dark"] .auth-box   { background: var(--surface); box-shadow: 0 24px 80px rgba(0,0,0,.7); }
+[data-theme="dark"] .auth-title { color: var(--text); }
+[data-theme="dark"] .auth-sub   { color: var(--text-muted); }
+[data-theme="dark"] .auth-inp   { background: var(--bg); border-color: var(--border); color: var(--text); }
+[data-theme="dark"] .auth-err   { color: var(--error); }
+[data-theme="dark"] .auth-link  { color: var(--text-muted); }
 .auth-err  { color: #C0392B; font-size: 13px; margin-top: 10px; min-height: 18px; }
 .auth-link { background: none; border: none; color: #9C9490; font-size: 12px; cursor: pointer; text-decoration: underline; margin-top: 14px; display: inline-block; }
 
@@ -1062,9 +1069,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-29f';
+var APP_VERSION  = '2026-06-30a';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-30a', t: '🛡️ ביקורת קוד מקיפה (8 סוכנים): תיקון באג קריטי בכניסה (לא מקדם עובד לבעלים בטעות), הגנה מאיבוד נתונים בכשל שמירה, מע"מ 0% תקין, הוצאה בלי שם לא נמחקת בשתיקה, תיקוני מצב כהה (Food Cost/Labor Cost + מסך כניסה), הגנה מגרש בשמות תפקיד/ספק' },
   { v: '2026-06-29f', t: '🚀 חדש: צ\'קליסט "צעדים ראשונים" במסך "היום" לעסק חדש · 📄 ייצוא תקציר קריא לאקסל (עובדים+הגדרות) מתפריט הניהול' },
   { v: '2026-06-29e', t: '🐛 תיקון: בלשונית השעות, שעות דו-ספרתיות (כמו 14:00 או 23:45) לא נכנסו לתיבה והוצגו חתוכות — התיבה הורחבה' },
   { v: '2026-06-29d', t: '🔑 חדש: כניסה/הרשמה עם חשבון Google, בנוסף לאימייל וסיסמה' },
@@ -1275,7 +1283,9 @@ function deleteRole(r) {
 function addRoleFromModal() {
   var inp = document.getElementById('m-new-role');
   if (!inp) return;
-  var r = inp.value.trim();
+  // גרש רגיל (') מומר לגרש עברי (׳) — נראה אותו דבר, אבל לא שובר מחרוזות JS
+  // בכפתורי onclick שמשתמשים בשם התפקיד הזה (לדוגמה סינון לפי תפקיד)
+  var r = inp.value.trim().replace(/'/g, '׳');
   if (!r) { inp.focus(); return; }
   inp.value = '';
   if (S.roles.indexOf(r) === -1) S.roles.push(r);
@@ -1474,11 +1484,25 @@ function _runFirestoreSync() {
 
 // Use before reloading the page after a bulk data replace (restore/demo/import) —
 // the debounced scheduleFirestoreSync() runs too late and a reload would re-fetch stale cloud data.
-async function persistAndReload(delayMs) {
+async function persistAndReload(delayMs, _attempt) {
+  _attempt = _attempt || 1;
   clearTimeout(_fsSyncTimer);
   persist();
   if (currentBusinessId && window.fb) {
-    try { await window.fb.saveData(currentBusinessId, S); } catch(e) {}
+    try {
+      await window.fb.saveData(currentBusinessId, S);
+    } catch (e) {
+      // אם השמירה לענן נכשלה ונרענן בכל זאת — הרענון יטען את הנתונים הישנים
+      // מהענן וימחק בשקט את מה שהמשתמש בדיוק שיחזר/ייבא. לכן לא מרעננים בלי
+      // שמירה מוצלחת — מנסים שוב כמה פעמים לפני שמתייאשים.
+      if (_attempt < 5) {
+        toast('⚠️ השמירה לענן נכשלה — מנסה שוב... אל תרענן/י את הדף', 'err');
+        setTimeout(function() { persistAndReload(delayMs, _attempt + 1); }, 3000);
+      } else {
+        toast('⚠️ השמירה לענן נכשלה כמה פעמים — בדוק/י חיבור לאינטרנט. הנתונים נשמרו מקומית בלבד, אל תרענן/י עד שהחיבור יחזור', 'err');
+      }
+      return;
+    }
   }
   setTimeout(function() { location.reload(); }, delayMs || 400);
 }
@@ -3086,7 +3110,7 @@ function renderZ() {
   var totals = {cash:0, credit:0, wolt:0, hakafe:0};
   var voidsTotal = 0;
   var tbody = '';
-  var vat = toNum((S.settings || {}).vat) || 17;
+  var vat = getVat();
   var vatFactor = 1 + vat / 100;
 
   for (var d = 1; d <= days; d++) {
@@ -3206,7 +3230,7 @@ function onZInput(inp) {
     voidsTotal2 += toNum(r2.voids);
   }
   var grand = Object.values(totals).reduce(function(a,b){return a+b;},0);
-  var vat2 = toNum((S.settings || {}).vat) || 17;
+  var vat2 = getVat();
   var vatF2 = 1 + vat2 / 100;
   function g(id){ return document.getElementById(id); }
   function zn(v){ return v > 0 ? ILS(v / vatF2) : '—'; }
@@ -4325,7 +4349,8 @@ function renderSuppliersMgmt() {
 
 function addSupplier() {
   var inp  = document.getElementById('new-sup');
-  var name = inp.value.trim();
+  // גרש רגיל (') מומר לגרש עברי (׳) — לא שובר מחרוזות JS בכפתורי onclick שמשתמשים בשם הספק
+  var name = inp.value.trim().replace(/'/g, '׳');
   if (!name) return;
   if (S.suppliers.indexOf(name) !== -1) { toast('ספק זה כבר קיים', 'err'); return; }
   S.suppliers.push(name);
@@ -4394,7 +4419,7 @@ function renderPurchasesTable() {
   }
 
   var grandTotal = Object.values(sTotals).reduce(function(a,b){return a+b;}, 0);
-  var vat        = toNum((S.settings || {}).vat) || 17;
+  var vat        = getVat();
   var vatFactor  = 1 + vat / 100;
 
   var theadCells = '<th class="sticky-col" style="min-width:80px">יום</th>';
@@ -4508,7 +4533,7 @@ function renderControl() {
   var ctrl = S.control[ym] || {};
   var zb   = getZBreakdown(ym);
   var totalIncome    = Object.values(zb).reduce(function(a,b){return a+b;},0);
-  var vat            = toNum((S.settings || {}).vat) || 17;
+  var vat            = getVat();
   var netSales       = totalIncome > 0 ? totalIncome / (1 + vat/100) : 0;
   var totalPayroll   = getPayrollTotal(ym);
   var totalPurchases = getPurchasesTotal(ym);
@@ -4857,17 +4882,25 @@ function saveControl() {
   });
   S.control[ym].noVatFixed = noVatFixed;
   var extras = [];
+  var unnamedAmountFound = false;
   var i = 0;
   while (document.getElementById('ex-n-' + i)) {
     var name    = document.getElementById('ex-n-' + i).value.trim();
     var amount  = Math.max(0, toNum(document.getElementById('ex-a-' + i).value));
     var nvxEl   = document.getElementById('nvx-' + i);
     var noVat   = !!(nvxEl && nvxEl.checked);
-    if (name) extras.push({name:name, amount:amount, noVat:noVat});
+    if (name) {
+      extras.push({name:name, amount:amount, noVat:noVat});
+    } else if (amount > 0) {
+      // אל תמחק בשתיקה סכום כספי שהוזן רק כי שדה השם נשאר ריק
+      extras.push({name:'הוצאה ללא שם', amount:amount, noVat:noVat});
+      unnamedAmountFound = true;
+    }
     i++;
   }
   S.control[ym].extras = extras;
   persist();
+  if (unnamedAmountFound) toast('⚠️ הוצאה עם סכום אך בלי שם נשמרה כ"הוצאה ללא שם" — מומלץ לתת לה שם', 'err');
 }
 
 function _emojiForExpense(name) {
@@ -5057,9 +5090,15 @@ function removeExtra(i) {
   renderControl();
 }
 
+function getVat() {
+  var v = (S.settings || {}).vat;
+  return (typeof v === 'number' && !isNaN(v)) ? v : 17;
+}
+
 function saveVat(val) {
   if (!S.settings) S.settings = {vat:17};
-  S.settings.vat = Math.max(0, toNum(val)) || 17;
+  var n = parseFloat(val);
+  S.settings.vat = isNaN(n) ? 17 : Math.min(Math.max(0, n), 100);
   persist();
   renderControl();
 }
@@ -5182,7 +5221,7 @@ function exportZ() {
   var parts   = ym.split('-');
   var mn      = MHE[parseInt(parts[1])-1] + ' ' + parts[0];
   var days    = daysInMonth(ym);
-  var vat     = toNum((S.settings || {}).vat) || 17;
+  var vat     = getVat();
   var vatF    = 1 + vat / 100;
   var allKeys = ['cash','credit','wolt','hakafe'];
   var allLbls = ['מזומן','אשראי','וולט','הקפה'];
@@ -5464,7 +5503,7 @@ function exportControl() {
   var mn    = MHE[parseInt(parts[1])-1] + ' ' + parts[0];
   var ctrl  = S.control[ym] || {};
   var zb    = getZBreakdown(ym);
-  var vat   = toNum((S.settings || {}).vat) || 17;
+  var vat   = getVat();
   var vatFactor      = 1 + vat / 100;
   var totalIncome    = zb.cash + zb.credit + zb.wolt + zb.hakafe;
   var netSales       = totalIncome > 0 ? totalIncome / vatFactor : 0;
@@ -5543,7 +5582,7 @@ function printControlPL() {
   var mn    = MHE[parseInt(parts[1])-1] + ' ' + parts[0];
   var ctrl  = S.control[ym] || {};
   var zb    = getZBreakdown(ym);
-  var vat   = toNum((S.settings || {}).vat) || 17;
+  var vat   = getVat();
   var vatFactor      = 1 + vat / 100;
   var totalIncome    = zb.cash + zb.credit + zb.wolt + zb.hakafe;
   var netSales       = totalIncome > 0 ? totalIncome / vatFactor : 0;
@@ -5735,7 +5774,7 @@ function exportReadableSummary() {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(empData), 'עובדים');
 
   var bizName = ((S.settings || {}).biz || {}).name || '';
-  var vat     = toNum((S.settings || {}).vat) || 17;
+  var vat     = getVat();
   var settingsData = [
     ['שם העסק', bizName],
     ['אחוז מע"מ', vat],
@@ -6391,7 +6430,7 @@ function initControlCharts(ym, totalPayroll, totalPurchases, totalFixed, totalEx
     }
   });
   // 12 חודשים אחרונים — מאפשר גם להשוות לאותו חודש בשנה הקודמת
-  var vatRate = toNum((S.settings || {}).vat) || 17;
+  var vatRate = getVat();
   var months = [], incArr = [], expArr = [], fcArr = [], lcArr = [];
   var y = parseInt(ym.slice(0,4)), m = parseInt(ym.slice(5,7));
   var MHE2 = ['ינו','פבר','מרץ','אפר','מאי','יונ','יול','אוג','ספט','אוק','נוב','דצמ'];
@@ -7237,6 +7276,17 @@ async function authLoadAndShowApp(user) {
     if (e && e.message === 'ACCESS_REVOKED') {
       try { localStorage.removeItem(KEY); localStorage.removeItem('cafeManager_cachedBizId'); } catch (e2) {}
       showAccessRevokedScreen();
+      return;
+    }
+    // אם ידוע מהמטמון שהמשתמש הזה הוא חבר צוות בעסק אחר (לא הבעלים) — שגיאת
+    // רשת זמנית לא צריכה "לקדם" אותו לבעלים מדומה של עסק ריק בשם שלו. עדיף
+    // לחסום ולתת לו לנסות שוב מאשר לפתוח לו בטעות מסך owner על נתונים שגויים.
+    var cachedBizIdOnErr = (function(){ try { return localStorage.getItem('cafeManager_cachedBizId'); } catch (e2) { return null; } })();
+    if (cachedBizIdOnErr && cachedBizIdOnErr !== user.uid) {
+      toast('⚠️ שגיאה בזיהוי החשבון — בדוק/י את החיבור לאינטרנט ונסה/י שוב', 'err');
+      document.getElementById('auth-screen').style.display = 'flex';
+      var aerr = document.getElementById('auth-err');
+      if (aerr) aerr.textContent = 'שגיאה זמנית בזיהוי החשבון — נסה/י לרענן את הדף';
       return;
     }
     toast('⚠️ שגיאה בזיהוי החשבון — עובד מהנתונים המקומיים', 'err');
