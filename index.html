@@ -176,12 +176,7 @@
 [data-theme="dark"] [style*="color:#7F1D1D" i] { color: #F3A8A0 !important; }
 [data-theme="dark"] [style*="color:#5B21B6" i] { color: #C4B5FD !important; }
 [data-theme="dark"] [style*="color:#6b7280" i] { color: var(--text-muted) !important; }
-[data-theme="dark"] [style*="color:#0c4a6e" i] { color: #BAE6FD !important; }
-[data-theme="dark"] [style*="color:#166534" i] { color: #86EFAC !important; }
-[data-theme="dark"] [style*="color:#14532d" i] { color: #BBF7D0 !important; }
 [data-theme="dark"] [style*="color:#9A3412" i] { color: #F3B584 !important; }
-[data-theme="dark"] [style*="background:linear-gradient(135deg,#f0f9ff,#e0f2fe)" i] { background: linear-gradient(135deg,#15202E,#101A26) !important; }
-[data-theme="dark"] [style*="background:linear-gradient(135deg,#f0fdf4,#dcfce7)" i] { background: linear-gradient(135deg,#15261D,#102219) !important; }
 [data-theme="dark"] .s-card.accent     { background: linear-gradient(145deg,#2E2018,#241A14,#2A1F18); }
 [data-theme="dark"] .s-card.green-card { background: linear-gradient(145deg,#15261D,#102219,#16241B); }
 [data-theme="dark"] .s-card.blue-card  { background: linear-gradient(145deg,#15202E,#101A26,#16212F); }
@@ -898,7 +893,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
   <button class="tab-btn" id="btn-tips"      onclick="switchTab('tips')"><span class="tab-icon">💸</span> טיפים</button>
   <button class="tab-btn" id="btn-payroll"   onclick="switchTab('payroll')"><span class="tab-icon">💰</span> משכורות</button>
   <button class="tab-btn" id="btn-control"   onclick="switchTab('control')"><span class="tab-icon">📋</span> טבלת שליטה</button>
-  <button class="tab-btn" id="btn-tasks"     onclick="switchTab('tasks')"><span class="tab-icon">📝</span> יומן</button>
+  <button class="tab-btn" id="btn-tasks"     onclick="switchTab('tasks')"><span class="tab-icon">📝</span> משימות</button>
 </nav>
 
 <!-- ═══ TAB CONTENT ═══ -->
@@ -1042,9 +1037,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-25h';
+var APP_VERSION  = '2026-06-29a';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-29a', t: '📝 לשונית "יומן" שונתה ל"משימות" (זו רשימת מטלות, לא יומן) · 🪪 שדות ת.ז/מספר עובד בהקמת עובד הפכו לרגילים ומסומנים כאופציונליים · 👥 מסכי "אין עובדים" בשעות/משכורות מנחים כעת איך להמשיך · ❓ הסברים קצרים נוספו ל-Food Cost, Labor Cost, מע"מ והשלמות טיפים' },
   { v: '2026-06-25h', t: '✉️ הודעת "שכחתי סיסמה" עודכנה להיות מדויקת יותר — Firebase לא חושף אם מייל קיים במערכת מטעמי אבטחה' },
   { v: '2026-06-25g', t: '🌙 תיקון מרכזי במצב כהה: צבעי הירוק/אדום/כתום של סכומים (טבלת שליטה, דוח Z, קניות) הובהרו כדי שיהיו קריאים על רקע כהה, בנוסף לעוד עשרות מקומות צבועים בקוד קשיח' },
   { v: '2026-06-25f', t: '🌙 שיפור גדול במצב כהה: טבלת השעות השבועית, מסך הטיפים, חלוני "מה חדש"/תזכורות וכל המקומות שצבעו עצמם בקוד קשיח — כולם מותאמים כעת למצב כהה' },
@@ -1785,13 +1781,13 @@ function openEmpModal(id) {
       '<input class="form-control" id="m-address" type="text" value="' + escHtml(emp ? emp.address || '' : '') + '" placeholder="רחוב + מספר, עיר">' +
     '</div>' +
     '<div class="form-row" style="gap:12px">' +
-      '<div class="form-group" style="flex:1;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:2px solid #38bdf8;border-radius:12px;padding:12px 14px">' +
-        '<label class="form-label" style="font-size:13px;font-weight:900;color:#0369a1;margin-bottom:6px">🪪 תעודת זהות</label>' +
-        '<input class="form-control" id="m-idnum" type="text" inputmode="numeric" maxlength="9" value="' + escHtml(emp ? emp.idNum || emp.num || '' : '') + '" placeholder="9 ספרות" style="font-size:18px;font-weight:800;letter-spacing:2px;text-align:center;border:none;background:transparent;color:#0c4a6e">' +
+      '<div class="form-group" style="flex:1">' +
+        '<label class="form-label">🪪 תעודת זהות <span style="color:var(--text-muted);font-weight:400">(אופציונלי)</span></label>' +
+        '<input class="form-control" id="m-idnum" type="text" inputmode="numeric" maxlength="9" value="' + escHtml(emp ? emp.idNum || emp.num || '' : '') + '" placeholder="9 ספרות" style="letter-spacing:2px;text-align:center">' +
       '</div>' +
-      '<div class="form-group" style="flex:1;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:2px solid #4ade80;border-radius:12px;padding:12px 14px">' +
-        '<label class="form-label" style="font-size:13px;font-weight:900;color:#166534;margin-bottom:6px"># מספר עובד</label>' +
-        '<input class="form-control" id="m-empnum" type="text" inputmode="numeric" pattern="[0-9]*" value="' + escHtml(emp ? emp.empNum || '' : '') + '" placeholder="לדוגמה: 42" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')" style="font-size:18px;font-weight:800;letter-spacing:2px;text-align:center;border:none;background:transparent;color:#14532d">' +
+      '<div class="form-group" style="flex:1">' +
+        '<label class="form-label"># מספר עובד <span style="color:var(--text-muted);font-weight:400">(אופציונלי)</span></label>' +
+        '<input class="form-control" id="m-empnum" type="text" inputmode="numeric" pattern="[0-9]*" value="' + escHtml(emp ? emp.empNum || '' : '') + '" placeholder="לדוגמה: 42" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')" style="letter-spacing:2px;text-align:center">' +
       '</div>' +
     '</div>' +
     '<div class="form-group">' +
@@ -2353,7 +2349,7 @@ function renderHoursWeekly() {
   var emps = S.employees.filter(function(e){ return e.active; });
   var cont = document.getElementById('hours-content');
   if (!emps.length) {
-    cont.innerHTML = '<div class="empty"><div class="empty-icon">⏱</div><div class="empty-title">אין עובדים פעילים</div></div>';
+    cont.innerHTML = '<div class="empty"><div class="empty-icon">⏱</div><div class="empty-title">אין עובדים פעילים</div><div class="empty-text">הוסיפו עובדים בלשונית "עובדים" כדי להתחיל להזין שעות</div><button class="btn btn-primary" style="margin-top:14px" onclick="switchTab(\'employees\')">👥 מעבר ללשונית עובדים</button></div>';
     return;
   }
   var days = [];
@@ -2563,7 +2559,7 @@ function renderHoursDaily() {
   var cont = document.getElementById('hours-content');
 
   if (!emps.length) {
-    cont.innerHTML = '<div class="empty"><div class="empty-icon">⏱</div><div class="empty-title">אין עובדים פעילים</div><div class="empty-text">הוסף עובדים בלשונית "עובדים" תחילה</div></div>';
+    cont.innerHTML = '<div class="empty"><div class="empty-icon">⏱</div><div class="empty-title">אין עובדים פעילים</div><div class="empty-text">הוסיפו עובדים בלשונית "עובדים" כדי להתחיל להזין שעות</div><button class="btn btn-primary" style="margin-top:14px" onclick="switchTab(\'employees\')">👥 מעבר ללשונית עובדים</button></div>';
     return;
   }
 
@@ -2685,7 +2681,7 @@ function renderHoursMonthly() {
   var cont = document.getElementById('hours-content');
 
   if (!emps.length) {
-    cont.innerHTML = '<div class="empty"><div class="empty-icon">⏱</div><div class="empty-title">אין עובדים פעילים</div></div>';
+    cont.innerHTML = '<div class="empty"><div class="empty-icon">⏱</div><div class="empty-title">אין עובדים פעילים</div><div class="empty-text">הוסיפו עובדים בלשונית "עובדים" כדי להתחיל להזין שעות</div><button class="btn btn-primary" style="margin-top:14px" onclick="switchTab(\'employees\')">👥 מעבר ללשונית עובדים</button></div>';
     return;
   }
 
@@ -2789,7 +2785,7 @@ function renderPayroll() {
   var cont = document.getElementById('payroll-content');
 
   if (!S.employees.filter(function(e){ return e.active; }).length) {
-    cont.innerHTML = '<div class="empty"><div class="empty-icon">💰</div><div class="empty-title">אין עובדים פעילים</div></div>';
+    cont.innerHTML = '<div class="empty"><div class="empty-icon">💰</div><div class="empty-title">אין עובדים פעילים</div><div class="empty-text">הוסיפו עובדים בלשונית "עובדים", ומלאו עבורם שעות לפני חישוב משכורות</div><button class="btn btn-primary" style="margin-top:14px" onclick="switchTab(\'employees\')">👥 מעבר ללשונית עובדים</button></div>';
     return;
   }
 
@@ -4140,7 +4136,7 @@ function renderTips() {
         // ── Dark header ──
         '<div class="srpt-hdr">' +
           '<div>' +
-            '<div style="font-size:20px;font-weight:900;color:#fff;letter-spacing:-.4px">📊 דוח השלמות מינימום טיפים</div>' +
+            '<div style="font-size:20px;font-weight:900;color:#fff;letter-spacing:-.4px">📊 דוח השלמות מינימום טיפים <span style="cursor:help;border:1px solid rgba(255,255,255,.5);border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;vertical-align:middle" title="לפי החוק בישראל, עובד שמתוגמל בטיפים זכאי לקבל לפחות שכר מינימום לשעה. אם במשמרת מסוימת הטיפים שהוא קיבל יוצאים נמוכים מהמינימום (לפי השעות שעבד), המערכת מחשבת אוטומטית את ההפרש — וזה מה שמופיע כאן כ&quot;השלמה&quot;.">?</span></div>' +
             '<div style="font-size:13px;color:rgba(255,255,255,.6);margin-top:5px">' +
               mn2 + ' &nbsp;·&nbsp; מינימום: ₪' + minPerHr + ' לשעה &nbsp;·&nbsp; חישוב נפרד לכל משמרת' +
             '</div>' +
@@ -4462,7 +4458,7 @@ function renderControl() {
       return '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;padding:11px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);flex-wrap:wrap">' +
         '<span style="font-size:12px;font-weight:800;color:var(--text-muted)">⚙️ הגדרות:</span>' +
         '<span style="font-size:13px">שיעור מע"מ:</span>' +
-        '<input type="number" class="ti" style="width:72px;text-align:center" min="0" max="99" step="1" value="' + vat + '" onchange="saveVat(this.value)">' +
+        '<input type="number" class="ti" style="width:72px;text-align:center" min="0" max="99" step="1" value="' + vat + '" onchange="saveVat(this.value)" title="המספר הזה משמש לחישוב אוטומטי של &quot;ללא מע&quot;מ&quot; בכל המסכים הכספיים (קניות, דוח Z, טבלת שליטה) — לא צריך לחשב את זה ידנית בכל מקום בנפרד.">' +
         '<span style="font-size:13px">%</span>' +
         '<span style="font-size:12.5px;color:var(--text-sec)">· מכירות נטו ללא מע"מ: <strong>' + ILS(netSales) + '</strong></span>' +
         '<button onclick="toggleSalesTarget()" style="margin-right:auto;font-size:12px;padding:4px 12px;border-radius:20px;border:1.5px solid ' + (stVisible ? 'var(--primary)' : 'var(--border)') + ';background:' + (stVisible ? 'var(--primary-light)' : '#f3f4f6') + ';color:' + (stVisible ? 'var(--primary-dark)' : 'var(--text-muted)') + ';font-weight:700;cursor:pointer">🎯 יעד מכירות ' + (stVisible ? '✓ פועל' : '— כבוי') + '</button>' +
@@ -4565,7 +4561,7 @@ function renderControl() {
       return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:20px">' +
         '<div style="border:2.5px solid ' + fcColor + ';border-radius:var(--r);padding:22px;background:#FAFAF8">' +
           '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">' +
-            '<div style="font-size:12px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px">🥗 FOOD COST</div>' +
+            '<div style="font-size:12px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px">🥗 FOOD COST <span style="cursor:help;border:1px solid var(--text-muted);border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700" title="אחוז עלות הסחורה (קניות) ממחזור המכירות. ככל שהאחוז נמוך יותר — נשאר לך יותר רווח מכל מכירה. יעד מקובל בענף: מתחת ל-28%.">?</span></div>' +
             '<button class="btn btn-secondary btn-sm" onclick="toggleFCMode()" style="font-size:11.5px">' + (fcWithVat ? '📊 עם מע"מ' : '📊 ללא מע"מ') + '</button>' +
           '</div>' +
           '<div style="font-size:44px;font-weight:900;color:' + fcColor + ';letter-spacing:-1px">' + fc.toFixed(1) + '%</div>' +
@@ -4574,7 +4570,7 @@ function renderControl() {
           '<div style="font-size:12px;color:var(--text-muted)">קניות: ' + ILS(totalPurchases) + '</div>' +
         '</div>' +
         '<div style="border:2.5px solid ' + lcColor + ';border-radius:var(--r);padding:22px;background:#FAFAF8">' +
-          '<div style="font-size:12px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">👥 LABOR COST</div>' +
+          '<div style="font-size:12px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">👥 LABOR COST <span style="cursor:help;border:1px solid var(--text-muted);border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700" title="אחוז עלות השכר ממחזור המכירות נטו (ללא מע&quot;מ). ככל שהאחוז נמוך יותר — נשאר לך יותר רווח. יעד מקובל בענף: מתחת ל-30%.">?</span></div>' +
           '<div style="font-size:44px;font-weight:900;color:' + lcColor + ';letter-spacing:-1px">' + lc.toFixed(1) + '%</div>' +
           '<div style="font-size:13px;color:var(--text-muted);margin-top:4px">' + (lc<30?'✅ מצוין':lc<40?'⚠️ בינוני':'❌ גבוה מדי') + ' · יעד: פחות מ-30%</div>' +
           '<div style="font-size:12px;color:var(--text-muted);margin-top:6px">שכר עובדים: ' + ILS(totalPayroll) + '</div>' +
@@ -6435,7 +6431,7 @@ RENDER_MAP = {
 var ALL_TABS = ['employees', 'zreport', 'purchases', 'hours', 'tips', 'payroll', 'control', 'tasks'];
 var TAB_LABELS_BASE = {
   employees: '👥 עובדים', zreport: '📊 דוח Z', purchases: '🛒 קניות', hours: '⏱ שעות',
-  tips: '💸 טיפים', payroll: '💰 משכורות', control: '📋 טבלת שליטה', tasks: '📝 יומן'
+  tips: '💸 טיפים', payroll: '💰 משכורות', control: '📋 טבלת שליטה', tasks: '📝 משימות'
 };
 var TAB_LABELS = Object.assign({}, TAB_LABELS_BASE);
 
