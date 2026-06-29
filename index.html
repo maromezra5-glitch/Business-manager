@@ -177,6 +177,11 @@
 [data-theme="dark"] [style*="color:#5B21B6" i] { color: #C4B5FD !important; }
 [data-theme="dark"] [style*="color:#6b7280" i] { color: var(--text-muted) !important; }
 [data-theme="dark"] [style*="color:#9A3412" i] { color: #F3B584 !important; }
+[data-theme="dark"] [style*="color:#0c4a6e" i] { color: #BAE6FD !important; }
+[data-theme="dark"] [style*="color:#166534" i] { color: #86EFAC !important; }
+[data-theme="dark"] [style*="color:#14532d" i] { color: #BBF7D0 !important; }
+[data-theme="dark"] [style*="background:linear-gradient(135deg,#f0f9ff,#e0f2fe)" i] { background: linear-gradient(135deg,#15202E,#101A26) !important; }
+[data-theme="dark"] [style*="background:linear-gradient(135deg,#f0fdf4,#dcfce7)" i] { background: linear-gradient(135deg,#15261D,#102219) !important; }
 [data-theme="dark"] .s-card.accent     { background: linear-gradient(145deg,#2E2018,#241A14,#2A1F18); }
 [data-theme="dark"] .s-card.green-card { background: linear-gradient(145deg,#15261D,#102219,#16241B); }
 [data-theme="dark"] .s-card.blue-card  { background: linear-gradient(145deg,#15202E,#101A26,#16212F); }
@@ -1037,9 +1042,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-29a';
+var APP_VERSION  = '2026-06-29b';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-29b', t: '↩️ שדות ת.ז ומספר עובד הוחזרו לעיצוב הבולט (כחול/ירוק) — לבקשת המשתמש' },
   { v: '2026-06-29a', t: '📝 לשונית "יומן" שונתה ל"משימות" (זו רשימת מטלות, לא יומן) · 🪪 שדות ת.ז/מספר עובד בהקמת עובד הפכו לרגילים ומסומנים כאופציונליים · 👥 מסכי "אין עובדים" בשעות/משכורות מנחים כעת איך להמשיך · ❓ הסברים קצרים נוספו ל-Food Cost, Labor Cost, מע"מ והשלמות טיפים' },
   { v: '2026-06-25h', t: '✉️ הודעת "שכחתי סיסמה" עודכנה להיות מדויקת יותר — Firebase לא חושף אם מייל קיים במערכת מטעמי אבטחה' },
   { v: '2026-06-25g', t: '🌙 תיקון מרכזי במצב כהה: צבעי הירוק/אדום/כתום של סכומים (טבלת שליטה, דוח Z, קניות) הובהרו כדי שיהיו קריאים על רקע כהה, בנוסף לעוד עשרות מקומות צבועים בקוד קשיח' },
@@ -1781,13 +1787,13 @@ function openEmpModal(id) {
       '<input class="form-control" id="m-address" type="text" value="' + escHtml(emp ? emp.address || '' : '') + '" placeholder="רחוב + מספר, עיר">' +
     '</div>' +
     '<div class="form-row" style="gap:12px">' +
-      '<div class="form-group" style="flex:1">' +
-        '<label class="form-label">🪪 תעודת זהות <span style="color:var(--text-muted);font-weight:400">(אופציונלי)</span></label>' +
-        '<input class="form-control" id="m-idnum" type="text" inputmode="numeric" maxlength="9" value="' + escHtml(emp ? emp.idNum || emp.num || '' : '') + '" placeholder="9 ספרות" style="letter-spacing:2px;text-align:center">' +
+      '<div class="form-group" style="flex:1;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:2px solid #38bdf8;border-radius:12px;padding:12px 14px">' +
+        '<label class="form-label" style="font-size:13px;font-weight:900;color:#0369a1;margin-bottom:6px">🪪 תעודת זהות</label>' +
+        '<input class="form-control" id="m-idnum" type="text" inputmode="numeric" maxlength="9" value="' + escHtml(emp ? emp.idNum || emp.num || '' : '') + '" placeholder="9 ספרות" style="font-size:18px;font-weight:800;letter-spacing:2px;text-align:center;border:none;background:transparent;color:#0c4a6e">' +
       '</div>' +
-      '<div class="form-group" style="flex:1">' +
-        '<label class="form-label"># מספר עובד <span style="color:var(--text-muted);font-weight:400">(אופציונלי)</span></label>' +
-        '<input class="form-control" id="m-empnum" type="text" inputmode="numeric" pattern="[0-9]*" value="' + escHtml(emp ? emp.empNum || '' : '') + '" placeholder="לדוגמה: 42" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')" style="letter-spacing:2px;text-align:center">' +
+      '<div class="form-group" style="flex:1;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:2px solid #4ade80;border-radius:12px;padding:12px 14px">' +
+        '<label class="form-label" style="font-size:13px;font-weight:900;color:#166534;margin-bottom:6px"># מספר עובד</label>' +
+        '<input class="form-control" id="m-empnum" type="text" inputmode="numeric" pattern="[0-9]*" value="' + escHtml(emp ? emp.empNum || '' : '') + '" placeholder="לדוגמה: 42" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')" style="font-size:18px;font-weight:800;letter-spacing:2px;text-align:center;border:none;background:transparent;color:#14532d">' +
       '</div>' +
     '</div>' +
     '<div class="form-group">' +
