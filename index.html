@@ -874,6 +874,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
       <button class="hdr-btn" id="admin-menu-btn" onclick="toggleAdminMenu(event)">⚙️ ניהול ▾</button>
       <div id="admin-menu" class="hdr-dropdown-menu hidden">
         <button onclick="closeAdminMenu();exportBackup()">💾 גיבוי נתונים</button>
+        <button onclick="closeAdminMenu();exportReadableSummary()" title="קובץ אקסל קריא — לא לשחזור, רק לעיון">📄 תקציר קריא לאקסל</button>
         <button onclick="closeAdminMenu();triggerImport()">📂 שחזור מגיבוי</button>
         <button onclick="closeAdminMenu();renderAuditLog()">📋 יומן פעולות</button>
         <button onclick="closeAdminMenu();openUserMgmt()">👤 ניהול משתמשים</button>
@@ -1061,9 +1062,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-29e';
+var APP_VERSION  = '2026-06-29f';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-29f', t: '🚀 חדש: צ\'קליסט "צעדים ראשונים" במסך "היום" לעסק חדש · 📄 ייצוא תקציר קריא לאקסל (עובדים+הגדרות) מתפריט הניהול' },
   { v: '2026-06-29e', t: '🐛 תיקון: בלשונית השעות, שעות דו-ספרתיות (כמו 14:00 או 23:45) לא נכנסו לתיבה והוצגו חתוכות — התיבה הורחבה' },
   { v: '2026-06-29d', t: '🔑 חדש: כניסה/הרשמה עם חשבון Google, בנוסף לאימייל וסיסמה' },
   { v: '2026-06-29c', t: '🏠 חדש: לשונית "היום" — תמונת מצב מהירה בכניסה (הכנסות היום, מי עבד, השלמות טיפים, משימות שעבר זמנן), מותאמת להרשאות של כל משתמש' },
@@ -1973,6 +1975,52 @@ async function confirmReset() {
 /* ================================================================
    TAB 0 — HOME / TODAY
 ================================================================ */
+function _onboardingSteps() {
+  var hasEmp = S.employees.length > 0;
+  var hasHours = Object.keys(S.dailyHours).some(function(ds) {
+    return Object.keys(S.dailyHours[ds]).some(function(k) {
+      var r = S.dailyHours[ds][k];
+      return toNum(r.regHours) + toNum(r.ot125) + toNum(r.ot150) > 0;
+    });
+  });
+  var hasZ = Object.keys(S.zReports).some(function(ds) {
+    var r = S.zReports[ds];
+    return toNum(r.cash) + toNum(r.credit) + toNum(r.wolt) + toNum(r.hakafe) > 0;
+  });
+  var steps = [
+    { done: hasEmp,   label: '👥 הוסיפו את העובד הראשון', tab: 'employees' },
+    { done: hasHours, label: '⏱ הזינו שעות עבודה',        tab: 'hours' }
+  ];
+  if (isTabAllowed('zreport')) steps.push({ done: hasZ, label: '📊 הזינו דוח מכירות יומי (Z)', tab: 'zreport' });
+  return steps;
+}
+
+function _buildOnboardingChecklist() {
+  if (!isOwner()) return '';
+  if (localStorage.getItem('cafeManager_onboardingDismissed')) return '';
+  var steps = _onboardingSteps();
+  if (steps.every(function(s){ return s.done; })) return '';
+  var rows = steps.map(function(s) {
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0">' +
+      '<span style="font-size:18px">' + (s.done ? '✅' : '⬜') + '</span>' +
+      '<span style="flex:1;' + (s.done ? 'color:var(--text-muted);text-decoration:line-through' : '') + '">' + s.label + '</span>' +
+      (s.done ? '' : '<button class="btn btn-secondary btn-sm" onclick="switchTab(\'' + s.tab + '\')">מעבר ←</button>') +
+    '</div>';
+  }).join('');
+  return '<div class="card" style="margin-bottom:20px">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px">' +
+      '<div class="card-title" style="margin-bottom:0;border-bottom:none;padding-bottom:0">🚀 צעדים ראשונים במערכת</div>' +
+      '<button onclick="dismissOnboardingChecklist()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:13px">הבנתי, אל תציג יותר ✕</button>' +
+    '</div>' +
+    rows +
+  '</div>';
+}
+
+function dismissOnboardingChecklist() {
+  localStorage.setItem('cafeManager_onboardingDismissed', '1');
+  renderToday();
+}
+
 function renderToday() {
   var cont = document.getElementById('home-content');
   if (!cont) return;
@@ -2026,9 +2074,10 @@ function renderToday() {
       (overdueCount || '✓ אין') + '</div></div>';
   }
 
-  cont.innerHTML = cards
+  var checklist = _buildOnboardingChecklist();
+  cont.innerHTML = checklist + (cards
     ? '<div class="summary-grid">' + cards + '</div>'
-    : '<div class="empty"><div class="empty-icon">🏠</div><div class="empty-title">ברוכים הבאים!</div><div class="empty-text">פנה/י לבעל/ת העסק להגדרת הרשאות גישה</div></div>';
+    : '<div class="empty"><div class="empty-icon">🏠</div><div class="empty-title">ברוכים הבאים!</div><div class="empty-text">פנה/י לבעל/ת העסק להגדרת הרשאות גישה</div></div>');
 }
 
 /* ================================================================
@@ -5666,6 +5715,38 @@ async function exportBackup() {
   } catch(e) {
     toast('שגיאה בגיבוי: ' + e.message, 'err');
   }
+}
+
+function exportReadableSummary() {
+  if (!xlxCheck()) return;
+  var wb = XLSX.utils.book_new();
+
+  var empData = [['שם', 'תפקיד(ים)', 'סוג שכר', 'תעריף שעתי / משכורת חודשית', 'טלפון', 'פעיל']];
+  S.employees.forEach(function(e) {
+    empData.push([
+      e.name || '',
+      getEmpRoleStr(e) || '',
+      e.type === 'hourly' ? 'שעתי' : 'חודשי',
+      e.type === 'hourly' ? toNum(e.hourlyRate) : toNum(e.monthlySalary),
+      e.phone || '',
+      e.active ? 'כן' : 'לא'
+    ]);
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(empData), 'עובדים');
+
+  var bizName = ((S.settings || {}).biz || {}).name || '';
+  var vat     = toNum((S.settings || {}).vat) || 17;
+  var settingsData = [
+    ['שם העסק', bizName],
+    ['אחוז מע"מ', vat],
+    ['מספר ספקים רשומים', S.suppliers.length],
+    ['מספר עובדים רשומים', S.employees.length],
+    ['תאריך הפקת הקובץ', curDate()]
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(settingsData), 'הגדרות עסק');
+
+  XLSX.writeFile(wb, 'תקציר_מערכת_' + curDate() + '.xlsx');
+  toast('✅ קובץ תקציר יצא בהצלחה', 'ok');
 }
 
 async function triggerImport() {
