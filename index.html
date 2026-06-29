@@ -1061,9 +1061,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-29d';
+var APP_VERSION  = '2026-06-29e';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-06-29e', t: '🐛 תיקון: בלשונית השעות, שעות דו-ספרתיות (כמו 14:00 או 23:45) לא נכנסו לתיבה והוצגו חתוכות — התיבה הורחבה' },
   { v: '2026-06-29d', t: '🔑 חדש: כניסה/הרשמה עם חשבון Google, בנוסף לאימייל וסיסמה' },
   { v: '2026-06-29c', t: '🏠 חדש: לשונית "היום" — תמונת מצב מהירה בכניסה (הכנסות היום, מי עבד, השלמות טיפים, משימות שעבר זמנן), מותאמת להרשאות של כל משתמש' },
   { v: '2026-06-29b', t: '↩️ שדות ת.ז ומספר עובד הוחזרו לעיצוב הבולט (כחול/ירוק) — לבקשת המשתמש' },
@@ -2528,7 +2529,7 @@ function renderHoursWeekly() {
       cells += '<td style="padding:7px 4px;background:' + cellBg + ';border-left:1px solid var(--border)">' +
         '<div style="display:flex;flex-direction:column;align-items:center;gap:4px">' +
           hmInputTag(emp.id, day.ds, 'regHours', reg, {
-            style: 'width:64px;height:44px;font-size:20px;font-weight:800;text-align:center;padding:0 4px;line-height:44px;box-sizing:border-box;border:2px solid ' + (reg>0?'#16a34a':'#d1d5db') + ';border-radius:10px;background:' + (reg>0?'#f0fdf4':'#fff') + ';color:' + (reg>0?'#15803d':'#374151'),
+            style: 'width:78px;height:44px;font-size:18px;font-weight:800;text-align:center;padding:0 4px;line-height:44px;box-sizing:border-box;border:2px solid ' + (reg>0?'#16a34a':'#d1d5db') + ';border-radius:10px;background:' + (reg>0?'#f0fdf4':'#fff') + ';color:' + (reg>0?'#15803d':'#374151'),
             extraOninput: ';renderWeeklyTotals()'
           }) +
           (hasOT ?
@@ -2726,7 +2727,7 @@ function renderHoursDaily() {
         '</div>' +
       '</td>';
       tbody += '<td style="text-align:center;background:' + rowBg + '">' + hmInputTag(emp.id, ds, 'regHours', reg, {
-        style: 'width:64px;height:44px;font-size:18px;font-weight:800;text-align:center;padding:0 4px;line-height:44px;box-sizing:border-box;border:2px solid ' + (reg>0?'#16a34a':'#d1d5db') + ';border-radius:10px;background:' + (reg>0?'#f0fdf4':'#fff') + ';color:' + (reg>0?'#15803d':'#374151')
+        style: 'width:78px;height:44px;font-size:17px;font-weight:800;text-align:center;padding:0 4px;line-height:44px;box-sizing:border-box;border:2px solid ' + (reg>0?'#16a34a':'#d1d5db') + ';border-radius:10px;background:' + (reg>0?'#f0fdf4':'#fff') + ';color:' + (reg>0?'#15803d':'#374151')
       }) + '</td>';
       if (anyHasOT) {
         tbody += '<td style="text-align:center;background:' + rowBg + '">' + (emp.noOT ? '<span style="color:var(--text-muted);font-size:13px">—</span>' : hmInputTag(emp.id, ds, 'ot125', ot1, {
