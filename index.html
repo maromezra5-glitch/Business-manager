@@ -6309,7 +6309,7 @@ function _syncAllMonthSelects(ym) {
     var el = document.getElementById(id);
     if (el && el.value !== ym) el.value = ym;
     var btn = document.getElementById(id + '-now');
-    if (btn) btn.style.display = isNow ? 'none' : '';
+    if (btn) btn.style.display = isNow ? 'none' : 'inline-block';
   });
 }
 function onMonthChange(el, renderFn) {
