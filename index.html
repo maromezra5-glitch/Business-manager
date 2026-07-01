@@ -377,6 +377,8 @@ body {
 .month-sel { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--r-sm); padding: 7px 12px; }
 .month-sel label { font-size: 12px; color: var(--text-muted); white-space: nowrap; font-weight: 600; }
 .month-sel select { border: none; background: none; font-size: 14px; font-weight: 700; color: var(--text); cursor: pointer; outline: none; }
+.month-now-btn { display:none; background:var(--primary-light); border:1.5px solid var(--primary); color:var(--primary); border-radius:20px; padding:2px 10px; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; transition:background .15s,color .15s; }
+.month-now-btn:hover { background:var(--primary); color:#fff; }
 
 /* ── BUTTONS ── */
 .btn {
@@ -963,7 +965,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
           <button class="btn btn-sm" id="hmode-weekly"  onclick="setHoursMode('weekly')"  style="border-radius:0;border:none;border-right:1.5px solid var(--border);padding:7px 16px">📋 שבועי</button>
           <button class="btn btn-sm" id="hmode-monthly" onclick="setHoursMode('monthly')" style="border-radius:0;border:none;border-right:1.5px solid var(--border);padding:7px 16px">📆 חודשי</button>
         </div>
-        <div id="hours-month-wrap" class="month-sel" style="display:none"><label>חודש:</label><select id="hours-month" onchange="onMonthChange(this,renderHours)"></select></div>
+        <div id="hours-month-wrap" class="month-sel" style="display:none"><label>חודש:</label><select id="hours-month" onchange="onMonthChange(this,renderHours)"></select><button class="month-now-btn" id="hours-month-now" onclick="goToCurrentMonth()">↩ חודש נוכחי</button></div>
       </div>
     </div>
     <div id="hours-content"></div>
@@ -974,7 +976,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
     <div class="panel-header">
       <h1 class="panel-title">💰 דוח משכורות</h1>
       <div class="panel-actions">
-        <div class="month-sel"><label>חודש:</label><select id="payroll-month" onchange="onMonthChange(this,renderPayroll)"></select></div>
+        <div class="month-sel"><label>חודש:</label><select id="payroll-month" onchange="onMonthChange(this,renderPayroll)"></select><button class="month-now-btn" id="payroll-month-now" onclick="goToCurrentMonth()">↩ חודש נוכחי</button></div>
         <button class="btn btn-secondary" onclick="exportPayroll()">📥 ייצוא לאקסל (לרו"ח)</button>
       </div>
     </div>
@@ -986,7 +988,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
     <div class="panel-header">
       <h1 class="panel-title">📊 דוח Z — מכירות יומיות</h1>
       <div class="panel-actions">
-        <div class="month-sel"><label>חודש:</label><select id="z-month" onchange="onMonthChange(this,renderZ)"></select></div>
+        <div class="month-sel"><label>חודש:</label><select id="z-month" onchange="onMonthChange(this,renderZ)"></select><button class="month-now-btn" id="z-month-now" onclick="goToCurrentMonth()">↩ חודש נוכחי</button></div>
         <button class="btn btn-secondary" onclick="exportZ()">📥 ייצוא אקסל</button>
         <button class="btn btn-secondary" id="charts-toggle-z" onclick="toggleCharts()">📊 הצג גרפים</button>
       </div>
@@ -999,7 +1001,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
     <div class="panel-header">
       <h1 class="panel-title">💸 ניהול טיפים</h1>
       <div class="panel-actions">
-        <div class="month-sel"><label>חודש:</label><select id="tips-month" onchange="onMonthChange(this,renderTips)"></select></div>
+        <div class="month-sel"><label>חודש:</label><select id="tips-month" onchange="onMonthChange(this,renderTips)"></select><button class="month-now-btn" id="tips-month-now" onclick="goToCurrentMonth()">↩ חודש נוכחי</button></div>
         <button class="btn btn-secondary" onclick="exportTips()">📥 ייצוא אקסל</button>
       </div>
     </div>
@@ -1011,7 +1013,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
     <div class="panel-header">
       <h1 class="panel-title">🛒 קניות מספקים</h1>
       <div class="panel-actions">
-        <div class="month-sel"><label>חודש:</label><select id="pur-month" onchange="onMonthChange(this,renderPurchases)"></select></div>
+        <div class="month-sel"><label>חודש:</label><select id="pur-month" onchange="onMonthChange(this,renderPurchases)"></select><button class="month-now-btn" id="pur-month-now" onclick="goToCurrentMonth()">↩ חודש נוכחי</button></div>
         <button class="btn btn-secondary" onclick="exportPurchases()">📥 ייצוא אקסל</button>
       </div>
     </div>
@@ -1024,7 +1026,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
     <div class="panel-header">
       <h1 class="panel-title">📋 טבלת שליטה</h1>
       <div class="panel-actions">
-        <div class="month-sel"><label>חודש:</label><select id="ctrl-month" onchange="onMonthChange(this,renderControl)"></select></div>
+        <div class="month-sel"><label>חודש:</label><select id="ctrl-month" onchange="onMonthChange(this,renderControl)"></select><button class="month-now-btn" id="ctrl-month-now" onclick="goToCurrentMonth()">↩ חודש נוכחי</button></div>
         <button class="btn btn-primary" onclick="saveControl()">💾 שמור הוצאות</button>
         <button class="btn btn-secondary" onclick="exportControl()">📥 ייצוא P&amp;L לאקסל</button>
         <button class="btn btn-secondary" onclick="printControlPL()">🖨️ הדפס / PDF</button>
@@ -6302,14 +6304,25 @@ async function loadDemoData() {
 var _MONTH_IDS = ['hours-month','payroll-month','z-month','tips-month','pur-month','ctrl-month'];
 function _syncAllMonthSelects(ym) {
   _sharedYM = ym;
+  var isNow = (ym === curYM());
   _MONTH_IDS.forEach(function(id){
     var el = document.getElementById(id);
     if (el && el.value !== ym) el.value = ym;
+    var btn = document.getElementById(id + '-now');
+    if (btn) btn.style.display = isNow ? 'none' : '';
   });
 }
 function onMonthChange(el, renderFn) {
   _syncAllMonthSelects(el.value);
   renderFn();
+}
+function goToCurrentMonth() {
+  _syncAllMonthSelects(curYM());
+  var activePanel = document.querySelector('.tab-panel.active');
+  if (activePanel) {
+    var tabName = activePanel.id.replace('tab-', '');
+    if (RENDER_MAP[tabName]) RENDER_MAP[tabName]();
+  }
 }
 function initSelects() {
   var cy = curYM();
