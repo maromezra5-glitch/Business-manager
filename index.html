@@ -775,6 +775,9 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 [data-theme="dark"] .auth-link  { color: var(--text-muted); }
 .auth-err  { color: #C0392B; font-size: 13px; margin-top: 10px; min-height: 18px; }
 .auth-link { background: none; border: none; color: #9C9490; font-size: 12px; cursor: pointer; text-decoration: underline; margin-top: 14px; display: inline-block; }
+.auth-register-btn { width:100%; padding:11px; border:1.5px solid var(--primary); border-radius:12px; background:transparent; color:var(--primary); font-size:15px; font-weight:600; cursor:pointer; margin-top:12px; transition:background .15s,color .15s; }
+.auth-register-btn:hover { background:var(--primary-light); }
+[data-theme="dark"] .auth-register-btn { border-color:var(--primary); color:var(--primary); }
 
 /* ══════════════════════════════════════════
    MOBILE RESPONSIVE (≤ 720px)
@@ -854,7 +857,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
       כניסה עם Google
     </button>
     <div class="auth-err" id="auth-err"></div>
-    <button class="auth-link" id="auth-mode-link" onclick="authToggleMode()">משתמש/ת חדש/ה? הרשמה</button>
+    <button class="auth-register-btn" id="auth-mode-link" onclick="authToggleMode()">משתמש/ת חדש/ה? הרשמה</button>
     <button class="auth-link" id="auth-reset-link" onclick="authForgotPassword()">שכחתי סיסמה</button>
   </div>
 </div>
@@ -886,6 +889,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
         <button onclick="closeAdminMenu();renderAuditLog()">📋 יומן פעולות</button>
         <button onclick="closeAdminMenu();openUserMgmt()">👤 ניהול משתמשים</button>
         <button onclick="closeAdminMenu();openBizSettings()">🏢 הגדרות עסק</button>
+        <button onclick="closeAdminMenu();openWhatsNew()">🔔 מה חדש?</button>
         <button onclick="closeAdminMenu();loadDemoData()">🎭 נתוני דוגמה</button>
         <button onclick="closeAdminMenu();showTermsInfo()">📄 תנאי שימוש ופרטיות</button>
         <div class="hdr-dropdown-sep"></div>
@@ -1069,9 +1073,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-06-30b';
+var APP_VERSION  = '2026-07-01a';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-07-01a', t: '🛠️ תיקוני יציבות ו-UX: חישוב שעות תוקן (כניסה+יציאה זהה לא מחשבת 24 שעות), מע"מ 0% נשמר בכל המקומות, Food Cost בהשוואת חודשים תוקן, אבטחה: כשל רשת לא מקדם עובד לבעלים · כפתור הרשמה בולט, הסבר ש"נ בטבלאות, כפתור מחק עם טקסט, אזהרה ברורה בנתוני דוגמה, מסלול שלבים ב-Empty States · 🔔 "מה חדש?" נוסף לתפריט' },
   { v: '2026-06-30b', t: '💾 העדפות תצוגה (רשימה/כרטיסים בהוצאות, הצגת גרפים, מע"מ ב-Food Cost, תצוגת שעות) נשמרות כעת ולא מתאפסות ברענון או בכניסה מחדש' },
   { v: '2026-06-30a', t: '🛡️ ביקורת קוד מקיפה (8 סוכנים): תיקון באג קריטי בכניסה (לא מקדם עובד לבעלים בטעות), הגנה מאיבוד נתונים בכשל שמירה, מע"מ 0% תקין, הוצאה בלי שם לא נמחקת בשתיקה, תיקוני מצב כהה (Food Cost/Labor Cost + מסך כניסה), הגנה מגרש בשמות תפקיד/ספק' },
   { v: '2026-06-29f', t: '🚀 חדש: צ\'קליסט "צעדים ראשונים" במסך "היום" לעסק חדש · 📄 ייצוא תקציר קריא לאקסל (עובדים+הגדרות) מתפריט הניהול' },
@@ -2211,7 +2216,7 @@ function renderEmps() {
         '<button class="btn btn-' + (emp.active?'danger':'success') + ' btn-sm" onclick="toggleEmpActive(\'' + emp.id + '\')">' +
           (emp.active ? '⏸ הקפא' : '▶ הפעל') +
         '</button>' +
-        '<button class="btn btn-danger btn-sm" onclick="deleteEmp(\'' + emp.id + '\')" title="מחק עובד לצמיתות" style="opacity:.6;font-size:13px">🗑️</button>' +
+        '<button class="btn btn-danger btn-sm" onclick="deleteEmp(\'' + emp.id + '\')" title="מחק עובד לצמיתות" style="font-size:13px">🗑️ מחק</button>' +
       '</div>' +
     '</div>';
   }
@@ -2520,7 +2525,7 @@ function renderHoursWeekly() {
   var emps = S.employees.filter(function(e){ return e.active; });
   var cont = document.getElementById('hours-content');
   if (!emps.length) {
-    cont.innerHTML = '<div class="empty"><div class="empty-icon">⏱</div><div class="empty-title">אין עובדים פעילים</div><div class="empty-text">הוסיפו עובדים בלשונית "עובדים" כדי להתחיל להזין שעות</div><button class="btn btn-primary" style="margin-top:14px" onclick="switchTab(\'employees\')">👥 מעבר ללשונית עובדים</button></div>';
+    cont.innerHTML = '<div class="empty"><div class="empty-icon">⏱</div><div class="empty-title">אין עובדים פעילים עדיין</div><div class="empty-text">הוסיפו עובד בלשונית "עובדים" (שם, תפקיד, שכר) — ואז תוכלו לחזור לכאן ולמלא שעות</div><button class="btn btn-primary" style="margin-top:14px" onclick="switchTab(\'employees\')">👥 שלב 1 — הוסף עובד ראשון</button></div>';
     return;
   }
   var days = [];
@@ -2671,8 +2676,8 @@ function renderHoursWeekly() {
     '</table></div>' +
     '<div style="margin-top:14px;display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-muted);align-items:center">' +
       '<span>💡 נשמר אוטומטית</span>' +
-      '<span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:14px;border-radius:3px;background:#fef9c3;border:1.5px solid #d97706;display:inline-block"></span>ש"נ 125%</span>' +
-      '<span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:14px;border-radius:3px;background:#fee2e2;border:1.5px solid #dc2626;display:inline-block"></span>ש"נ 150%</span>' +
+      '<span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:14px;border-radius:3px;background:#fef9c3;border:1.5px solid #d97706;display:inline-block"></span>שעות נוספות 125% (שעות 9–10)</span>' +
+      '<span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:14px;border-radius:3px;background:#fee2e2;border:1.5px solid #dc2626;display:inline-block"></span>שעות נוספות 150% (מעל 10 שעות / שישי-שבת)</span>' +
       '<span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:14px;border-radius:3px;background:#f0fdf4;border:1.5px solid #16a34a;display:inline-block"></span>יום עם שעות</span>' +
     '</div>';
 }
@@ -2730,7 +2735,7 @@ function renderHoursDaily() {
   var cont = document.getElementById('hours-content');
 
   if (!emps.length) {
-    cont.innerHTML = '<div class="empty"><div class="empty-icon">⏱</div><div class="empty-title">אין עובדים פעילים</div><div class="empty-text">הוסיפו עובדים בלשונית "עובדים" כדי להתחיל להזין שעות</div><button class="btn btn-primary" style="margin-top:14px" onclick="switchTab(\'employees\')">👥 מעבר ללשונית עובדים</button></div>';
+    cont.innerHTML = '<div class="empty"><div class="empty-icon">⏱</div><div class="empty-title">אין עובדים פעילים עדיין</div><div class="empty-text">הוסיפו עובד בלשונית "עובדים" (שם, תפקיד, שכר) — ואז תוכלו לחזור לכאן ולמלא שעות</div><button class="btn btn-primary" style="margin-top:14px" onclick="switchTab(\'employees\')">👥 שלב 1 — הוסף עובד ראשון</button></div>';
     return;
   }
 
@@ -2834,8 +2839,8 @@ function renderHoursDaily() {
       '<thead><tr>' +
         '<th class="sticky-col" style="min-width:170px">👤 שם עובד</th>' +
         '<th style="min-width:90px">שעות רגילות</th>' +
-        (anyHasOT ? '<th style="min-width:75px">ש"נ 125%</th>' : '') +
-        (anyHasOT ? '<th style="min-width:75px">ש"נ 150%</th>' : '') +
+        (anyHasOT ? '<th style="min-width:75px" title="שעות נוספות 125% — שעות 9 ו-10 ביום">ש"נ 125%</th>' : '') +
+        (anyHasOT ? '<th style="min-width:75px" title="שעות נוספות 150% — מעל 10 שעות ביום או שישי-שבת">ש"נ 150%</th>' : '') +
         '<th style="min-width:70px">🚌 נסיעה</th>' +
       '</tr></thead>' +
       '<tbody>' + tbody + '</tbody>' +
@@ -2852,7 +2857,7 @@ function renderHoursMonthly() {
   var cont = document.getElementById('hours-content');
 
   if (!emps.length) {
-    cont.innerHTML = '<div class="empty"><div class="empty-icon">⏱</div><div class="empty-title">אין עובדים פעילים</div><div class="empty-text">הוסיפו עובדים בלשונית "עובדים" כדי להתחיל להזין שעות</div><button class="btn btn-primary" style="margin-top:14px" onclick="switchTab(\'employees\')">👥 מעבר ללשונית עובדים</button></div>';
+    cont.innerHTML = '<div class="empty"><div class="empty-icon">⏱</div><div class="empty-title">אין עובדים פעילים עדיין</div><div class="empty-text">הוסיפו עובד בלשונית "עובדים" (שם, תפקיד, שכר) — ואז תוכלו לחזור לכאן ולמלא שעות</div><button class="btn btn-primary" style="margin-top:14px" onclick="switchTab(\'employees\')">👥 שלב 1 — הוסף עובד ראשון</button></div>';
     return;
   }
 
@@ -2939,7 +2944,7 @@ function renderHoursMonthly() {
     '<div class="table-wrap" style="border:1.5px solid var(--border);border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.08)"><table style="border-collapse:collapse;width:100%">' +
       '<thead><tr>' +
         '<th class="sticky-col" style="min-width:170px">👤 שם עובד</th>' +
-        '<th>ימי עבודה</th><th>שעות רגילות</th>' + (anyHasOT ? '<th>ש"נ 125%</th><th>ש"נ 150%</th>' : '') + '<th>ימי נסיעה</th>' +
+        '<th>ימי עבודה</th><th>שעות רגילות</th>' + (anyHasOT ? '<th title="שעות נוספות 125% — שעות 9 ו-10 ביום">ש"נ 125%</th><th title="שעות נוספות 150% — מעל 10 שעות ביום / שישי-שבת">ש"נ 150%</th>' : '') + '<th>ימי נסיעה</th>' +
         '<th style="min-width:155px">תוספת ₪ + תאריך + סיבה</th><th style="min-width:140px">מפרעה ₪ + תאריך</th><th>הערות</th>' +
       '</tr></thead>' +
       '<tbody>' + tbody + '</tbody>' +
@@ -2956,7 +2961,7 @@ function renderPayroll() {
   var cont = document.getElementById('payroll-content');
 
   if (!S.employees.filter(function(e){ return e.active; }).length) {
-    cont.innerHTML = '<div class="empty"><div class="empty-icon">💰</div><div class="empty-title">אין עובדים פעילים</div><div class="empty-text">הוסיפו עובדים בלשונית "עובדים", ומלאו עבורם שעות לפני חישוב משכורות</div><button class="btn btn-primary" style="margin-top:14px" onclick="switchTab(\'employees\')">👥 מעבר ללשונית עובדים</button></div>';
+    cont.innerHTML = '<div class="empty"><div class="empty-icon">💰</div><div class="empty-title">אין עובדים פעילים עדיין</div><div class="empty-text" style="max-width:340px;margin:0 auto 16px"><b>לפני שמחשבים משכורות — שלושה שלבים:</b><ol style="text-align:right;padding-right:20px;margin-top:8px;line-height:2"><li><b>הוסיפו עובד</b> בלשונית "עובדים" (שם, תפקיד, שכר שעתי)</li><li><b>מלאו שעות</b> בלשונית "שעות"</li><li>חזרו לכאן — המשכורת תחושב אוטומטית ✅</li></ol></div><button class="btn btn-primary" style="margin-top:4px" onclick="switchTab(\'employees\')">👥 שלב 1 — הוסף עובד ראשון</button></div>';
     return;
   }
 
@@ -3280,7 +3285,7 @@ function timeDiff(from, to) {
   var fp = from.split(':').map(Number);
   var tp = to.split(':').map(Number);
   var mins = (tp[0]*60 + tp[1]) - (fp[0]*60 + fp[1]);
-  if (mins <= 0) mins += 24*60;
+  if (mins < 0) mins += 24*60;
   return parseFloat((mins / 60).toFixed(2));
 }
 
@@ -4792,7 +4797,7 @@ function buildMonthComparison(ym, curIncome, curExpenses, curPl, curFc, curLc) {
   if (prevIncome === 0 && getPurchasesTotal(prevYm) === 0 && getPayrollTotal(prevYm) === 0) {
     return '<div style="margin-top:24px;padding:18px 22px;background:#f8fafc;border:1.5px dashed var(--border);border-radius:var(--r);color:var(--text-muted);text-align:center;font-size:14px">אין נתונים לחודש הקודם להשוואה</div>';
   }
-  var vat2   = toNum((S.settings||{}).vat)||17;
+  var vat2   = getVat();
   var prevNet = prevIncome > 0 ? prevIncome / (1 + vat2/100) : 0;
   var prevPayroll   = getPayrollTotal(prevYm);
   var prevPurchases = getPurchasesTotal(prevYm);
@@ -4803,7 +4808,8 @@ function buildMonthComparison(ym, curIncome, curExpenses, curPl, curFc, curLc) {
   var prevExtra = (prevCtrl.extras||[]).reduce(function(s,e){return s+toNum(e.amount);},0);
   var prevExpenses = prevPayroll + prevPurchases + prevFixed + prevExtra;
   var prevPl = prevIncome - prevExpenses;
-  var prevFc = prevNet > 0 && prevPurchases > 0 ? (prevPurchases/(1+vat2/100)) / prevNet * 100 : 0;
+  var prevDenomFC = fcWithVat ? prevIncome : prevNet;
+  var prevFc = prevDenomFC > 0 && prevPurchases > 0 ? prevPurchases / prevDenomFC * 100 : 0;
   var prevLc = prevNet > 0 ? prevPayroll / prevNet * 100 : 0;
 
   var prevLabel = MHE[m-1] + ' ' + y;
@@ -6135,8 +6141,8 @@ async function loadDemoData() {
   if (S.employees.length > 0) {
     var ok = await customConfirm({
       title: 'טעינת נתוני דוגמה',
-      message: 'טעינת נתוני דוגמה תמחק את כל הנתונים הנוכחיים שלך.',
-      confirmText: 'טען נתוני דוגמה', danger: true
+      message: '⚠️ פעולה זו תמחק לצמיתות את כל הנתונים הקיימים שלך — עובדים, שעות, משכורות, דוחות ורכישות.\n\nהנתונים הנוכחיים לא יוכלו להיות מושחזרים לאחר מכן (אלא אם יש לך גיבוי).\n\nבמקומם ייטענו נתוני דוגמה פיקטיביים לבדיקה בלבד.',
+      confirmText: '⚠️ מחק נתונים וטען דוגמה', danger: true
     });
     if (!ok) return;
   } else {
@@ -7028,7 +7034,7 @@ async function removeUserMember(uid) {
   if (!isOwner()) { toast('פעולה זו שמורה לבעל/ת העסק', 'err'); return; }
   var ok = await customConfirm({
     title: 'הסרת משתמש',
-    message: 'להסיר את הגישה של המשתמש הזה למערכת? בכניסה הבאה שלו/ה תיווצר עבורו/ה מערכת חדשה וריקה, ולא תהיה לו/ה יותר גישה לנתונים שלך.',
+    message: 'להסיר את הגישה של המשתמש הזה? המשתמש לא יוכל להיכנס למערכת עד שתזמינ/י אותו מחדש, ולא תהיה לו/ה יותר גישה לנתונים שלך.',
     confirmText: 'הסר גישה', danger: true
   });
   if (!ok) return;
@@ -7145,6 +7151,7 @@ function authToggleMode() {
   document.getElementById('auth-pw2').style.display = isSignup ? '' : 'none';
   document.getElementById('auth-btn').textContent  = isSignup ? 'צור חשבון' : 'כניסה';
   document.getElementById('auth-mode-link').textContent = isSignup ? 'יש לי כבר חשבון — כניסה' : 'משתמש/ת חדש/ה? הרשמה';
+  document.getElementById('auth-reset-link').style.display = isSignup ? 'none' : '';
   document.getElementById('auth-err').textContent = '';
 }
 
@@ -7293,14 +7300,16 @@ async function authLoadAndShowApp(user) {
     // רשת זמנית לא צריכה "לקדם" אותו לבעלים מדומה של עסק ריק בשם שלו. עדיף
     // לחסום ולתת לו לנסות שוב מאשר לפתוח לו בטעות מסך owner על נתונים שגויים.
     var cachedBizIdOnErr = (function(){ try { return localStorage.getItem('cafeManager_cachedBizId'); } catch (e2) { return null; } })();
-    if (cachedBizIdOnErr && cachedBizIdOnErr !== user.uid) {
+    // fallback בטוח רק אם ה-cache מאשר שהמשתמש הזה הוא בעלים (bizId = uid שלו)
+    if (cachedBizIdOnErr !== user.uid) {
+      // חבר צוות, כניסה ראשונה, או שום cache — לא לפתוח כבעלים
       toast('⚠️ שגיאה בזיהוי החשבון — בדוק/י את החיבור לאינטרנט ונסה/י שוב', 'err');
       document.getElementById('auth-screen').style.display = 'flex';
       var aerr = document.getElementById('auth-err');
       if (aerr) aerr.textContent = 'שגיאה זמנית בזיהוי החשבון — נסה/י לרענן את הדף';
       return;
     }
-    toast('⚠️ שגיאה בזיהוי החשבון — עובד מהנתונים המקומיים', 'err');
+    toast('⚠️ שגיאה בטעינת הנתונים מהענן — עובד מהנתונים המקומיים', 'err');
     currentBusinessId = user.uid;
     currentRole = 'owner';
     currentAllowedTabs = [];
@@ -7745,7 +7754,6 @@ function fetchBizAuto() {
     });
 }
 
-function fetchBizLogo() { fetchBizAuto(); }
 
 function _setBizLogoPreview(src) {
   var preview = document.getElementById('biz-logo-preview');
@@ -7967,28 +7975,6 @@ function showTermsInfo() {
   document.getElementById('modal').classList.remove('hidden');
 }
 
-function showConnectionDebugInfo() {
-  if (!_guardModalSwitch('connDebug')) return;
-  var info = {
-    uid: currentUid,
-    businessId: currentBusinessId,
-    role: currentRole,
-    allowedTabs: currentAllowedTabs,
-    allMemberships: currentAllMemberships,
-    cachedBizId: (function(){ try { return localStorage.getItem('cafeManager_cachedBizId'); } catch(e){ return '—'; } })(),
-    employeesCount: (S.employees || []).length,
-    resolveSteps: window._resolveDebug || 'אין מידע (לא עבר תהליך זיהוי בסשן הזה)'
-  };
-  var html =
-    '<h2 class="modal-title">🔍 פרטי חיבור</h2>' +
-    '<div style="font-size:12.5px;color:var(--text-muted);margin-bottom:10px">לצורך אבחון תקלות — צלם מסך זה ושלח לתמיכה.</div>' +
-    '<pre style="background:#f5f5f5;border-radius:8px;padding:14px;font-size:12px;direction:ltr;text-align:left;white-space:pre-wrap;word-break:break-all;max-height:50vh;overflow-y:auto">' +
-    escHtml(JSON.stringify(info, null, 2)) +
-    '</pre>' +
-    '<div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal()">סגור</button></div>';
-  document.getElementById('modal-box').innerHTML = html;
-  document.getElementById('modal').classList.remove('hidden');
-}
 
 function isFirstTimeSetup() {
   return !localStorage.getItem('cafeManager_setupDone') && S.employees.length === 0;
@@ -8130,7 +8116,7 @@ function wizStep(delta) {
     var nameInp = document.getElementById('wiz-biz-name');
     var vatInp  = document.getElementById('wiz-vat');
     if (nameInp && nameInp.value.trim()) S.settings.biz.name = nameInp.value.trim();
-    S.settings.vat = (vatInp && toNum(vatInp.value)) || S.settings.vat || 17;
+    if (vatInp && vatInp.value.trim() !== '') { var _vn = parseFloat(vatInp.value); if (!isNaN(_vn)) S.settings.vat = Math.min(Math.max(0, _vn), 100); }
     persist();
     applyBizSettings();
   }
