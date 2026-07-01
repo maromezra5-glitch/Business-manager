@@ -963,7 +963,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
           <button class="btn btn-sm" id="hmode-weekly"  onclick="setHoursMode('weekly')"  style="border-radius:0;border:none;border-right:1.5px solid var(--border);padding:7px 16px">📋 שבועי</button>
           <button class="btn btn-sm" id="hmode-monthly" onclick="setHoursMode('monthly')" style="border-radius:0;border:none;border-right:1.5px solid var(--border);padding:7px 16px">📆 חודשי</button>
         </div>
-        <div id="hours-month-wrap" class="month-sel" style="display:none"><label>חודש:</label><select id="hours-month" onchange="renderHours()"></select></div>
+        <div id="hours-month-wrap" class="month-sel" style="display:none"><label>חודש:</label><select id="hours-month" onchange="onMonthChange(this,renderHours)"></select></div>
       </div>
     </div>
     <div id="hours-content"></div>
@@ -974,7 +974,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
     <div class="panel-header">
       <h1 class="panel-title">💰 דוח משכורות</h1>
       <div class="panel-actions">
-        <div class="month-sel"><label>חודש:</label><select id="payroll-month" onchange="renderPayroll()"></select></div>
+        <div class="month-sel"><label>חודש:</label><select id="payroll-month" onchange="onMonthChange(this,renderPayroll)"></select></div>
         <button class="btn btn-secondary" onclick="exportPayroll()">📥 ייצוא לאקסל (לרו"ח)</button>
       </div>
     </div>
@@ -986,7 +986,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
     <div class="panel-header">
       <h1 class="panel-title">📊 דוח Z — מכירות יומיות</h1>
       <div class="panel-actions">
-        <div class="month-sel"><label>חודש:</label><select id="z-month" onchange="renderZ()"></select></div>
+        <div class="month-sel"><label>חודש:</label><select id="z-month" onchange="onMonthChange(this,renderZ)"></select></div>
         <button class="btn btn-secondary" onclick="exportZ()">📥 ייצוא אקסל</button>
         <button class="btn btn-secondary" id="charts-toggle-z" onclick="toggleCharts()">📊 הצג גרפים</button>
       </div>
@@ -999,7 +999,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
     <div class="panel-header">
       <h1 class="panel-title">💸 ניהול טיפים</h1>
       <div class="panel-actions">
-        <div class="month-sel"><label>חודש:</label><select id="tips-month" onchange="renderTips()"></select></div>
+        <div class="month-sel"><label>חודש:</label><select id="tips-month" onchange="onMonthChange(this,renderTips)"></select></div>
         <button class="btn btn-secondary" onclick="exportTips()">📥 ייצוא אקסל</button>
       </div>
     </div>
@@ -1011,7 +1011,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
     <div class="panel-header">
       <h1 class="panel-title">🛒 קניות מספקים</h1>
       <div class="panel-actions">
-        <div class="month-sel"><label>חודש:</label><select id="pur-month" onchange="renderPurchases()"></select></div>
+        <div class="month-sel"><label>חודש:</label><select id="pur-month" onchange="onMonthChange(this,renderPurchases)"></select></div>
         <button class="btn btn-secondary" onclick="exportPurchases()">📥 ייצוא אקסל</button>
       </div>
     </div>
@@ -1024,7 +1024,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
     <div class="panel-header">
       <h1 class="panel-title">📋 טבלת שליטה</h1>
       <div class="panel-actions">
-        <div class="month-sel"><label>חודש:</label><select id="ctrl-month" onchange="renderControl()"></select></div>
+        <div class="month-sel"><label>חודש:</label><select id="ctrl-month" onchange="onMonthChange(this,renderControl)"></select></div>
         <button class="btn btn-primary" onclick="saveControl()">💾 שמור הוצאות</button>
         <button class="btn btn-secondary" onclick="exportControl()">📥 ייצוא P&amp;L לאקסל</button>
         <button class="btn btn-secondary" onclick="printControlPL()">🖨️ הדפס / PDF</button>
@@ -1245,6 +1245,7 @@ var hoursRoleFilter = '';
 var hoursNameSearch = '';
 var payrollNameSearch = '';
 var showCharts = _loadUiPref('showCharts', false);
+var _sharedYM = '';
 var expenseListView = _loadUiPref('expenseListView', false);
 var _chartInstances = {};
 if (typeof Chart !== 'undefined' && typeof ChartDataLabels !== 'undefined') {
@@ -1717,6 +1718,8 @@ function switchTab(name) {
     if (typeof toast === 'function') toast('אין לך הרשאה לגישה לטאב הזה', 'err');
     return;
   }
+  // סנכרן חודש לפני רינדור כדי שהלשונית החדשה תציג את אותו חודש שנבחר
+  if (_sharedYM) _syncAllMonthSelects(_sharedYM);
   document.querySelectorAll('.tab-btn').forEach(function(b) {
     b.classList.toggle('active', b.id === 'btn-' + name);
   });
@@ -6296,9 +6299,22 @@ async function loadDemoData() {
 /* ================================================================
    INIT
 ================================================================ */
+var _MONTH_IDS = ['hours-month','payroll-month','z-month','tips-month','pur-month','ctrl-month'];
+function _syncAllMonthSelects(ym) {
+  _sharedYM = ym;
+  _MONTH_IDS.forEach(function(id){
+    var el = document.getElementById(id);
+    if (el && el.value !== ym) el.value = ym;
+  });
+}
+function onMonthChange(el, renderFn) {
+  _syncAllMonthSelects(el.value);
+  renderFn();
+}
 function initSelects() {
   var cy = curYM();
-  ['hours-month','payroll-month','z-month','tips-month','pur-month','ctrl-month'].forEach(function(id){
+  _sharedYM = cy;
+  _MONTH_IDS.forEach(function(id){
     var el = document.getElementById(id);
     if (el) el.innerHTML = monthOpts(cy);
   });
