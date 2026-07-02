@@ -1083,7 +1083,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-07-02h';
+var APP_VERSION  = '2026-07-02i';
 
 // בדיקת גרסה אוטומטית — טוען גרסה טרייה ישירות מ-GitHub (עוקף browser cache וגם CDN cache)
 (function() {
@@ -1105,6 +1105,7 @@ var APP_VERSION  = '2026-07-02h';
 
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-07-02i', t: 'תיקון: שמירת שורת ללא מעמ יומי בדוח Z בעת עדכון, ביטול void offsetWidth שגרם לתקיעות' },
   { v: '2026-07-02h', t: 'תיקון הבהוב: החלפת scale ל-opacity בלבד — ללא קפיצת דף, ללא בעיות מע״מ' },
   { v: '2026-07-02g', t: 'שיפורים ויזואלים: transition על hover טבלאות, גבול קורל על שורה פעילה, hover על כרטיסים, focus ring כפתורים, הבהוב מספרי סה״כ בדוח Z ובקניות ובשעות' },
   { v: '2026-07-02f', t: 'תיקון עדכון אוטומטי: בדיקה ישירה מ-GitHub בכל פתיחה — מוודא שהגרסה החדשה תמיד מגיעה ללא השהייה' },
@@ -2483,8 +2484,7 @@ function hoursToHM(dec) {
 function _flashNum(el) {
   if (!el) return;
   el.classList.remove('_nf');
-  void el.offsetWidth;
-  el.classList.add('_nf');
+  requestAnimationFrame(function() { el.classList.add('_nf'); });
 }
 function _weeklyFlash(inp) {
   renderWeeklyTotals();
@@ -3283,8 +3283,14 @@ function onZInput(inp) {
   var rec = S.zReports[ds];
   var zChLive = getZChannels();
   var rt = zChLive.reduce(function(s,f){ return s + toNum(rec[f.k]); }, 0);
+  var rtVatF = 1 + getVat() / 100;
+  var rtNet  = rt > 0 ? rt / rtVatF : 0;
   var rtEl = document.querySelector('[data-zrt="' + ds + '"]');
-  if (rtEl) { rtEl.innerHTML = '<strong style="color:' + (rt>0?'var(--success)':'var(--text-muted)') + '">' + (rt>0?ILS(rt):'—') + '</strong>'; if (fk !== 'voids' && fk !== 'reportNum') _flashNum(rtEl); }
+  if (rtEl) {
+    rtEl.innerHTML = '<strong style="color:' + (rt>0?'var(--success)':'var(--text-muted)') + '">' + (rt>0?ILS(rt):'—') + '</strong>' +
+      (rtNet > 0 ? '<div style="font-size:10.5px;color:#2563eb;font-weight:600;margin-top:1px">ללא מע"מ: ' + ILS(rtNet) + '</div>' : '');
+    if (fk !== 'voids' && fk !== 'reportNum') _flashNum(rtEl);
+  }
 
   var ym   = document.getElementById('z-month').value;
   var days = daysInMonth(ym);
