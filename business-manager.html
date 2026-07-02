@@ -1083,7 +1083,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-07-02j';
+var APP_VERSION  = '2026-07-02k';
 
 // בדיקת גרסה אוטומטית — טוען גרסה טרייה ישירות מ-GitHub (עוקף browser cache וגם CDN cache)
 (function() {
@@ -1105,6 +1105,7 @@ var APP_VERSION  = '2026-07-02j';
 
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-07-02k', t: 'עדכון מערכת' },
   { v: '2026-07-02j', t: 'עדכון מערכת' },
   { v: '2026-07-02i', t: 'תיקון: שמירת שורת ללא מעמ יומי בדוח Z בעת עדכון, ביטול void offsetWidth שגרם לתקיעות' },
   { v: '2026-07-02h', t: 'תיקון הבהוב: החלפת scale ל-opacity בלבד — ללא קפיצת דף, ללא בעיות מע״מ' },
@@ -3208,7 +3209,7 @@ function renderZ() {
       ' oninput="onZInput(this)"></td>';
     tbody += '<td data-zrt="' + ds + '">' +
       '<strong style="color:' + (dt>0?'var(--success)':'var(--text-muted)') + '">' + (dt>0?ILS(dt):'—') + '</strong>' +
-      (dtNet > 0 ? '<div style="font-size:10.5px;color:#2563eb;font-weight:600;margin-top:1px">ללא מע"מ: ' + ILS(dtNet) + '</div>' : '') +
+      '<div style="font-size:10.5px;color:#2563eb;font-weight:600;margin-top:1px">' + (dtNet > 0 ? 'ללא מע"מ: ' + ILS(dtNet) : ' ') + '</div>' +
     '</td>';
     tbody += '</tr>';
   }
@@ -3289,7 +3290,7 @@ function onZInput(inp) {
   var rtEl = document.querySelector('[data-zrt="' + ds + '"]');
   if (rtEl) {
     rtEl.innerHTML = '<strong style="color:' + (rt>0?'var(--success)':'var(--text-muted)') + '">' + (rt>0?ILS(rt):'—') + '</strong>' +
-      (rtNet > 0 ? '<div style="font-size:10.5px;color:#2563eb;font-weight:600;margin-top:1px">ללא מע"מ: ' + ILS(rtNet) + '</div>' : '');
+      '<div style="font-size:10.5px;color:#2563eb;font-weight:600;margin-top:1px">' + (rtNet > 0 ? 'ללא מע"מ: ' + ILS(rtNet) : ' ') + '</div>';
     if (fk !== 'voids' && fk !== 'reportNum') _flashNum(rtEl);
   }
 
@@ -4458,6 +4459,7 @@ function renderPurchasesTable() {
   var pur  = S.purchases[ym] || {};
   var sTotals = {};
   sups.forEach(function(s){ sTotals[s] = 0; });
+  var vatFac = 1 + getVat() / 100;
 
   var tbody = '';
   for (var d = 1; d <= days; d++) {
@@ -4478,7 +4480,8 @@ function renderPurchasesTable() {
         ' oninput="onPurInput(this)"></td>';
     });
     var dtColor = dt>0 ? 'var(--primary)' : (dt<0 ? 'var(--error)' : 'var(--text-muted)');
-    tbody += '<td data-prt="' + ds + '"><strong style="color:' + dtColor + '">' + (dt!==0?ILS(dt):'—') + '</strong></td>';
+    tbody += '<td data-prt="' + ds + '"><strong style="color:' + dtColor + '">' + (dt!==0?ILS(dt):'—') + '</strong>' +
+      '<div style="font-size:10.5px;color:#2563eb;font-weight:600;margin-top:1px">' + (dt !== 0 ? 'ללא מע"מ: ' + ILS(dt / vatFac) : ' ') + '</div></td>';
     tbody += '</tr>';
   }
 
@@ -4535,8 +4538,13 @@ function onPurInput(inp) {
   var rt  = 0;
   S.suppliers.forEach(function(s){ rt += toNum(rec[s]); });
   var rtColor = rt>0 ? 'var(--primary)' : (rt<0 ? 'var(--error)' : 'var(--text-muted)');
+  var rtVatFac = 1 + getVat() / 100;
   var rtEl = document.querySelector('[data-prt="' + ds + '"]');
-  if (rtEl) { rtEl.innerHTML = '<strong style="color:' + rtColor + '">' + (rt!==0?ILS(rt):'—') + '</strong>'; _flashNum(rtEl); }
+  if (rtEl) {
+    rtEl.innerHTML = '<strong style="color:' + rtColor + '">' + (rt!==0?ILS(rt):'—') + '</strong>' +
+      '<div style="font-size:10.5px;color:#2563eb;font-weight:600;margin-top:1px">' + (rt !== 0 ? 'ללא מע"מ: ' + ILS(rt / rtVatFac) : ' ') + '</div>';
+    _flashNum(rtEl);
+  }
 
   var days = daysInMonth(ym);
   var ct = 0;
