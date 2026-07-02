@@ -428,7 +428,7 @@ body {
 .s-card.blue-card { border-top-color: #2563EB; border-color: rgba(37,99,235,.18); background: linear-gradient(145deg,#EEF4FF,#DDE9FF,#F0F5FF); }
 .s-card.purple-card { border-top-color: #7C3AED; border-color: rgba(124,58,237,.18); background: linear-gradient(145deg,#F5F0FF,#EDE6FF,#F8F5FF); }
 .s-label { font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 10px; }
-.s-value { font-size: clamp(17px, 2.4vw, 25px); font-weight: 900; color: var(--text); line-height: 1.2; letter-spacing: -.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s-value { font-size: 21px; font-weight: 900; color: var(--text); line-height: 1.2; letter-spacing: -.5px; white-space: nowrap; }
 .s-value.orange { color: var(--primary); }
 .s-value.green { color: var(--success); }
 .s-value.red { color: var(--error); }
@@ -1083,7 +1083,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-07-03b';
+var APP_VERSION  = '2026-07-03c';
 
 // בדיקת גרסה אוטומטית — טוען גרסה טרייה ישירות מ-GitHub (עוקף browser cache וגם CDN cache)
 (function() {
@@ -1105,6 +1105,7 @@ var APP_VERSION  = '2026-07-03b';
 
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-07-03c', t: 'עדכון מערכת' },
   { v: '2026-07-03b', t: 'עדכון מערכת' },
   { v: '2026-07-03a', t: 'עדכון מערכת' },
   { v: '2026-07-02k', t: 'עדכון מערכת' },
