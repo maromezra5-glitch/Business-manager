@@ -1076,14 +1076,15 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-07-02e';
+var APP_VERSION  = '2026-07-02f';
 
-// בדיקת גרסה אוטומטית — מוריד את הקובץ עצמו ללא cache ומרענן אם יש גרסה חדשה יותר
+// בדיקת גרסה אוטומטית — טוען גרסה טרייה ישירות מ-GitHub (עוקף browser cache וגם CDN cache)
 (function() {
   try {
-    // אם כבר טענו מחדש לגרסה הנוכחית — לא בודקים שוב (מונע לולאה)
     if (location.search.indexOf('_v=' + APP_VERSION) >= 0) return;
-    fetch(location.pathname, { cache: 'no-store' })
+    // timestamp בURL מבטיח שה-CDN לא יחזיר תוצאה ישנה
+    var freshUrl = 'https://raw.githubusercontent.com/maromezra5-glitch/Business-manager/main/business-manager.html?_t=' + Date.now();
+    fetch(freshUrl, { cache: 'no-store' })
       .then(function(r) { return r.text(); })
       .then(function(html) {
         var m = html.match(/var APP_VERSION\s*=\s*'([^']+)'/);
@@ -1097,6 +1098,7 @@ var APP_VERSION  = '2026-07-02e';
 
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-07-02f', t: 'תיקון עדכון אוטומטי: בדיקה ישירה מ-GitHub בכל פתיחה — מוודא שהגרסה החדשה תמיד מגיעה ללא השהייה' },
   { v: '2026-07-02e', t: '⚡ עדכון אוטומטי: המערכת תזהה עכשיו גרסאות חדשות בכל פתיחה ותטען אותן אוטומטית — בלי צורך בריענון ידני' },
   { v: '2026-07-02d', t: '🖨️ הדפסה: נוספו כפתורי "הדפס / PDF" בלשונית משכורות ובלשונית קניות — פותחים חלון מוכן להדפסה עם סיכום, טבלה ותאריך' },
   { v: '2026-07-01a', t: '🛠️ תיקוני יציבות ו-UX: חישוב שעות תוקן (כניסה+יציאה זהה לא מחשבת 24 שעות), מע"מ 0% נשמר בכל המקומות, Food Cost בהשוואת חודשים תוקן, אבטחה: כשל רשת לא מקדם עובד לבעלים · כפתור הרשמה בולט, הסבר ש"נ בטבלאות, כפתור מחק עם טקסט, אזהרה ברורה בנתוני דוגמה, מסלול שלבים ב-Empty States · 🔔 "מה חדש?" נוסף לתפריט' },
