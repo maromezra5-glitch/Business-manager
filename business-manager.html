@@ -1083,7 +1083,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-07-03c';
+var APP_VERSION  = '2026-07-03d';
 
 // בדיקת גרסה אוטומטית — טוען גרסה טרייה ישירות מ-GitHub (עוקף browser cache וגם CDN cache)
 (function() {
@@ -1095,7 +1095,7 @@ var APP_VERSION  = '2026-07-03c';
       .then(function(r) { return r.text(); })
       .then(function(html) {
         var m = html.match(/var APP_VERSION\s*=\s*'([^']+)'/);
-        if (m && m[1] && m[1] !== APP_VERSION) {
+        if (m && m[1] && m[1] > APP_VERSION) {
           location.replace(location.pathname + '?_v=' + m[1]);
         }
       })
@@ -1105,6 +1105,7 @@ var APP_VERSION  = '2026-07-03c';
 
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-07-03d', t: 'עדכון מערכת' },
   { v: '2026-07-03c', t: 'עדכון מערכת' },
   { v: '2026-07-03b', t: 'עדכון מערכת' },
   { v: '2026-07-03a', t: 'עדכון מערכת' },
