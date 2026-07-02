@@ -891,7 +891,6 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
         <button onclick="closeAdminMenu();renderAuditLog()">📋 יומן פעולות</button>
         <button onclick="closeAdminMenu();openUserMgmt()">👤 ניהול משתמשים</button>
         <button onclick="closeAdminMenu();openBizSettings()">🏢 הגדרות עסק</button>
-        <button onclick="closeAdminMenu();openWhatsNew()">🔔 מה חדש?</button>
         <button onclick="closeAdminMenu();loadDemoData()">🎭 נתוני דוגמה</button>
         <button onclick="closeAdminMenu();showTermsInfo()">📄 תנאי שימוש ופרטיות</button>
         <div class="hdr-dropdown-sep"></div>
@@ -978,6 +977,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
       <div class="panel-actions">
         <div class="month-sel"><label>חודש:</label><select id="payroll-month" onchange="onMonthChange(this,renderPayroll)"></select><button class="month-now-btn" id="payroll-month-now" onclick="goToCurrentMonth()">↩ חודש נוכחי</button></div>
         <button class="btn btn-secondary" onclick="exportPayroll()">📥 ייצוא לאקסל (לרו"ח)</button>
+        <button class="btn btn-secondary" onclick="printPayrollTable()">🖨️ הדפס / PDF</button>
       </div>
     </div>
     <div id="payroll-content"></div>
@@ -1015,6 +1015,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
       <div class="panel-actions">
         <div class="month-sel"><label>חודש:</label><select id="pur-month" onchange="onMonthChange(this,renderPurchases)"></select><button class="month-now-btn" id="pur-month-now" onclick="goToCurrentMonth()">↩ חודש נוכחי</button></div>
         <button class="btn btn-secondary" onclick="exportPurchases()">📥 ייצוא אקסל</button>
+        <button class="btn btn-secondary" onclick="printPurchasesTable()">🖨️ הדפס / PDF</button>
       </div>
     </div>
     <div class="card" id="suppliers-mgmt" style="margin-bottom:20px;"></div>
@@ -1075,9 +1076,31 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-07-01a';
+var APP_VERSION  = '2026-07-02f';
+
+// בדיקת גרסה אוטומטית — טוען גרסה טרייה ישירות מ-GitHub (עוקף browser cache וגם CDN cache)
+(function() {
+  try {
+    if (location.search.indexOf('_v=' + APP_VERSION) >= 0) return;
+    // timestamp בURL מבטיח שה-CDN לא יחזיר תוצאה ישנה
+    var freshUrl = 'https://raw.githubusercontent.com/maromezra5-glitch/Business-manager/main/business-manager.html?_t=' + Date.now();
+    fetch(freshUrl, { cache: 'no-store' })
+      .then(function(r) { return r.text(); })
+      .then(function(html) {
+        var m = html.match(/var APP_VERSION\s*=\s*'([^']+)'/);
+        if (m && m[1] && m[1] !== APP_VERSION) {
+          location.replace(location.pathname + '?_v=' + m[1]);
+        }
+      })
+      .catch(function() {});
+  } catch(e) {}
+})();
+
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-07-02f', t: 'תיקון עדכון אוטומטי: בדיקה ישירה מ-GitHub בכל פתיחה — מוודא שהגרסה החדשה תמיד מגיעה ללא השהייה' },
+  { v: '2026-07-02e', t: '⚡ עדכון אוטומטי: המערכת תזהה עכשיו גרסאות חדשות בכל פתיחה ותטען אותן אוטומטית — בלי צורך בריענון ידני' },
+  { v: '2026-07-02d', t: '🖨️ הדפסה: נוספו כפתורי "הדפס / PDF" בלשונית משכורות ובלשונית קניות — פותחים חלון מוכן להדפסה עם סיכום, טבלה ותאריך' },
   { v: '2026-07-01a', t: '🛠️ תיקוני יציבות ו-UX: חישוב שעות תוקן (כניסה+יציאה זהה לא מחשבת 24 שעות), מע"מ 0% נשמר בכל המקומות, Food Cost בהשוואת חודשים תוקן, אבטחה: כשל רשת לא מקדם עובד לבעלים · כפתור הרשמה בולט, הסבר ש"נ בטבלאות, כפתור מחק עם טקסט, אזהרה ברורה בנתוני דוגמה, מסלול שלבים ב-Empty States · 🔔 "מה חדש?" נוסף לתפריט' },
   { v: '2026-06-30b', t: '💾 העדפות תצוגה (רשימה/כרטיסים בהוצאות, הצגת גרפים, מע"מ ב-Food Cost, תצוגת שעות) נשמרות כעת ולא מתאפסות ברענון או בכניסה מחדש' },
   { v: '2026-06-30a', t: '🛡️ ביקורת קוד מקיפה (8 סוכנים): תיקון באג קריטי בכניסה (לא מקדם עובד לבעלים בטעות), הגנה מאיבוד נתונים בכשל שמירה, מע"מ 0% תקין, הוצאה בלי שם לא נמחקת בשתיקה, תיקוני מצב כהה (Food Cost/Labor Cost + מסך כניסה), הגנה מגרש בשמות תפקיד/ספק' },
@@ -2027,7 +2050,7 @@ function _onboardingSteps() {
   });
   var hasZ = Object.keys(S.zReports).some(function(ds) {
     var r = S.zReports[ds];
-    return toNum(r.cash) + toNum(r.credit) + toNum(r.wolt) + toNum(r.hakafe) > 0;
+    return getZChannels().some(function(f){ return toNum(r[f.k]) > 0; });
   });
   var steps = [
     { done: hasEmp,   label: '👥 הוסיפו את העובד הראשון', tab: 'employees' },
@@ -2063,6 +2086,7 @@ function dismissOnboardingChecklist() {
   renderToday();
 }
 
+
 function renderToday() {
   var cont = document.getElementById('home-content');
   if (!cont) return;
@@ -2070,12 +2094,20 @@ function renderToday() {
   var ym    = today.slice(0, 7);
   var cards = '';
 
+  // #20 — יום הולדת (מופיע ראשון)
+  var todayMD = today.slice(5);
+  var bdays = S.employees.filter(function(e){ return e.active && e.dob && e.dob.slice(5) === todayMD; });
+  if (bdays.length > 0) {
+    cards += '<div class="s-card" style="border-color:#a78bfa;background:#faf5ff;grid-column:1/-1">' +
+      '<div class="s-label" style="color:#7c3aed">🎂 יום הולדת היום!</div>' +
+      '<div class="s-value" style="font-size:15px;color:#7c3aed">' + escHtml(bdays.map(function(e){ return e.name; }).join(', ')) + '</div>' +
+      '<div class="s-sub">חג שמח! 🎉</div>' +
+    '</div>';
+  }
+
   if (isTabAllowed('zreport')) {
-    var hiddenChannels = ZREPORT_HIDDEN_CHANNELS[(S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT] || [];
     var zrec = S.zReports[today] || {};
-    var todayIncome = ['cash', 'credit', 'wolt', 'hakafe']
-      .filter(function(k){ return hiddenChannels.indexOf(k) === -1; })
-      .reduce(function(s, k){ return s + toNum(zrec[k]); }, 0);
+    var todayIncome = getZChannels().reduce(function(s,f){ return s + toNum(zrec[f.k]); }, 0);
     cards += '<div class="s-card accent"><div class="s-label">💰 הכנסות היום</div><div class="s-value orange">' +
       (todayIncome > 0 ? ILS(todayIncome) : '—') + '</div>' +
       (todayIncome === 0 ? '<div class="s-sub">עדיין לא הוזן דוח Z להיום</div>' : '') +
@@ -2098,6 +2130,7 @@ function renderToday() {
     var workedCount = Object.keys(workedIds).length;
     var activeCount = S.employees.filter(function(e){ return e.active; }).length;
     cards += '<div class="s-card"><div class="s-label">👥 עבדו היום</div><div class="s-value">' + workedCount + ' / ' + activeCount + '</div></div>';
+
   }
 
   if (isTabAllowed('tips')) {
@@ -2157,7 +2190,7 @@ function renderEmps() {
     var weHidden  = ZREPORT_HIDDEN_CHANNELS[weType] || [];
     var weZreportLbl = (TAB_LABEL_OVERRIDES[weType] && TAB_LABEL_OVERRIDES[weType].zreport) || TAB_LABELS_BASE.zreport;
     var weZreportTxt = weZreportLbl.indexOf(' ') === -1 ? weZreportLbl : weZreportLbl.slice(weZreportLbl.indexOf(' ') + 1);
-    var weChannelsTxt = ['💵 מזומן','💳 אשראי'].concat(weHidden.indexOf('wolt')===-1?['🛵 וולט']:[]).concat(weHidden.indexOf('hakafe')===-1?['☕ הקפה']:[]).join(', ');
+    var weChannelsTxt = getZChannels().map(function(f){ return f.l; }).join(', ');
     c.innerHTML =
       '<div style="max-width:620px;margin:40px auto;text-align:center;animation:slideUp .3s ease both">' +
         '<div style="font-size:64px;margin-bottom:16px;animation:floatCoffee 4s ease-in-out infinite">' + weIcon + '</div>' +
@@ -3116,16 +3149,9 @@ function renderZ() {
   var days = daysInMonth(ym);
   var cont = document.getElementById('z-content');
 
-  var allFields = [
-    {k:'cash',   l:'💵 מזומן'},
-    {k:'credit', l:'💳 אשראי'},
-    {k:'wolt',   l:'🛵 וולט'},
-    {k:'hakafe', l:'☕ הקפה'},
-  ];
-  var hiddenChannels = ZREPORT_HIDDEN_CHANNELS[(S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT] || [];
-  var fields = allFields.filter(function(f){ return hiddenChannels.indexOf(f.k) === -1; });
-
-  var totals = {cash:0, credit:0, wolt:0, hakafe:0};
+  var fields = getZChannels();
+  var totals = {};
+  fields.forEach(function(f){ totals[f.k] = 0; });
   var voidsTotal = 0;
   var tbody = '';
   var vat = getVat();
@@ -3135,9 +3161,9 @@ function renderZ() {
     var ds  = dateFull(ym, d);
     var wd  = getDow(ds);
     var rec = (S.zReports[ds] || {});
-    allFields.forEach(function(f){ totals[f.k] += toNum(rec[f.k]); });
+    fields.forEach(function(f){ totals[f.k] += toNum(rec[f.k]); });
     voidsTotal += toNum(rec.voids);
-    var dt = allFields.reduce(function(s,f){ return s + toNum(rec[f.k]); }, 0);
+    var dt = fields.reduce(function(s,f){ return s + toNum(rec[f.k]); }, 0);
     var dtNet = dt > 0 ? dt / vatFactor : 0;
 
     tbody += '<tr class="' + (wd===6?'tr-shabbat':'') + '">';
@@ -3233,47 +3259,38 @@ function onZInput(inp) {
   flashSaved(inp);
 
   var rec = S.zReports[ds];
-  var fkeys = ['cash','credit','wolt','hakafe'];
-  var rt = fkeys.reduce(function(s,k){ return s + toNum(rec[k]); }, 0);
+  var zChLive = getZChannels();
+  var rt = zChLive.reduce(function(s,f){ return s + toNum(rec[f.k]); }, 0);
   var rtEl = document.querySelector('[data-zrt="' + ds + '"]');
   if (rtEl) rtEl.innerHTML = '<strong style="color:' + (rt>0?'var(--success)':'var(--text-muted)') + '">' + (rt>0?ILS(rt):'—') + '</strong>';
 
   var ym   = document.getElementById('z-month').value;
   var days = daysInMonth(ym);
-  var totals = {cash:0, credit:0, wolt:0, hakafe:0};
+  var totals = {};
+  zChLive.forEach(function(f){ totals[f.k] = 0; });
   var voidsTotal2 = 0;
   for (var d2 = 1; d2 <= days; d2++) {
     var r2 = S.zReports[dateFull(ym,d2)] || {};
-    fkeys.forEach(function(k){ totals[k] += toNum(r2[k]); });
+    zChLive.forEach(function(f){ totals[f.k] += toNum(r2[f.k]); });
     voidsTotal2 += toNum(r2.voids);
   }
-  var grand = Object.values(totals).reduce(function(a,b){return a+b;},0);
+  var grand = zChLive.reduce(function(s,f){ return s + totals[f.k]; }, 0);
   var vat2 = getVat();
   var vatF2 = 1 + vat2 / 100;
   function g(id){ return document.getElementById(id); }
   function zn(v){ return v > 0 ? ILS(v / vatF2) : '—'; }
-  if(g('zs-cash'))       g('zs-cash').textContent       = ILSr(totals.cash);
-  if(g('zs-credit'))     g('zs-credit').textContent     = ILSr(totals.credit);
-  if(g('zs-wolt'))       g('zs-wolt').textContent       = ILSr(totals.wolt);
-  if(g('zs-hakafe'))     g('zs-hakafe').textContent     = ILSr(totals.hakafe);
-  if(g('zs-grand'))      g('zs-grand').textContent      = ILSr(grand);
-  if(g('zs-cash-net'))   g('zs-cash-net').textContent   = 'ללא מע"מ: ' + zn(totals.cash);
-  if(g('zs-credit-net')) g('zs-credit-net').textContent = 'ללא מע"מ: ' + zn(totals.credit);
-  if(g('zs-wolt-net'))   g('zs-wolt-net').textContent   = 'ללא מע"מ: ' + zn(totals.wolt);
-  if(g('zs-hakafe-net')) g('zs-hakafe-net').textContent = 'ללא מע"מ: ' + zn(totals.hakafe);
-  if(g('zs-grand-net'))  g('zs-grand-net').textContent  = 'ללא מע"מ: ' + ILS(grand / vatF2);
-  if(g('zf-cash'))       g('zf-cash').innerHTML       = '<strong>' + ILS(totals.cash)   + '</strong>';
-  if(g('zf-credit'))     g('zf-credit').innerHTML     = '<strong>' + ILS(totals.credit) + '</strong>';
-  if(g('zf-wolt'))       g('zf-wolt').innerHTML       = '<strong>' + ILS(totals.wolt)   + '</strong>';
-  if(g('zf-hakafe'))     g('zf-hakafe').innerHTML     = '<strong>' + ILS(totals.hakafe) + '</strong>';
-  if(g('zf-grand'))      g('zf-grand').innerHTML      = '<strong style="color:var(--success);font-size:15px">' + ILS(grand) + '</strong>';
-  if(g('zf-cash-net'))   g('zf-cash-net').textContent   = zn(totals.cash);
-  if(g('zf-credit-net')) g('zf-credit-net').textContent = zn(totals.credit);
-  if(g('zf-wolt-net'))   g('zf-wolt-net').textContent   = zn(totals.wolt);
-  if(g('zf-hakafe-net')) g('zf-hakafe-net').textContent = zn(totals.hakafe);
-  if(g('zf-grand-net'))  g('zf-grand-net').innerHTML    = '<strong>' + ILS(grand / vatF2) + '</strong>';
-  if(g('zs-voids'))      g('zs-voids').textContent      = ILSr(voidsTotal2);
-  if(g('zf-voids'))      g('zf-voids').innerHTML        = '<strong style="color:#b91c1c">' + ILS(voidsTotal2) + '</strong>';
+  zChLive.forEach(function(f){
+    if(g('zs-'+f.k))     g('zs-'+f.k).textContent     = ILSr(totals[f.k]);
+    if(g('zs-'+f.k+'-net')) g('zs-'+f.k+'-net').textContent = 'ללא מע"מ: ' + zn(totals[f.k]);
+    if(g('zf-'+f.k))     g('zf-'+f.k).innerHTML       = '<strong>' + ILS(totals[f.k]) + '</strong>';
+    if(g('zf-'+f.k+'-net')) g('zf-'+f.k+'-net').textContent = zn(totals[f.k]);
+  });
+  if(g('zs-grand'))     g('zs-grand').textContent     = ILSr(grand);
+  if(g('zs-grand-net')) g('zs-grand-net').textContent = 'ללא מע"מ: ' + ILS(grand / vatF2);
+  if(g('zf-grand'))     g('zf-grand').innerHTML       = '<strong style="color:var(--success);font-size:15px">' + ILS(grand) + '</strong>';
+  if(g('zf-grand-net')) g('zf-grand-net').innerHTML   = '<strong>' + ILS(grand / vatF2) + '</strong>';
+  if(g('zs-voids'))     g('zs-voids').textContent     = ILSr(voidsTotal2);
+  if(g('zf-voids'))     g('zf-voids').innerHTML       = '<strong style="color:#b91c1c">' + ILS(voidsTotal2) + '</strong>';
 }
 
 /* ================================================================
@@ -4511,15 +4528,118 @@ function onPurInput(inp) {
 /* ================================================================
    TAB 7 — CONTROL TABLE
 ================================================================ */
+function getZChannels() {
+  var hidden;
+  if (S.settings && S.settings.zHiddenChannels !== undefined) {
+    hidden = S.settings.zHiddenChannels;
+  } else {
+    var bizType = (S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT;
+    hidden = ZREPORT_HIDDEN_CHANNELS[bizType] || [];
+  }
+  var base = [
+    {k:'cash',   l:'💵 מזומן',  fixed:true},
+    {k:'credit', l:'💳 אשראי',  fixed:true},
+    {k:'wolt',   l:'🛵 וולט',   fixed:false},
+    {k:'hakafe', l:'☕ הקפה',   fixed:false},
+  ].filter(function(f){ return f.fixed || hidden.indexOf(f.k) === -1; });
+  var extra = (S.settings && S.settings.zExtraChannels) || [];
+  return base.concat(extra);
+}
+function getZChannelColor(k, idx) {
+  var base = {cash:'#10b981', credit:'#3b82f6', wolt:'#f59e0b', hakafe:'#8b5cf6'};
+  if (base[k]) return base[k];
+  var extras = ['#ef4444','#06b6d4','#84cc16','#f97316','#ec4899','#a855f7'];
+  return extras[idx % extras.length];
+}
+function _getZHidden() {
+  if (!S.settings) S.settings = {};
+  if (S.settings.zHiddenChannels === undefined) {
+    var bizType = S.settings.businessType || BIZ_TYPE_DEFAULT;
+    S.settings.zHiddenChannels = (ZREPORT_HIDDEN_CHANNELS[bizType] || []).slice();
+  }
+  return S.settings.zHiddenChannels;
+}
+function toggleZBaseChannel(key) {
+  if (!isOwner()) { toast('פעולה זו שמורה לבעל/ת העסק', 'err'); return; }
+  var hidden = _getZHidden();
+  var idx = hidden.indexOf(key);
+  if (idx === -1) { hidden.push(key); } else { hidden.splice(idx, 1); }
+  saveAndSync().then(function(){ renderZChannelSettings(); toast('ערוץ עודכן ✓', 'ok'); });
+}
+function addZChannel() {
+  if (!isOwner()) { toast('פעולה זו שמורה לבעל/ת העסק', 'err'); return; }
+  var inp = document.getElementById('new-zchannel-inp');
+  if (!inp) return;
+  var label = inp.value.trim();
+  if (!label) { toast('הכנס שם ערוץ', 'err'); return; }
+  var key = 'ch_' + label.replace(/[^א-תa-z0-9]/gi, '').toLowerCase().slice(0,12) + '_' + Date.now().toString(36).slice(-4);
+  if (!S.settings) S.settings = {};
+  if (!S.settings.zExtraChannels) S.settings.zExtraChannels = [];
+  var exists = S.settings.zExtraChannels.some(function(c){ return c.l === label; });
+  if (exists) { toast('ערוץ עם שם זה כבר קיים', 'err'); return; }
+  S.settings.zExtraChannels.push({k: key, l: label});
+  inp.value = '';
+  saveAndSync().then(function(){ renderZChannelSettings(); toast('ערוץ נוסף ✓', 'ok'); });
+}
+function removeZChannel(key) {
+  if (!isOwner()) return;
+  if (!S.settings || !S.settings.zExtraChannels) return;
+  S.settings.zExtraChannels = S.settings.zExtraChannels.filter(function(c){ return c.k !== key; });
+  saveAndSync().then(function(){ renderZChannelSettings(); toast('ערוץ הוסר', 'ok'); });
+}
+function renderZChannelSettings() {
+  var wrap = document.getElementById('zchannel-settings-wrap');
+  if (!wrap) return;
+  var hidden = S.settings && S.settings.zHiddenChannels !== undefined
+    ? S.settings.zHiddenChannels
+    : (ZREPORT_HIDDEN_CHANNELS[(S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT] || []);
+  var extra = (S.settings && S.settings.zExtraChannels) || [];
+
+  function chip(label, key, isFixed, isActive) {
+    if (isFixed) {
+      return '<span style="display:inline-flex;align-items:center;gap:4px;background:#f0fdf4;color:#166534;border:1.5px solid #86efac;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:700" title="ערוץ קבוע — לא ניתן להסרה">' +
+        escHtml(label) + ' <span style="font-size:10px;opacity:.6">קבוע</span></span>';
+    }
+    if (isActive) {
+      return '<span style="display:inline-flex;align-items:center;gap:4px;background:var(--primary-light);color:var(--primary-dark);border:1.5px solid var(--primary);border-radius:20px;padding:3px 10px;font-size:12px;font-weight:700">' +
+        escHtml(label) +
+        '<button onclick="' + (key === 'wolt' || key === 'hakafe' ? 'toggleZBaseChannel' : 'removeZChannel') + '(\'' + escHtml(key) + '\')" style="background:none;border:none;cursor:pointer;color:var(--error);font-size:13px;line-height:1;padding:0 2px" title="הסר מדוח Z">✕</button>' +
+      '</span>';
+    }
+    return '<span style="display:inline-flex;align-items:center;gap:4px;background:#f3f4f6;color:#9ca3af;border:1.5px dashed #d1d5db;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:700;cursor:pointer" onclick="toggleZBaseChannel(\'' + escHtml(key) + '\')" title="לחץ להוסיף לדוח Z">' +
+      escHtml(label) + ' <span style="font-size:12px;color:#6b7280">＋</span></span>';
+  }
+
+  var baseChips =
+    chip('💵 מזומן',  'cash',   true,  true) + ' ' +
+    chip('💳 אשראי', 'credit', true,  true) + ' ' +
+    chip('🛵 וולט',  'wolt',   false, hidden.indexOf('wolt')   === -1) + ' ' +
+    chip('☕ הקפה',  'hakafe', false, hidden.indexOf('hakafe') === -1);
+
+  var extraChips = extra.map(function(c){
+    return chip(c.l, c.k, false, true);
+  }).join(' ');
+
+  wrap.innerHTML =
+    '<div style="margin-bottom:8px">' +
+    '<div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:5px">פעילים תמיד:</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">' + baseChips + '</div>' +
+    (extra.length ? '<div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:5px">ערוצים מותאמים:</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">' + extraChips + '</div>' : '') +
+    '</div>' +
+    '<div style="display:flex;gap:8px;align-items:center">' +
+    '<input type="text" class="form-control" id="new-zchannel-inp" placeholder="➕ ערוץ חדש (למשל: 💰 ביט, 📱 פייבוקס...)" style="flex:1;font-size:13px" maxlength="30" onkeydown="if(event.key===\'Enter\')addZChannel()">' +
+    '<button class="btn btn-primary btn-sm" onclick="addZChannel()" style="white-space:nowrap;font-size:12px">+ הוסף</button>' +
+    '</div>';
+}
 function getZBreakdown(ym) {
+  var channels = getZChannels();
   var days = daysInMonth(ym);
-  var t = {cash:0, credit:0, wolt:0, hakafe:0};
+  var t = {};
+  channels.forEach(function(f){ t[f.k] = 0; });
   for (var d = 1; d <= days; d++) {
     var r = S.zReports[dateFull(ym,d)] || {};
-    t.cash   += toNum(r.cash);
-    t.credit += toNum(r.credit);
-    t.wolt   += toNum(r.wolt);
-    t.hakafe += toNum(r.hakafe);
+    channels.forEach(function(f){ t[f.k] += toNum(r[f.k]); });
   }
   return t;
 }
@@ -4650,12 +4770,7 @@ function renderControl() {
       '<div class="card" style="border-color:rgba(42,122,82,.25);background:linear-gradient(160deg,#fff,#F0FBF5)">' +
         '<div class="card-title" style="color:var(--success)">📈 הכנסות החודש</div>' +
         '<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:10px;background:var(--success-bg);padding:5px 10px;border-radius:var(--r-xs)">⚡ מחושב אוטומטית מדוח Z</div>' +
-        '<div class="ctrl-row"><span class="ctrl-label">💵 מזומן</span><span class="ctrl-amount" style="color:var(--text)">'   + ILS(zb.cash)   + '</span></div>' +
-        '<div class="ctrl-row"><span class="ctrl-label">💳 אשראי</span><span class="ctrl-amount" style="color:var(--text)">'  + ILS(zb.credit) + '</span></div>' +
-        ((ZREPORT_HIDDEN_CHANNELS[(S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT] || []).indexOf('wolt') === -1 ?
-          '<div class="ctrl-row"><span class="ctrl-label">🛵 וולט</span><span class="ctrl-amount" style="color:var(--text)">'   + ILS(zb.wolt)   + '</span></div>' : '') +
-        ((ZREPORT_HIDDEN_CHANNELS[(S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT] || []).indexOf('hakafe') === -1 ?
-          '<div class="ctrl-row"><span class="ctrl-label">☕ הקפה</span><span class="ctrl-amount" style="color:var(--text)">'   + ILS(zb.hakafe) + '</span></div>' : '') +
+        getZChannels().map(function(f){ return '<div class="ctrl-row"><span class="ctrl-label">' + f.l + '</span><span class="ctrl-amount" style="color:var(--text)">' + ILS(zb[f.k]||0) + '</span></div>'; }).join('') +
         '<div class="ctrl-total" style="color:var(--success);border-color:var(--success)">' +
           '<span>✅ סה"כ הכנסות</span><span style="font-size:20px">' + ILS(totalIncome) + '</span>' +
         '</div>' +
@@ -4798,7 +4913,7 @@ function buildMonthComparison(ym, curIncome, curExpenses, curPl, curFc, curLc) {
   var prevYm = y + '-' + (m < 10 ? '0' + m : m);
 
   var pzb   = getZBreakdown(prevYm);
-  var prevIncome = pzb.cash + pzb.credit + pzb.wolt + pzb.hakafe;
+  var prevIncome = getZChannels().reduce(function(s,f){ return s + (pzb[f.k]||0); }, 0);
   if (prevIncome === 0 && getPurchasesTotal(prevYm) === 0 && getPayrollTotal(prevYm) === 0) {
     return '<div style="margin-top:24px;padding:18px 22px;background:#f8fafc;border:1.5px dashed var(--border);border-radius:var(--r);color:var(--text-muted);text-align:center;font-size:14px">אין נתונים לחודש הקודם להשוואה</div>';
   }
@@ -5244,29 +5359,23 @@ function exportZ() {
   var days    = daysInMonth(ym);
   var vat     = getVat();
   var vatF    = 1 + vat / 100;
-  var allKeys = ['cash','credit','wolt','hakafe'];
-  var allLbls = ['מזומן','אשראי','וולט','הקפה'];
-  var hiddenChannels = ZREPORT_HIDDEN_CHANNELS[(S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT] || [];
-  var visIdx  = allKeys.map(function(k,i){ return i; }).filter(function(i){ return hiddenChannels.indexOf(allKeys[i]) === -1; });
-  var lbls    = visIdx.map(function(i){ return allLbls[i]; });
-  var data    = [['דוח Z — ' + mn], [],
+  var zCh  = getZChannels();
+  var lbls = zCh.map(function(f){ return f.l; });
+  var data = [['דוח Z — ' + mn], [],
     ['תאריך','יום'].concat(lbls).concat(['🗑️ ביטולים/הנחות','סה"כ יומי (עם מע"מ)','סה"כ יומי (ללא מע"מ)'])];
-  var t = [0,0,0,0];
+  var tArr = zCh.map(function(){ return 0; });
   var voidsT = 0;
   for (var d = 1; d <= days; d++) {
-    var ds    = dateFull(ym, d);
-    var r     = S.zReports[ds] || {};
-    var vvAll = [toNum(r.cash),toNum(r.credit),toNum(r.wolt),toNum(r.hakafe)];
-    vvAll.forEach(function(x,i){ t[i] += x; });
+    var ds = dateFull(ym, d);
+    var r  = S.zReports[ds] || {};
+    var vv = zCh.map(function(f,i){ var v = toNum(r[f.k]); tArr[i] += v; return v; });
     voidsT += toNum(r.voids);
-    var dt    = vvAll.reduce(function(a,b){return a+b;},0);
-    var vv    = visIdx.map(function(i){ return vvAll[i]; });
+    var dt = vv.reduce(function(a,b){return a+b;},0);
     data.push([ds, DHE[getDow(ds)]].concat(vv).concat([toNum(r.voids), dt, +(dt/vatF).toFixed(2)]));
   }
-  var gt   = t.reduce(function(a,b){return a+b;},0);
-  var tVis = visIdx.map(function(i){ return t[i]; });
-  data.push([], ['סה"כ חודשי (עם מע"מ)',''].concat(tVis).concat([voidsT, gt, +(gt/vatF).toFixed(2)]));
-  data.push(['סה"כ חודשי (ללא מע"מ ' + vat + '%)',''].concat(tVis.map(function(v){return +(v/vatF).toFixed(2);})).concat(['', +(gt/vatF).toFixed(2),'']));
+  var gt = tArr.reduce(function(a,b){return a+b;},0);
+  data.push([], ['סה"כ חודשי (עם מע"מ)',''].concat(tArr).concat([voidsT, gt, +(gt/vatF).toFixed(2)]));
+  data.push(['סה"כ חודשי (ללא מע"מ ' + vat + '%)',''].concat(tArr.map(function(v){return +(v/vatF).toFixed(2);})).concat(['', +(gt/vatF).toFixed(2),'']));
   var ws = XLSX.utils.aoa_to_sheet(data);
   var wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, mn);
@@ -5526,7 +5635,7 @@ function exportControl() {
   var zb    = getZBreakdown(ym);
   var vat   = getVat();
   var vatFactor      = 1 + vat / 100;
-  var totalIncome    = zb.cash + zb.credit + zb.wolt + zb.hakafe;
+  var totalIncome    = getZChannels().reduce(function(s,f){ return s + (zb[f.k]||0); }, 0);
   var netSales       = totalIncome > 0 ? totalIncome / vatFactor : 0;
   var totalPayroll   = getPayrollTotal(ym);
   var totalPurchases = getPurchasesTotal(ym);
@@ -5551,18 +5660,14 @@ function exportControl() {
   var lc = netSales > 0 ? totalPayroll / netSales * 100 : 0;
 
   var fmt = function(n){ return +n.toFixed(2); };
-  var _hiddenCh = ZREPORT_HIDDEN_CHANNELS[(S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT] || [];
   var bizNameExp = ((S.settings || {}).biz || {}).name || '';
   var data = [
     ['דוח רווח והפסד — ' + mn].concat(bizNameExp ? [bizNameExp] : []),
     ['הופק בתאריך: ' + new Date().toLocaleDateString('he-IL')],
     [],
     ['=== הכנסות ==='],
-    ['מזומן',              fmt(zb.cash)],
-    ['אשראי',             fmt(zb.credit)],
   ];
-  if (_hiddenCh.indexOf('wolt')   === -1) data.push(['וולט',  fmt(zb.wolt)]);
-  if (_hiddenCh.indexOf('hakafe') === -1) data.push(['הקפות', fmt(zb.hakafe)]);
+  getZChannels().forEach(function(f){ data.push([f.l, fmt(zb[f.k]||0)]); });
   data.push(
     ['סה"כ הכנסות (עם מע"מ)',  fmt(totalIncome)],
     ['סה"כ הכנסות (ללא מע"מ ' + vat + '%)', fmt(netSales)],
@@ -5597,6 +5702,197 @@ function exportControl() {
   XLSX.writeFile(wb, 'P&L_' + parts[0] + '_' + parts[1] + '.xlsx');
 }
 
+function printPayrollTable() {
+  var ym    = document.getElementById('payroll-month').value;
+  var parts = ym.split('-');
+  var mn    = MHE[parseInt(parts[1])-1] + ' ' + parts[0];
+  var bizName = ((S.settings || {}).biz || {}).name || 'מנהל העסק';
+  var today = new Date();
+  var todayStr = today.getDate() + '/' + (today.getMonth()+1) + '/' + today.getFullYear();
+
+  var emps  = S.employees.filter(function(e){ return e.active; });
+  var tipsRpt = getDetailedSupplementReport(ym);
+  var totBase=0, totOT=0, totTrav=0, totBon=0, totAdv=0, totSuppl=0, grand=0;
+  var tbody = '';
+
+  emps.forEach(function(emp) {
+    var agg   = aggregateMonth(emp.id, ym);
+    var s     = calcSalary(emp, agg);
+    var suppl = (tipsRpt[emp.id] || {}).totalSuppl || 0;
+    totBase += s.base; totOT += s.ot125 + s.ot150;
+    totTrav += s.travel; totBon += s.bonus; totAdv += s.advance;
+    totSuppl += suppl; grand += s.total + suppl;
+    var badge = emp.type === 'hourly' ? 'שעתי' : 'חודשי';
+    var totalWithSuppl = s.total + suppl;
+    tbody += '<tr>' +
+      '<td><strong>' + escHtml(emp.name) + '</strong></td>' +
+      '<td style="text-align:center">' + badge + '</td>' +
+      '<td style="text-align:center">' + (agg.workDays || '—') + '</td>' +
+      '<td style="text-align:center">' + (s.hours > 0 ? s.hours.toFixed(1) : '—') + '</td>' +
+      '<td>' + ILS(s.base) + '</td>' +
+      '<td>' + (s.ot125+s.ot150 > 0 ? ILS(s.ot125+s.ot150) : '—') + '</td>' +
+      '<td>' + (s.travel > 0 ? ILS(s.travel) : '—') + '</td>' +
+      '<td>' + (s.bonus > 0 ? ILS(s.bonus) : '—') + '</td>' +
+      '<td>' + (suppl > 0 ? '+' + ILS(suppl) : '—') + '</td>' +
+      '<td>' + (s.advance > 0 ? '−' + ILS(s.advance) : '—') + '</td>' +
+      '<td><strong>' + ILS(totalWithSuppl) + '</strong></td>' +
+    '</tr>';
+  });
+
+  var html = '<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>משכורות — ' + mn + '</title>';
+  html += '<style>';
+  html += 'body{font-family:"Segoe UI",Arial,sans-serif;direction:rtl;padding:28px 32px;color:#1A1514;font-size:13px;background:#fff}';
+  html += '.ps-header{text-align:center;margin-bottom:22px;padding-bottom:16px;border-bottom:3px solid #D97757}';
+  html += '.ps-logo{font-size:32px;margin-bottom:4px}';
+  html += '.ps-title{font-size:20px;font-weight:900;color:#D97757;margin:0 0 2px}';
+  html += '.ps-sub{font-size:14px;color:#6B6460;font-weight:600;margin:0}';
+  html += '.summary{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}';
+  html += '.s-card{border:1px solid #E2DAD4;border-radius:8px;padding:9px 13px;min-width:110px}';
+  html += '.s-label{font-size:11px;color:#6B6460;margin-bottom:3px}';
+  html += '.s-value{font-size:16px;font-weight:900;color:#1A1514}';
+  html += '.s-card.green-card{border-color:#1E7D4B}';
+  html += '.s-card.green-card .s-value{color:#1E7D4B}';
+  html += 'table{width:100%;border-collapse:collapse;font-size:12px}';
+  html += 'thead th{background:#D97757;color:#fff;padding:9px 10px;text-align:right;font-weight:800;white-space:nowrap}';
+  html += 'tbody tr:nth-child(even) td{background:#FBF8F5}';
+  html += 'tbody td{padding:8px 10px;border-bottom:1px solid #E2DAD4;vertical-align:middle}';
+  html += 'tfoot td{background:#1A1514!important;color:#fff;font-weight:900;padding:10px;font-size:13px}';
+  html += '.ps-footer{text-align:center;color:#9C9490;font-size:11px;margin-top:20px;padding-top:10px;border-top:1px solid #E2DAD4}';
+  html += '.no-print{display:flex;gap:10px;justify-content:center;margin-bottom:18px}';
+  html += '.btn-print{background:#D97757;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer}';
+  html += '.btn-close{background:#EEE;color:#333;border:none;padding:10px 18px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer}';
+  html += '@media print{.no-print{display:none!important}body{padding:12px}}';
+  html += '</style></head><body>';
+
+  html += '<div class="no-print"><button class="btn-print" onclick="window.print()">🖨️ הדפס / שמור PDF</button><button class="btn-close" onclick="window.close()">✕ סגור</button></div>';
+  html += '<div class="ps-header"><div class="ps-logo">💰</div>';
+  html += '<h1 class="ps-title">' + escHtml(bizName) + '</h1>';
+  html += '<p class="ps-sub">דוח משכורות — ' + mn + ' | הודפס: ' + todayStr + '</p></div>';
+
+  html += '<div class="summary">';
+  html += '<div class="s-card"><div class="s-label">שכר בסיס</div><div class="s-value">' + ILSr(totBase) + '</div></div>';
+  if (totOT > 0) html += '<div class="s-card"><div class="s-label">שעות נוספות</div><div class="s-value">' + ILSr(totOT) + '</div></div>';
+  if (totTrav > 0) html += '<div class="s-card"><div class="s-label">נסיעות</div><div class="s-value">' + ILSr(totTrav) + '</div></div>';
+  if (totBon > 0) html += '<div class="s-card"><div class="s-label">תוספות</div><div class="s-value">' + ILSr(totBon) + '</div></div>';
+  if (totSuppl > 0) html += '<div class="s-card" style="border-color:#7C3AED"><div class="s-label" style="color:#5B21B6">⚡ השלמת טיפים</div><div class="s-value" style="color:#7C3AED">+' + ILSr(totSuppl) + '</div></div>';
+  if (totAdv > 0) html += '<div class="s-card" style="border-color:#DC2626"><div class="s-label">מפרעות</div><div class="s-value" style="color:#DC2626">−' + ILSr(totAdv) + '</div></div>';
+  html += '<div class="s-card green-card"><div class="s-label">💰 סה"כ לתשלום</div><div class="s-value">' + ILSr(grand) + '</div></div>';
+  html += '</div>';
+
+  html += '<table><thead><tr>' +
+    '<th>שם עובד</th><th>סוג</th><th>ימי עבודה</th><th>שעות</th>' +
+    '<th>שכר בסיס</th><th>ש"נ</th><th>נסיעות</th><th>תוספות</th>' +
+    '<th>⚡ השלמת טיפים</th><th>מפרעה</th><th>💰 סה"כ נטו</th>' +
+  '</tr></thead><tbody>' + tbody + '</tbody>' +
+  '<tfoot><tr>' +
+    '<td colspan="4">סה"כ חודש</td>' +
+    '<td>' + ILS(totBase) + '</td>' +
+    '<td>' + ILS(totOT) + '</td>' +
+    '<td>' + ILS(totTrav) + '</td>' +
+    '<td>' + ILS(totBon) + '</td>' +
+    '<td>' + (totSuppl > 0 ? '+' + ILS(totSuppl) : '—') + '</td>' +
+    '<td>' + (totAdv > 0 ? '−' + ILS(totAdv) : '—') + '</td>' +
+    '<td>' + ILS(grand) + '</td>' +
+  '</tr></tfoot></table>';
+
+  html += '<div class="ps-footer">הופק ע"י מנהל העסק · ' + todayStr + '</div>';
+  html += '</body></html>';
+  var win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+}
+
+function printPurchasesTable() {
+  var ym    = document.getElementById('pur-month').value;
+  var parts = ym.split('-');
+  var mn    = MHE[parseInt(parts[1])-1] + ' ' + parts[0];
+  var bizName = ((S.settings || {}).biz || {}).name || 'מנהל העסק';
+  var today = new Date();
+  var todayStr = today.getDate() + '/' + (today.getMonth()+1) + '/' + today.getFullYear();
+  var sups  = S.suppliers;
+  var vat   = getVat();
+  var vatFactor = 1 + vat / 100;
+
+  if (!sups.length) { toast('אין ספקים מוגדרים', 'err'); return; }
+
+  var days  = daysInMonth(ym);
+  var pur   = S.purchases[ym] || {};
+  var sTotals = {};
+  sups.forEach(function(s){ sTotals[s] = 0; });
+
+  var tbody = '';
+  for (var d = 1; d <= days; d++) {
+    var ds  = dateFull(ym, d);
+    var wd  = getDow(ds);
+    var rec = pur[ds] || {};
+    var dt  = 0;
+    sups.forEach(function(s){ var x=toNum(rec[s]); sTotals[s]+=x; dt+=x; });
+    if (dt === 0) continue;
+    var dayStr = DHE[wd] + ' ' + d + '/' + (parseInt(parts[1]));
+    tbody += '<tr' + (wd===6 ? ' style="background:#FFF7ED"' : '') + '>' +
+      '<td>' + dayStr + '</td>';
+    sups.forEach(function(s){ tbody += '<td>' + (toNum(rec[s]) !== 0 ? ILS(toNum(rec[s])) : '—') + '</td>'; });
+    tbody += '<td><strong>' + ILS(dt) + '</strong></td></tr>';
+  }
+
+  var grandTotal = Object.values(sTotals).reduce(function(a,b){return a+b;}, 0);
+
+  var html = '<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>קניות — ' + mn + '</title>';
+  html += '<style>';
+  html += 'body{font-family:"Segoe UI",Arial,sans-serif;direction:rtl;padding:28px 32px;color:#1A1514;font-size:13px;background:#fff}';
+  html += '.ps-header{text-align:center;margin-bottom:22px;padding-bottom:16px;border-bottom:3px solid #D97757}';
+  html += '.ps-logo{font-size:32px;margin-bottom:4px}';
+  html += '.ps-title{font-size:20px;font-weight:900;color:#D97757;margin:0 0 2px}';
+  html += '.ps-sub{font-size:14px;color:#6B6460;font-weight:600;margin:0}';
+  html += 'table{width:100%;border-collapse:collapse;font-size:12px}';
+  html += 'thead th{background:#D97757;color:#fff;padding:9px 10px;text-align:right;font-weight:800;white-space:nowrap}';
+  html += 'tbody tr:nth-child(even) td{background:#FBF8F5}';
+  html += 'tbody td{padding:8px 10px;border-bottom:1px solid #E2DAD4}';
+  html += 'tfoot td{font-weight:900;padding:10px;border-top:2px solid #1A1514}';
+  html += '.tfoot-main td{background:#1A1514!important;color:#fff;font-size:14px}';
+  html += '.tfoot-vat td{background:#EDF3FF;color:#2563EB;font-size:12px}';
+  html += '.ps-footer{text-align:center;color:#9C9490;font-size:11px;margin-top:20px;padding-top:10px;border-top:1px solid #E2DAD4}';
+  html += '.no-print{display:flex;gap:10px;justify-content:center;margin-bottom:18px}';
+  html += '.btn-print{background:#D97757;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer}';
+  html += '.btn-close{background:#EEE;color:#333;border:none;padding:10px 18px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer}';
+  html += '@media print{.no-print{display:none!important}body{padding:12px}}';
+  html += '</style></head><body>';
+
+  html += '<div class="no-print"><button class="btn-print" onclick="window.print()">🖨️ הדפס / שמור PDF</button><button class="btn-close" onclick="window.close()">✕ סגור</button></div>';
+  html += '<div class="ps-header"><div class="ps-logo">🛒</div>';
+  html += '<h1 class="ps-title">' + escHtml(bizName) + '</h1>';
+  html += '<p class="ps-sub">טבלת קניות מספקים — ' + mn + ' | הודפס: ' + todayStr + '</p></div>';
+
+  var theadCells = '<th>יום</th>';
+  sups.forEach(function(s){ theadCells += '<th>' + escHtml(s) + '</th>'; });
+  theadCells += '<th>📦 סה"כ יומי</th>';
+
+  var tfootMain = '<td colspan="' + (sups.length + 1) + '">סה"כ עם מע"מ (' + vat + '%)</td>';
+  sups.forEach(function(){ tfootMain = ''; });
+  if (!tfootMain) {
+    tfootMain = '<td>סה"כ</td>';
+    sups.forEach(function(s){ tfootMain += '<td>' + (sTotals[s] !== 0 ? ILS(sTotals[s]) : '—') + '</td>'; });
+    tfootMain += '<td>' + ILS(grandTotal) + '</td>';
+  }
+
+  var tfootVat = '<td>ללא מע"מ</td>';
+  sups.forEach(function(s){ tfootVat += '<td>' + (sTotals[s] !== 0 ? ILS(sTotals[s] / vatFactor) : '—') + '</td>'; });
+  tfootVat += '<td><strong>' + (grandTotal !== 0 ? ILS(grandTotal / vatFactor) : '—') + '</strong></td>';
+
+  html += '<table><thead><tr>' + theadCells + '</tr></thead>' +
+    '<tbody>' + (tbody || '<tr><td colspan="' + (sups.length+2) + '" style="text-align:center;padding:20px;color:#9C9490">אין קניות מוזנות בחודש זה</td></tr>') + '</tbody>' +
+    '<tfoot>' +
+      '<tr class="tfoot-main"><td>סה"כ</td>' + sups.map(function(s){ return '<td>' + (sTotals[s] !== 0 ? ILS(sTotals[s]) : '—') + '</td>'; }).join('') + '<td>' + ILS(grandTotal) + '</td></tr>' +
+      '<tr class="tfoot-vat"><td>ללא מע"מ</td>' + sups.map(function(s){ return '<td>' + (sTotals[s] !== 0 ? ILS(sTotals[s] / vatFactor) : '—') + '</td>'; }).join('') + '<td>' + (grandTotal !== 0 ? ILS(grandTotal / vatFactor) : '—') + '</td></tr>' +
+    '</tfoot></table>';
+
+  html += '<div class="ps-footer">הופק ע"י מנהל העסק · ' + todayStr + '</div>';
+  html += '</body></html>';
+  var win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+}
+
 function printControlPL() {
   var ym    = document.getElementById('ctrl-month').value;
   var parts = ym.split('-');
@@ -5605,7 +5901,7 @@ function printControlPL() {
   var zb    = getZBreakdown(ym);
   var vat   = getVat();
   var vatFactor      = 1 + vat / 100;
-  var totalIncome    = zb.cash + zb.credit + zb.wolt + zb.hakafe;
+  var totalIncome    = getZChannels().reduce(function(s,f){ return s + (zb[f.k]||0); }, 0);
   var netSales       = totalIncome > 0 ? totalIncome / vatFactor : 0;
   var totalPayroll   = getPayrollTotal(ym);
   var totalPurchases = getPurchasesTotal(ym);
@@ -5661,12 +5957,8 @@ function printControlPL() {
   html += '<p class="ps-sub">דוח רווח והפסד — ' + mn + '</p>';
   html += '</div>';
 
-  var _hiddenChP = ZREPORT_HIDDEN_CHANNELS[(S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT] || [];
   html += '<h3>הכנסות</h3><table><tbody>';
-  html += payslipRow('מזומן', '', '', ILS(zb.cash));
-  html += payslipRow('אשראי', '', '', ILS(zb.credit));
-  if (_hiddenChP.indexOf('wolt')   === -1) html += payslipRow('וולט', '', '', ILS(zb.wolt));
-  if (_hiddenChP.indexOf('hakafe') === -1) html += payslipRow('הקפות', '', '', ILS(zb.hakafe));
+  getZChannels().forEach(function(f){ html += payslipRow(f.l, '', '', ILS(zb[f.k]||0)); });
   html += '</tbody><tfoot><tr><td colspan="3">סה"כ הכנסות (עם מע"מ)</td><td>' + ILS(totalIncome) + '</td></tr></tfoot></table>';
 
   html += '<h3>הוצאות</h3><table><tbody>';
@@ -6360,67 +6652,19 @@ function _destroyCharts() {
 }
 function buildZCharts(ym) {
   if (!showCharts || typeof Chart === 'undefined') return '';
-  return '<div style="display:grid;grid-template-columns:1.4fr 1fr;gap:18px;margin-top:20px">' +
-    '<div class="card"><div class="card-title">📈 מכירות יומיות + מצטבר</div><canvas id="chart-z-daily" height="220"></canvas></div>' +
-    '<div class="card"><div class="card-title">🥧 פילוח ערוצי מכירה</div><canvas id="chart-z-channels" height="220"></canvas></div>' +
+  return '<div style="max-width:420px;margin-top:20px">' +
+    '<div class="card"><div class="card-title">🥧 פילוח ערוצי מכירה</div><canvas id="chart-z-channels" height="260"></canvas></div>' +
   '</div>';
 }
 function initZCharts(ym) {
   if (!showCharts || typeof Chart === 'undefined') return;
   _destroyCharts();
-  var days = daysInMonth(ym);
-  var labels = [], vals = [], cum = [], running = 0;
-  for (var d = 1; d <= days; d++) {
-    var ds = dateFull(ym, d);
-    var r  = S.zReports[ds] || {};
-    var tot = toNum(r.cash) + toNum(r.credit) + toNum(r.wolt) + toNum(r.hakafe);
-    running += tot;
-    labels.push(d + '');
-    vals.push(+tot.toFixed(0));
-    cum.push(+running.toFixed(0));
-  }
-  var avg = vals.length ? vals.reduce(function(a,b){return a+b;},0) / vals.filter(function(v){return v>0;}).length || 0 : 0;
-
-  var c1 = document.getElementById('chart-z-daily');
-  if (c1) {
-    var ctx1 = c1.getContext('2d');
-    var grad = ctx1.createLinearGradient(0, 0, 0, 220);
-    grad.addColorStop(0, 'rgba(217,119,87,.35)');
-    grad.addColorStop(1, 'rgba(217,119,87,0)');
-    _chartInstances['z-daily'] = new Chart(ctx1, {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [
-          { label: 'מכירות יומיות', data: vals, borderColor: '#D97757', backgroundColor: grad, fill: true, tension: .35, pointRadius: 2, pointHoverRadius: 6, pointBackgroundColor: '#D97757', borderWidth: 2.5, yAxisID: 'y' },
-          { label: 'ממוצע יומי', data: labels.map(function(){ return +avg.toFixed(0); }), borderColor: '#9ca3af', backgroundColor: 'transparent', borderDash: [4,4], borderWidth: 1.5, pointRadius: 0, tension: 0, yAxisID: 'y' },
-          { label: 'מצטבר חודשי', data: cum, borderColor: '#10b981', backgroundColor: 'transparent', borderDash: [6,4], borderWidth: 2, pointRadius: 0, tension: .2, yAxisID: 'y1' }
-        ]
-      },
-      options: {
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: { position: 'top', labels: { usePointStyle: true, font: { size: 11 } } },
-          datalabels: { display: false },
-          tooltip: { callbacks: { label: function(ctx) { return ' ' + ctx.dataset.label + ': ' + ILS(ctx.parsed.y); } } }
-        },
-        scales: {
-          y:  { position: 'left',  ticks: { callback: function(v){ return '₪'+v.toLocaleString(); }, font: { size: 10 } }, grid: { color: 'rgba(0,0,0,.05)' } },
-          y1: { position: 'right', ticks: { callback: function(v){ return '₪'+v.toLocaleString(); }, font: { size: 10 } }, grid: { display: false } }
-        }
-      }
-    });
-  }
 
   var zb = getZBreakdown(ym);
-  var _hiddenChCh = ZREPORT_HIDDEN_CHANNELS[(S.settings && S.settings.businessType) || BIZ_TYPE_DEFAULT] || [];
-  var allChKeys   = ['cash','credit','wolt','hakafe'];
-  var allChLbls   = ['מזומן','אשראי','וולט','הקפות'];
-  var allChColors = ['#10b981','#3b82f6','#f59e0b','#8b5cf6'];
-  var chVisIdx = allChKeys.map(function(k,i){ return i; }).filter(function(i){ return _hiddenChCh.indexOf(allChKeys[i]) === -1; });
-  var zbVals  = chVisIdx.map(function(i){ return +zb[allChKeys[i]].toFixed(0); });
-  var zbLbls  = chVisIdx.map(function(i){ return allChLbls[i]; });
-  var zbColors = chVisIdx.map(function(i){ return allChColors[i]; });
+  var _zbCh    = getZChannels();
+  var zbVals   = _zbCh.map(function(f){ return +(zb[f.k]||0).toFixed(0); });
+  var zbLbls   = _zbCh.map(function(f){ return f.l; });
+  var zbColors = _zbCh.map(function(f,i){ return getZChannelColor(f.k, i); });
   var zbTotal = zbVals.reduce(function(a,b){return a+b;}, 0);
   var c2 = document.getElementById('chart-z-channels');
   if (c2) _chartInstances['z-channels'] = new Chart(c2.getContext('2d'), {
@@ -6485,7 +6729,7 @@ function initControlCharts(ym, totalPayroll, totalPurchases, totalFixed, totalEx
     if (cm <= 0) { cm += 12; cy--; }
     var ymI = cy + '-' + (cm < 10 ? '0'+cm : cm);
     var zbI = getZBreakdown(ymI);
-    var incI = zbI.cash + zbI.credit + zbI.wolt + zbI.hakafe;
+    var incI = getZChannels().reduce(function(s,f){ return s + (zbI[f.k]||0); }, 0);
     var netSalesI = incI > 0 ? incI / (1 + vatRate/100) : 0;
     var ctrlI = S.control[ymI] || {};
     var hiI = ctrlI.hiddenFixed || [];
@@ -7723,6 +7967,12 @@ function openBizSettings() {
     '<button class="btn" onclick="document.getElementById(\'biz-accent-inp\').value=\'#D97757\'" style="font-size:12px">איפוס לכתום</button></div></div>' +
 
     '<div class="form-group" style="border-top:1px solid var(--border);padding-top:14px;margin-top:6px">' +
+    '<label class="form-label">💳 ערוצי תשלום בדוח Z</label>' +
+    '<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">מזומן ואשראי תמיד פעילים. כאן תוכל/י להוסיף ערוצים נוספים (ביט, פייבוקס, משלוחה וכדומה).</div>' +
+    '<div id="zchannel-settings-wrap"></div>' +
+    '</div>' +
+
+    '<div class="form-group" style="border-top:1px solid var(--border);padding-top:14px;margin-top:6px">' +
     '<label class="form-label">🔑 חשבון התחברות</label>' +
     '<div style="font-size:12.5px;color:var(--text-muted);margin-bottom:8px">' + escHtml((window.fb && window.fb.currentUser() && window.fb.currentUser().email) || '') + '</div>' +
     '<button class="btn btn-secondary" style="font-size:12px" onclick="changeAccountEmail()">✉️ שינוי כתובת אימייל</button>' +
@@ -7735,6 +7985,7 @@ function openBizSettings() {
 
   document.getElementById('modal-box').innerHTML = html;
   document.getElementById('modal').classList.remove('hidden');
+  renderZChannelSettings();
 }
 
 function fetchBizAuto() {
