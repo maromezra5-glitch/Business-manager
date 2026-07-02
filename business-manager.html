@@ -295,7 +295,8 @@ body {
 @keyframes slideUp    { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:none; } }
 @keyframes popIn      { 0%  { transform:scale(.91); opacity:0; } 100% { transform:scale(1); opacity:1; } }
 @keyframes numChange  { 0%  { transform:scale(1.12) translateY(-3px); } 100% { transform:scale(1) translateY(0); } }
-._nf { animation: numChange .32s ease both; }
+@keyframes _nmflash { 0% { opacity:.08; } 100% { opacity:1; } }
+._nf { animation: _nmflash .42s ease; }
 @keyframes shimmer    { 0%,100% { opacity:1; } 50% { opacity:.7; } }
 @keyframes glowPulse  { 0%,100% { box-shadow:0 0 0 0 rgba(217,119,87,0); } 50% { box-shadow:0 0 22px 6px rgba(217,119,87,.26); } }
 @keyframes liveDot    { 0%,100% { box-shadow:0 0 0 0 rgba(74,222,128,0); transform:scale(1); } 60% { box-shadow:0 0 0 5px rgba(74,222,128,0); transform:scale(1.15); } }
@@ -1082,7 +1083,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-07-02g';
+var APP_VERSION  = '2026-07-02h';
 
 // בדיקת גרסה אוטומטית — טוען גרסה טרייה ישירות מ-GitHub (עוקף browser cache וגם CDN cache)
 (function() {
@@ -1104,6 +1105,7 @@ var APP_VERSION  = '2026-07-02g';
 
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-07-02h', t: 'תיקון הבהוב: החלפת scale ל-opacity בלבד — ללא קפיצת דף, ללא בעיות מע״מ' },
   { v: '2026-07-02g', t: 'שיפורים ויזואלים: transition על hover טבלאות, גבול קורל על שורה פעילה, hover על כרטיסים, focus ring כפתורים, הבהוב מספרי סה״כ בדוח Z ובקניות ובשעות' },
   { v: '2026-07-02f', t: 'תיקון עדכון אוטומטי: בדיקה ישירה מ-GitHub בכל פתיחה — מוודא שהגרסה החדשה תמיד מגיעה ללא השהייה' },
   { v: '2026-07-02e', t: '⚡ עדכון אוטומטי: המערכת תזהה עכשיו גרסאות חדשות בכל פתיחה ותטען אותן אוטומטית — בלי צורך בריענון ידני' },
