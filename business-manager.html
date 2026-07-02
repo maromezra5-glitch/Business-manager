@@ -428,7 +428,7 @@ body {
 .s-card.blue-card { border-top-color: #2563EB; border-color: rgba(37,99,235,.18); background: linear-gradient(145deg,#EEF4FF,#DDE9FF,#F0F5FF); }
 .s-card.purple-card { border-top-color: #7C3AED; border-color: rgba(124,58,237,.18); background: linear-gradient(145deg,#F5F0FF,#EDE6FF,#F8F5FF); }
 .s-label { font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 10px; }
-.s-value { font-size: 25px; font-weight: 900; color: var(--text); line-height: 1.2; letter-spacing: -.5px; white-space: nowrap; }
+.s-value { font-size: clamp(17px, 2.4vw, 25px); font-weight: 900; color: var(--text); line-height: 1.2; letter-spacing: -.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .s-value.orange { color: var(--primary); }
 .s-value.green { color: var(--success); }
 .s-value.red { color: var(--error); }
@@ -1083,7 +1083,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-07-02k';
+var APP_VERSION  = '2026-07-03a';
 
 // בדיקת גרסה אוטומטית — טוען גרסה טרייה ישירות מ-GitHub (עוקף browser cache וגם CDN cache)
 (function() {
@@ -1105,6 +1105,7 @@ var APP_VERSION  = '2026-07-02k';
 
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-07-03a', t: 'עדכון מערכת' },
   { v: '2026-07-02k', t: 'עדכון מערכת' },
   { v: '2026-07-02j', t: 'עדכון מערכת' },
   { v: '2026-07-02i', t: 'תיקון: שמירת שורת ללא מעמ יומי בדוח Z בעת עדכון, ביטול void offsetWidth שגרם לתקיעות' },
@@ -3207,10 +3208,10 @@ function renderZ() {
       ' value="' + (toNum(rec.voids) || '') + '" placeholder="0" title="סכום ביטולים/הנחות — לתיעוד בלבד, לא נכלל בהכנסות"' +
       ' style="border-color:#fca5a5;background:#fff7f7"' +
       ' oninput="onZInput(this)"></td>';
-    tbody += '<td data-zrt="' + ds + '">' +
+    tbody += '<td data-zrt="' + ds + '"><div style="width:120px;overflow:hidden">' +
       '<strong style="color:' + (dt>0?'var(--success)':'var(--text-muted)') + '">' + (dt>0?ILS(dt):'—') + '</strong>' +
-      '<div style="font-size:10.5px;color:#2563eb;font-weight:600;margin-top:1px">' + (dtNet > 0 ? 'ללא מע"מ: ' + ILS(dtNet) : ' ') + '</div>' +
-    '</td>';
+      '<div style="font-size:10.5px;color:#2563eb;font-weight:600;margin-top:1px;white-space:nowrap;overflow:hidden">' + (dtNet > 0 ? 'ללא מע"מ: ' + ILS(dtNet) : ' ') + '</div>' +
+    '</div></td>';
     tbody += '</tr>';
   }
 
@@ -3289,8 +3290,10 @@ function onZInput(inp) {
   var rtNet  = rt > 0 ? rt / rtVatF : 0;
   var rtEl = document.querySelector('[data-zrt="' + ds + '"]');
   if (rtEl) {
-    rtEl.innerHTML = '<strong style="color:' + (rt>0?'var(--success)':'var(--text-muted)') + '">' + (rt>0?ILS(rt):'—') + '</strong>' +
-      '<div style="font-size:10.5px;color:#2563eb;font-weight:600;margin-top:1px">' + (rtNet > 0 ? 'ללא מע"מ: ' + ILS(rtNet) : ' ') + '</div>';
+    rtEl.innerHTML = '<div style="width:120px;overflow:hidden">' +
+      '<strong style="color:' + (rt>0?'var(--success)':'var(--text-muted)') + '">' + (rt>0?ILS(rt):'—') + '</strong>' +
+      '<div style="font-size:10.5px;color:#2563eb;font-weight:600;margin-top:1px;white-space:nowrap;overflow:hidden">' + (rtNet > 0 ? 'ללא מע"מ: ' + ILS(rtNet) : ' ') + '</div>' +
+      '</div>';
     if (fk !== 'voids' && fk !== 'reportNum') _flashNum(rtEl);
   }
 
