@@ -1083,7 +1083,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-07-03a';
+var APP_VERSION  = '2026-07-03b';
 
 // בדיקת גרסה אוטומטית — טוען גרסה טרייה ישירות מ-GitHub (עוקף browser cache וגם CDN cache)
 (function() {
@@ -1105,6 +1105,7 @@ var APP_VERSION  = '2026-07-03a';
 
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-07-03b', t: 'עדכון מערכת' },
   { v: '2026-07-03a', t: 'עדכון מערכת' },
   { v: '2026-07-02k', t: 'עדכון מערכת' },
   { v: '2026-07-02j', t: 'עדכון מערכת' },
@@ -8236,6 +8237,15 @@ function appStart() {
   if (!window._cloudDataLoaded) loadState();
   selectedHoursDate = curDate();
   try { var savedMode = localStorage.getItem('cafeHoursMode'); if (savedMode) hoursMode = savedMode; } catch(e) {}
+  // sync button styles with restored mode (HTML default marks 'daily' active)
+  var _btnD = document.getElementById('hmode-daily');
+  var _btnW = document.getElementById('hmode-weekly');
+  var _btnM = document.getElementById('hmode-monthly');
+  [['daily',_btnD],['weekly',_btnW],['monthly',_btnM]].forEach(function(p) {
+    if (!p[1]) return;
+    p[1].style.background = hoursMode===p[0] ? 'var(--primary)' : '';
+    p[1].style.color      = hoursMode===p[0] ? '#fff' : '';
+  });
   initSelects();
   updateHeaderDate();
   renderEmps();
