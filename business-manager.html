@@ -1075,7 +1075,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-07-01b';
+var APP_VERSION  = '2026-07-02a';
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
   { v: '2026-07-01a', t: '🛠️ תיקוני יציבות ו-UX: חישוב שעות תוקן (כניסה+יציאה זהה לא מחשבת 24 שעות), מע"מ 0% נשמר בכל המקומות, Food Cost בהשוואת חודשים תוקן, אבטחה: כשל רשת לא מקדם עובד לבעלים · כפתור הרשמה בולט, הסבר ש"נ בטבלאות, כפתור מחק עם טקסט, אזהרה ברורה בנתוני דוגמה, מסלול שלבים ב-Empty States · 🔔 "מה חדש?" נוסף לתפריט' },
@@ -2063,12 +2063,30 @@ function dismissOnboardingChecklist() {
   renderToday();
 }
 
+function goToHoursYesterday(ds) {
+  var ym = ds.slice(0, 7);
+  switchTab('hours');
+  _syncAllMonthSelects(ym);
+  renderHours();
+}
+
 function renderToday() {
   var cont = document.getElementById('home-content');
   if (!cont) return;
   var today = curDate();
   var ym    = today.slice(0, 7);
   var cards = '';
+
+  // #20 — יום הולדת (מופיע ראשון)
+  var todayMD = today.slice(5);
+  var bdays = S.employees.filter(function(e){ return e.active && e.dob && e.dob.slice(5) === todayMD; });
+  if (bdays.length > 0) {
+    cards += '<div class="s-card" style="border-color:#a78bfa;background:#faf5ff;grid-column:1/-1">' +
+      '<div class="s-label" style="color:#7c3aed">🎂 יום הולדת היום!</div>' +
+      '<div class="s-value" style="font-size:15px;color:#7c3aed">' + escHtml(bdays.map(function(e){ return e.name; }).join(', ')) + '</div>' +
+      '<div class="s-sub">חג שמח! 🎉</div>' +
+    '</div>';
+  }
 
   if (isTabAllowed('zreport')) {
     var zrec = S.zReports[today] || {};
@@ -2095,6 +2113,35 @@ function renderToday() {
     var workedCount = Object.keys(workedIds).length;
     var activeCount = S.employees.filter(function(e){ return e.active; }).length;
     cards += '<div class="s-card"><div class="s-label">👥 עבדו היום</div><div class="s-value">' + workedCount + ' / ' + activeCount + '</div></div>';
+
+    // #19 — שעות חסרות אתמול
+    var yest = (function(){ var d = new Date(today.replace(/-/g,'/')); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); })();
+    if (getDow(yest) !== 6) {
+      var yestRec = S.dailyHours[yest] || {};
+      var hadAnyHoursYest = false;
+      var missingNames = [];
+      S.employees.filter(function(e){ return e.active; }).forEach(function(e) {
+        var rp = yestRec[e.id] || {};
+        var hasH = toNum(rp.regHours) + toNum(rp.ot125) + toNum(rp.ot150) > 0;
+        if (!hasH) {
+          var prefix = e.id + '|';
+          Object.keys(yestRec).forEach(function(k){
+            if (k.indexOf(prefix) !== 0) return;
+            var r = yestRec[k];
+            if (toNum(r.regHours) + toNum(r.ot125) + toNum(r.ot150) > 0) hasH = true;
+          });
+        }
+        if (hasH) hadAnyHoursYest = true; else missingNames.push(e.name);
+      });
+      if (hadAnyHoursYest && missingNames.length > 0) {
+        var display = missingNames.slice(0, 3).join(', ') + (missingNames.length > 3 ? ' ועוד ' + (missingNames.length - 3) : '');
+        cards += '<div class="s-card" style="border-color:#fca5a5;background:#fff7f7;cursor:pointer" onclick="goToHoursYesterday(\'' + yest + '\')">' +
+          '<div class="s-label" style="color:#b91c1c">⚠️ אתמול לא הוזנו שעות ל:</div>' +
+          '<div class="s-value" style="font-size:14px;color:#b91c1c;line-height:1.3">' + escHtml(display) + '</div>' +
+          '<div class="s-sub" style="color:#b91c1c">לחץ/י להשלמה</div>' +
+        '</div>';
+      }
+    }
   }
 
   if (isTabAllowed('tips')) {
