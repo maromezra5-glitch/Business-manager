@@ -977,6 +977,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
       <div class="panel-actions">
         <div class="month-sel"><label>חודש:</label><select id="payroll-month" onchange="onMonthChange(this,renderPayroll)"></select><button class="month-now-btn" id="payroll-month-now" onclick="goToCurrentMonth()">↩ חודש נוכחי</button></div>
         <button class="btn btn-secondary" onclick="exportPayroll()">📥 ייצוא לאקסל (לרו"ח)</button>
+        <button class="btn btn-secondary" onclick="printPayrollTable()">🖨️ הדפס / PDF</button>
       </div>
     </div>
     <div id="payroll-content"></div>
@@ -1014,6 +1015,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
       <div class="panel-actions">
         <div class="month-sel"><label>חודש:</label><select id="pur-month" onchange="onMonthChange(this,renderPurchases)"></select><button class="month-now-btn" id="pur-month-now" onclick="goToCurrentMonth()">↩ חודש נוכחי</button></div>
         <button class="btn btn-secondary" onclick="exportPurchases()">📥 ייצוא אקסל</button>
+        <button class="btn btn-secondary" onclick="printPurchasesTable()">🖨️ הדפס / PDF</button>
       </div>
     </div>
     <div class="card" id="suppliers-mgmt" style="margin-bottom:20px;"></div>
@@ -5676,6 +5678,197 @@ function exportControl() {
   var wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'רווח והפסד');
   XLSX.writeFile(wb, 'P&L_' + parts[0] + '_' + parts[1] + '.xlsx');
+}
+
+function printPayrollTable() {
+  var ym    = document.getElementById('payroll-month').value;
+  var parts = ym.split('-');
+  var mn    = MHE[parseInt(parts[1])-1] + ' ' + parts[0];
+  var bizName = ((S.settings || {}).biz || {}).name || 'מנהל העסק';
+  var today = new Date();
+  var todayStr = today.getDate() + '/' + (today.getMonth()+1) + '/' + today.getFullYear();
+
+  var emps  = S.employees.filter(function(e){ return e.active; });
+  var tipsRpt = getDetailedSupplementReport(ym);
+  var totBase=0, totOT=0, totTrav=0, totBon=0, totAdv=0, totSuppl=0, grand=0;
+  var tbody = '';
+
+  emps.forEach(function(emp) {
+    var agg   = aggregateMonth(emp.id, ym);
+    var s     = calcSalary(emp, agg);
+    var suppl = (tipsRpt[emp.id] || {}).totalSuppl || 0;
+    totBase += s.base; totOT += s.ot125 + s.ot150;
+    totTrav += s.travel; totBon += s.bonus; totAdv += s.advance;
+    totSuppl += suppl; grand += s.total + suppl;
+    var badge = emp.type === 'hourly' ? 'שעתי' : 'חודשי';
+    var totalWithSuppl = s.total + suppl;
+    tbody += '<tr>' +
+      '<td><strong>' + escHtml(emp.name) + '</strong></td>' +
+      '<td style="text-align:center">' + badge + '</td>' +
+      '<td style="text-align:center">' + (agg.workDays || '—') + '</td>' +
+      '<td style="text-align:center">' + (s.hours > 0 ? s.hours.toFixed(1) : '—') + '</td>' +
+      '<td>' + ILS(s.base) + '</td>' +
+      '<td>' + (s.ot125+s.ot150 > 0 ? ILS(s.ot125+s.ot150) : '—') + '</td>' +
+      '<td>' + (s.travel > 0 ? ILS(s.travel) : '—') + '</td>' +
+      '<td>' + (s.bonus > 0 ? ILS(s.bonus) : '—') + '</td>' +
+      '<td>' + (suppl > 0 ? '+' + ILS(suppl) : '—') + '</td>' +
+      '<td>' + (s.advance > 0 ? '−' + ILS(s.advance) : '—') + '</td>' +
+      '<td><strong>' + ILS(totalWithSuppl) + '</strong></td>' +
+    '</tr>';
+  });
+
+  var html = '<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>משכורות — ' + mn + '</title>';
+  html += '<style>';
+  html += 'body{font-family:"Segoe UI",Arial,sans-serif;direction:rtl;padding:28px 32px;color:#1A1514;font-size:13px;background:#fff}';
+  html += '.ps-header{text-align:center;margin-bottom:22px;padding-bottom:16px;border-bottom:3px solid #D97757}';
+  html += '.ps-logo{font-size:32px;margin-bottom:4px}';
+  html += '.ps-title{font-size:20px;font-weight:900;color:#D97757;margin:0 0 2px}';
+  html += '.ps-sub{font-size:14px;color:#6B6460;font-weight:600;margin:0}';
+  html += '.summary{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}';
+  html += '.s-card{border:1px solid #E2DAD4;border-radius:8px;padding:9px 13px;min-width:110px}';
+  html += '.s-label{font-size:11px;color:#6B6460;margin-bottom:3px}';
+  html += '.s-value{font-size:16px;font-weight:900;color:#1A1514}';
+  html += '.s-card.green-card{border-color:#1E7D4B}';
+  html += '.s-card.green-card .s-value{color:#1E7D4B}';
+  html += 'table{width:100%;border-collapse:collapse;font-size:12px}';
+  html += 'thead th{background:#D97757;color:#fff;padding:9px 10px;text-align:right;font-weight:800;white-space:nowrap}';
+  html += 'tbody tr:nth-child(even) td{background:#FBF8F5}';
+  html += 'tbody td{padding:8px 10px;border-bottom:1px solid #E2DAD4;vertical-align:middle}';
+  html += 'tfoot td{background:#1A1514!important;color:#fff;font-weight:900;padding:10px;font-size:13px}';
+  html += '.ps-footer{text-align:center;color:#9C9490;font-size:11px;margin-top:20px;padding-top:10px;border-top:1px solid #E2DAD4}';
+  html += '.no-print{display:flex;gap:10px;justify-content:center;margin-bottom:18px}';
+  html += '.btn-print{background:#D97757;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer}';
+  html += '.btn-close{background:#EEE;color:#333;border:none;padding:10px 18px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer}';
+  html += '@media print{.no-print{display:none!important}body{padding:12px}}';
+  html += '</style></head><body>';
+
+  html += '<div class="no-print"><button class="btn-print" onclick="window.print()">🖨️ הדפס / שמור PDF</button><button class="btn-close" onclick="window.close()">✕ סגור</button></div>';
+  html += '<div class="ps-header"><div class="ps-logo">💰</div>';
+  html += '<h1 class="ps-title">' + escHtml(bizName) + '</h1>';
+  html += '<p class="ps-sub">דוח משכורות — ' + mn + ' | הודפס: ' + todayStr + '</p></div>';
+
+  html += '<div class="summary">';
+  html += '<div class="s-card"><div class="s-label">שכר בסיס</div><div class="s-value">' + ILSr(totBase) + '</div></div>';
+  if (totOT > 0) html += '<div class="s-card"><div class="s-label">שעות נוספות</div><div class="s-value">' + ILSr(totOT) + '</div></div>';
+  if (totTrav > 0) html += '<div class="s-card"><div class="s-label">נסיעות</div><div class="s-value">' + ILSr(totTrav) + '</div></div>';
+  if (totBon > 0) html += '<div class="s-card"><div class="s-label">תוספות</div><div class="s-value">' + ILSr(totBon) + '</div></div>';
+  if (totSuppl > 0) html += '<div class="s-card" style="border-color:#7C3AED"><div class="s-label" style="color:#5B21B6">⚡ השלמת טיפים</div><div class="s-value" style="color:#7C3AED">+' + ILSr(totSuppl) + '</div></div>';
+  if (totAdv > 0) html += '<div class="s-card" style="border-color:#DC2626"><div class="s-label">מפרעות</div><div class="s-value" style="color:#DC2626">−' + ILSr(totAdv) + '</div></div>';
+  html += '<div class="s-card green-card"><div class="s-label">💰 סה"כ לתשלום</div><div class="s-value">' + ILSr(grand) + '</div></div>';
+  html += '</div>';
+
+  html += '<table><thead><tr>' +
+    '<th>שם עובד</th><th>סוג</th><th>ימי עבודה</th><th>שעות</th>' +
+    '<th>שכר בסיס</th><th>ש"נ</th><th>נסיעות</th><th>תוספות</th>' +
+    '<th>⚡ השלמת טיפים</th><th>מפרעה</th><th>💰 סה"כ נטו</th>' +
+  '</tr></thead><tbody>' + tbody + '</tbody>' +
+  '<tfoot><tr>' +
+    '<td colspan="4">סה"כ חודש</td>' +
+    '<td>' + ILS(totBase) + '</td>' +
+    '<td>' + ILS(totOT) + '</td>' +
+    '<td>' + ILS(totTrav) + '</td>' +
+    '<td>' + ILS(totBon) + '</td>' +
+    '<td>' + (totSuppl > 0 ? '+' + ILS(totSuppl) : '—') + '</td>' +
+    '<td>' + (totAdv > 0 ? '−' + ILS(totAdv) : '—') + '</td>' +
+    '<td>' + ILS(grand) + '</td>' +
+  '</tr></tfoot></table>';
+
+  html += '<div class="ps-footer">הופק ע"י מנהל העסק · ' + todayStr + '</div>';
+  html += '</body></html>';
+  var win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+}
+
+function printPurchasesTable() {
+  var ym    = document.getElementById('pur-month').value;
+  var parts = ym.split('-');
+  var mn    = MHE[parseInt(parts[1])-1] + ' ' + parts[0];
+  var bizName = ((S.settings || {}).biz || {}).name || 'מנהל העסק';
+  var today = new Date();
+  var todayStr = today.getDate() + '/' + (today.getMonth()+1) + '/' + today.getFullYear();
+  var sups  = S.suppliers;
+  var vat   = getVat();
+  var vatFactor = 1 + vat / 100;
+
+  if (!sups.length) { toast('אין ספקים מוגדרים', 'err'); return; }
+
+  var days  = daysInMonth(ym);
+  var pur   = S.purchases[ym] || {};
+  var sTotals = {};
+  sups.forEach(function(s){ sTotals[s] = 0; });
+
+  var tbody = '';
+  for (var d = 1; d <= days; d++) {
+    var ds  = dateFull(ym, d);
+    var wd  = getDow(ds);
+    var rec = pur[ds] || {};
+    var dt  = 0;
+    sups.forEach(function(s){ var x=toNum(rec[s]); sTotals[s]+=x; dt+=x; });
+    if (dt === 0) continue;
+    var dayStr = DHE[wd] + ' ' + d + '/' + (parseInt(parts[1]));
+    tbody += '<tr' + (wd===6 ? ' style="background:#FFF7ED"' : '') + '>' +
+      '<td>' + dayStr + '</td>';
+    sups.forEach(function(s){ tbody += '<td>' + (toNum(rec[s]) !== 0 ? ILS(toNum(rec[s])) : '—') + '</td>'; });
+    tbody += '<td><strong>' + ILS(dt) + '</strong></td></tr>';
+  }
+
+  var grandTotal = Object.values(sTotals).reduce(function(a,b){return a+b;}, 0);
+
+  var html = '<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>קניות — ' + mn + '</title>';
+  html += '<style>';
+  html += 'body{font-family:"Segoe UI",Arial,sans-serif;direction:rtl;padding:28px 32px;color:#1A1514;font-size:13px;background:#fff}';
+  html += '.ps-header{text-align:center;margin-bottom:22px;padding-bottom:16px;border-bottom:3px solid #D97757}';
+  html += '.ps-logo{font-size:32px;margin-bottom:4px}';
+  html += '.ps-title{font-size:20px;font-weight:900;color:#D97757;margin:0 0 2px}';
+  html += '.ps-sub{font-size:14px;color:#6B6460;font-weight:600;margin:0}';
+  html += 'table{width:100%;border-collapse:collapse;font-size:12px}';
+  html += 'thead th{background:#D97757;color:#fff;padding:9px 10px;text-align:right;font-weight:800;white-space:nowrap}';
+  html += 'tbody tr:nth-child(even) td{background:#FBF8F5}';
+  html += 'tbody td{padding:8px 10px;border-bottom:1px solid #E2DAD4}';
+  html += 'tfoot td{font-weight:900;padding:10px;border-top:2px solid #1A1514}';
+  html += '.tfoot-main td{background:#1A1514!important;color:#fff;font-size:14px}';
+  html += '.tfoot-vat td{background:#EDF3FF;color:#2563EB;font-size:12px}';
+  html += '.ps-footer{text-align:center;color:#9C9490;font-size:11px;margin-top:20px;padding-top:10px;border-top:1px solid #E2DAD4}';
+  html += '.no-print{display:flex;gap:10px;justify-content:center;margin-bottom:18px}';
+  html += '.btn-print{background:#D97757;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer}';
+  html += '.btn-close{background:#EEE;color:#333;border:none;padding:10px 18px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer}';
+  html += '@media print{.no-print{display:none!important}body{padding:12px}}';
+  html += '</style></head><body>';
+
+  html += '<div class="no-print"><button class="btn-print" onclick="window.print()">🖨️ הדפס / שמור PDF</button><button class="btn-close" onclick="window.close()">✕ סגור</button></div>';
+  html += '<div class="ps-header"><div class="ps-logo">🛒</div>';
+  html += '<h1 class="ps-title">' + escHtml(bizName) + '</h1>';
+  html += '<p class="ps-sub">טבלת קניות מספקים — ' + mn + ' | הודפס: ' + todayStr + '</p></div>';
+
+  var theadCells = '<th>יום</th>';
+  sups.forEach(function(s){ theadCells += '<th>' + escHtml(s) + '</th>'; });
+  theadCells += '<th>📦 סה"כ יומי</th>';
+
+  var tfootMain = '<td colspan="' + (sups.length + 1) + '">סה"כ עם מע"מ (' + vat + '%)</td>';
+  sups.forEach(function(){ tfootMain = ''; });
+  if (!tfootMain) {
+    tfootMain = '<td>סה"כ</td>';
+    sups.forEach(function(s){ tfootMain += '<td>' + (sTotals[s] !== 0 ? ILS(sTotals[s]) : '—') + '</td>'; });
+    tfootMain += '<td>' + ILS(grandTotal) + '</td>';
+  }
+
+  var tfootVat = '<td>ללא מע"מ</td>';
+  sups.forEach(function(s){ tfootVat += '<td>' + (sTotals[s] !== 0 ? ILS(sTotals[s] / vatFactor) : '—') + '</td>'; });
+  tfootVat += '<td><strong>' + (grandTotal !== 0 ? ILS(grandTotal / vatFactor) : '—') + '</strong></td>';
+
+  html += '<table><thead><tr>' + theadCells + '</tr></thead>' +
+    '<tbody>' + (tbody || '<tr><td colspan="' + (sups.length+2) + '" style="text-align:center;padding:20px;color:#9C9490">אין קניות מוזנות בחודש זה</td></tr>') + '</tbody>' +
+    '<tfoot>' +
+      '<tr class="tfoot-main"><td>סה"כ</td>' + sups.map(function(s){ return '<td>' + (sTotals[s] !== 0 ? ILS(sTotals[s]) : '—') + '</td>'; }).join('') + '<td>' + ILS(grandTotal) + '</td></tr>' +
+      '<tr class="tfoot-vat"><td>ללא מע"מ</td>' + sups.map(function(s){ return '<td>' + (sTotals[s] !== 0 ? ILS(sTotals[s] / vatFactor) : '—') + '</td>'; }).join('') + '<td>' + (grandTotal !== 0 ? ILS(grandTotal / vatFactor) : '—') + '</td></tr>' +
+    '</tfoot></table>';
+
+  html += '<div class="ps-footer">הופק ע"י מנהל העסק · ' + todayStr + '</div>';
+  html += '</body></html>';
+  var win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
 }
 
 function printControlPL() {
