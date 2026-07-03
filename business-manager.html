@@ -1083,7 +1083,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-07-03d';
+var APP_VERSION  = '2026-07-03e';
 
 // בדיקת גרסה אוטומטית — טוען גרסה טרייה ישירות מ-GitHub (עוקף browser cache וגם CDN cache)
 (function() {
@@ -1105,6 +1105,7 @@ var APP_VERSION  = '2026-07-03d';
 
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-07-03e', t: 'עדכון מערכת' },
   { v: '2026-07-03d', t: 'עדכון מערכת' },
   { v: '2026-07-03c', t: 'עדכון מערכת' },
   { v: '2026-07-03b', t: 'עדכון מערכת' },
@@ -2513,7 +2514,7 @@ function formatDayField(inp) {
 var AVATAR_COLORS = ['#D97757','#3b82f6','#10b981','#8b5cf6','#f59e0b','#ef4444','#06b6d4','#ec4899','#84cc16'];
 function empAvatarCircle(emp, idx, size) {
   size = size || 40;
-  var initials = emp.name.trim().split(/\s+/).slice(0,2).map(function(w){ return w.charAt(0); }).join('');
+  var initials = (emp.name || '').trim().split(/\s+/).slice(0,2).map(function(w){ return w.charAt(0); }).join('') || '?';
   var color = AVATAR_COLORS[idx % AVATAR_COLORS.length];
   return '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + color + ';color:#fff;display:flex;align-items:center;justify-content:center;font-size:' + Math.round(size*0.35) + 'px;font-weight:900;flex-shrink:0;box-shadow:0 2px 6px rgba(0,0,0,.18)">' + escHtml(initials) + '</div>';
 }
@@ -4404,9 +4405,9 @@ function renderTips() {
 ================================================================ */
 function renderSuppliersMgmt() {
   var cont = document.getElementById('suppliers-mgmt');
-  var chips = S.suppliers.map(function(s, i) {
+  var chips = S.suppliers.map(function(s) {
     return '<div class="chip">' + escHtml(s) +
-      '<button onclick="removeSupplier(' + i + ')" title="הסר">✕</button></div>';
+      '<button onclick="removeSupplier(\'' + escHtml(s) + '\')" title="הסר">✕</button></div>';
   }).join('');
 
   cont.innerHTML =
@@ -4433,14 +4434,15 @@ function addSupplier() {
   toast('✅ ספק "' + name + '" נוסף');
 }
 
-async function removeSupplier(idx) {
-  var name = S.suppliers[idx];
+async function removeSupplier(name) {
   var ok = await customConfirm({
     title: 'הסרת ספק',
     message: 'להסיר את הספק "' + name + '"?\n\nהיסטוריית הקניות הקיימת מהספק תישמר, אך לא יהיה ניתן להוסיף קניות חדשות תחתיו.',
     confirmText: 'הסר ספק', danger: true
   });
   if (!ok) return;
+  var idx = S.suppliers.indexOf(name);
+  if (idx === -1) { toast('הספק כבר הוסר', 'err'); return; }
   S.suppliers.splice(idx, 1);
   logAudit('הסרת ספק', name);
   persist();
@@ -4613,6 +4615,7 @@ function _getZHidden() {
   }
   return S.settings.zHiddenChannels;
 }
+function saveAndSync() { persist(); return Promise.resolve(); }
 function toggleZBaseChannel(key) {
   if (!isOwner()) { toast('פעולה זו שמורה לבעל/ת העסק', 'err'); return; }
   var hidden = _getZHidden();
@@ -4889,7 +4892,8 @@ function renderControl() {
     (function() {
       var denomFC    = fcWithVat ? totalIncome : netSales;
       var salesLabel = fcWithVat ? 'עם מע"מ' : 'ללא מע"מ (' + vat + '%)';
-      var fc  = denomFC  > 0 ? (totalPurchases / denomFC  * 100) : 0;
+      var purchasesForFC = fcWithVat ? totalPurchases : (totalPurchases > 0 ? totalPurchases / vatFactor : 0);
+      var fc  = denomFC  > 0 ? (purchasesForFC / denomFC  * 100) : 0;
       var lc  = netSales > 0 ? (totalPayroll   / netSales * 100) : 0;
       var fcColor = fc < 28 ? 'var(--success)' : fc < 38 ? 'var(--warning)' : 'var(--error)';
       var lcColor = lc < 30 ? 'var(--success)' : lc < 40 ? 'var(--warning)' : 'var(--error)';
@@ -4983,7 +4987,8 @@ function buildMonthComparison(ym, curIncome, curExpenses, curPl, curFc, curLc) {
   var prevExpenses = prevPayroll + prevPurchases + prevFixed + prevExtra;
   var prevPl = prevIncome - prevExpenses;
   var prevDenomFC = fcWithVat ? prevIncome : prevNet;
-  var prevFc = prevDenomFC > 0 && prevPurchases > 0 ? prevPurchases / prevDenomFC * 100 : 0;
+  var prevPurchasesForFC = fcWithVat ? prevPurchases : (prevPurchases > 0 ? prevPurchases / (1 + getVat()/100) : 0);
+  var prevFc = prevDenomFC > 0 && prevPurchases > 0 ? prevPurchasesForFC / prevDenomFC * 100 : 0;
   var prevLc = prevNet > 0 ? prevPayroll / prevNet * 100 : 0;
 
   var prevLabel = MHE[m-1] + ' ' + y;
