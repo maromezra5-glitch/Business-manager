@@ -18,15 +18,19 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2/dist/chartjs-plugin-datalabels.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js" integrity="sha384-y49Zu59jZHJL/PLKgZPv3k2WI9c0Yp3pWB76V8OBVCb0QBKS8l4Ff3YslzHVX76Y" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4.4.1/dist/email.min.js" integrity="sha384-SALc35EccAf6RzGw4iNsyj7kTPr33K7RoGzYu+7heZhT8s0GZouafRiCg1qy44AS" crossorigin="anonymous"></script>
 <script>
   var EMAILJS_SERVICE_ID  = 'service_2vq310k';
   var EMAILJS_TEMPLATE_ID = 'template_a70klrc';
   var EMAILJS_PUBLIC_KEY  = 'KT_msus7rILpRLW8j';
-  if (typeof emailjs !== 'undefined') emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+  // הספריות נטענות עם defer, אז זמינותן לא מובטחת בזמן ריצה סינכרוני של תג ה-script הזה —
+  // האתחול נדחה ל-DOMContentLoaded (שרץ תמיד אחרי שכל ה-defer scripts סיימו לטעון).
+  document.addEventListener('DOMContentLoaded', function() {
+    if (typeof emailjs !== 'undefined') emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+  });
 </script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
@@ -1083,7 +1087,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-07-03e';
+var APP_VERSION  = '2026-07-05a';
 
 // בדיקת גרסה אוטומטית — טוען גרסה טרייה ישירות מ-GitHub (עוקף browser cache וגם CDN cache)
 (function() {
@@ -1105,6 +1109,7 @@ var APP_VERSION  = '2026-07-03e';
 
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-07-05a', t: 'חיזוק אבטחה (הגנת נתוני דיבוג) וטעינת ספריות מהירה ובטוחה יותר' },
   { v: '2026-07-03e', t: 'עדכון מערכת' },
   { v: '2026-07-03d', t: 'עדכון מערכת' },
   { v: '2026-07-03c', t: 'עדכון מערכת' },
@@ -1290,10 +1295,14 @@ var showCharts = _loadUiPref('showCharts', false);
 var _sharedYM = '';
 var expenseListView = _loadUiPref('expenseListView', false);
 var _chartInstances = {};
-if (typeof Chart !== 'undefined' && typeof ChartDataLabels !== 'undefined') {
-  Chart.register(ChartDataLabels);
-  Chart.defaults.set('plugins.datalabels', { display: false }); // opt-in per chart, not global noise
-}
+// Chart/ChartDataLabels נטענות עם defer, לכן לא בטוח שהן זמינות כאן בזמן ריצה סינכרוני —
+// נרשמות ב-DOMContentLoaded (רץ תמיד אחרי שכל ה-defer scripts סיימו לטעון).
+document.addEventListener('DOMContentLoaded', function() {
+  if (typeof Chart !== 'undefined' && typeof ChartDataLabels !== 'undefined') {
+    Chart.register(ChartDataLabels);
+    Chart.defaults.set('plugins.datalabels', { display: false }); // opt-in per chart, not global noise
+  }
+});
 
 function getEmpRoles(emp) {
   if (emp.roles && emp.roles.length) return emp.roles;
@@ -7550,8 +7559,9 @@ async function authGoogleSignIn() {
 async function _resolveBusinessAndRole(user) {
   var signupName = _pendingSignupName;
   _pendingSignupName = '';
-  window._resolveDebug = {email: user.email, uid: user.uid, steps: []};
-  function _dbg(step, data) { window._resolveDebug.steps.push({step: step, data: data}); }
+  var _debugAllowed = (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+  if (_debugAllowed) window._resolveDebug = {email: user.email, uid: user.uid, steps: []};
+  function _dbg(step, data) { if (_debugAllowed) window._resolveDebug.steps.push({step: step, data: data}); }
 
   // 1) Were they invited (fresh, or re-invited after a previous removal)? Consume the invite if so —
   //    this creates an ADDITIONAL membership even if they already belong to other businesses.
