@@ -40,7 +40,7 @@
     GoogleAuthProvider, signInWithPopup
   } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
   import {
-    getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, getDocs, onSnapshot
+    getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, orderBy, limit, getDocs, onSnapshot, addDoc
   } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -99,7 +99,17 @@
     getInvite:    function(email) { return getDoc(doc(fbDb, 'invites', email.toLowerCase())); },
     deleteInvite: function(email) { return deleteDoc(doc(fbDb, 'invites', email.toLowerCase())); },
     listInvites:  function(businessId) { return getDocs(query(collection(fbDb, 'invites'), where('businessId', '==', businessId))); },
-    updateInviteTabs: function(email, allowedTabs) { return updateDoc(doc(fbDb, 'invites', email.toLowerCase()), {allowedTabs: allowedTabs}); }
+    updateInviteTabs: function(email, allowedTabs) { return updateDoc(doc(fbDb, 'invites', email.toLowerCase()), {allowedTabs: allowedTabs}); },
+
+    // ===== Leads — P1 יום 2, קריאה/עדכון/מחיקה מוגבלים לאימייל הסופר-אדמין בכללי Firestore =====
+    listLeads:  function() { return getDocs(query(collection(fbDb, 'leads'), orderBy('createdAt', 'desc'))); },
+    updateLeadStatus: function(id, status) { return updateDoc(doc(fbDb, 'leads', id), {status: status}); },
+    deleteLead: function(id) { return deleteDoc(doc(fbDb, 'leads', id)); },
+
+    // ===== טלמטריית שגיאות — P1 שלב 3 ("טלמטריה"), כתיבה פתוחה+מוגבלת-שדות, קריאה/מחיקה רק לסופר-אדמין =====
+    logError: function(data) { return addDoc(collection(fbDb, 'errorLog'), data).catch(function() {}); },
+    listErrors: function() { return getDocs(query(collection(fbDb, 'errorLog'), orderBy('ts', 'desc'), limit(30))); },
+    deleteError: function(id) { return deleteDoc(doc(fbDb, 'errorLog', id)); }
   };
 </script>
 <style>
@@ -112,7 +122,7 @@
   --border: #E2DAD4;
   --text: #1A1514;
   --text-sec: #6B6460;
-  --text-muted: #9C9490;
+  --text-muted: #756E67;
   --success: #1E7D4B;
   --success-bg: #E3F5ED;
   --warning: #C87D0E;
@@ -554,6 +564,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 .toast.hidden { display: none; }
 .toast.ok { background: linear-gradient(135deg, #1E7D4B, #25A060); box-shadow: 0 8px 28px rgba(30,125,75,.45); }
 .toast.err { background: linear-gradient(135deg, #C0392B, #E04534); box-shadow: 0 8px 28px rgba(192,57,43,.45); }
+.toast.warn { background: linear-gradient(135deg, var(--warning), #D99A3D); box-shadow: 0 8px 28px rgba(200,125,14,.45); color: #241A08; }
 @keyframes toastIn { from { opacity:0; transform:translateX(-50%) translateY(14px) scale(.92); } to { opacity:1; transform:translateX(-50%) translateY(0) scale(1); } }
 
 /* ── ALERT ── */
@@ -923,6 +934,14 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
   <button class="backup-banner-close" onclick="dismissBanner()" title="סגור">✕</button>
 </div>
 
+<!-- ═══ SYNC CONFLICT BANNER — מוצג כשמישהו אחר שמר נתונים בו-זמנית; שינויים מהרגע הזה לא מסונכרנים לענן ═══ -->
+<div id="sync-conflict-banner" class="backup-banner" style="display:none;background:linear-gradient(90deg,#FDECEC,#FCE4E4);border-bottom-color:rgba(192,57,43,.3);color:#8B1E14">
+  ⚠️ <strong>מישהו אחר עדכן את הנתונים בינתיים.</strong> השינויים שלך מהרגע הזה נשמרים במכשיר בלבד, לא בענן.
+  <button class="hdr-btn green" onclick="exportBackup()" style="font-size:12px;padding:4px 10px">💾 גבה עכשיו</button>
+  <button class="hdr-btn" onclick="location.reload()" style="font-size:12px;padding:4px 10px">🔄 טען גרסה עדכנית</button>
+  <button class="backup-banner-close" onclick="dismissSyncConflictBanner()" title="סגור">✕</button>
+</div>
+
 <!-- ═══ TAB NAV ═══ -->
 <nav class="tab-nav">
   <button class="tab-btn active" id="btn-home"      onclick="switchTab('home')"><span class="tab-icon">🏠</span> היום</button>
@@ -934,6 +953,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
   <button class="tab-btn" id="btn-payroll"   onclick="switchTab('payroll')"><span class="tab-icon">💰</span> משכורות</button>
   <button class="tab-btn" id="btn-control"   onclick="switchTab('control')"><span class="tab-icon">📋</span> טבלת שליטה</button>
   <button class="tab-btn" id="btn-tasks"     onclick="switchTab('tasks')"><span class="tab-icon">📝</span> משימות</button>
+  <button class="tab-btn" id="btn-superadmin" onclick="switchTab('superadmin')" style="display:none"><span class="tab-icon">🗼</span> לוח בקרה</button>
 </nav>
 
 <!-- ═══ TAB CONTENT ═══ -->
@@ -1056,6 +1076,14 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
     <div id="tasks-content"></div>
   </div>
 
+  <!-- TAB 9: SUPER-ADMIN / לוח בקרה (P1 — גלוי אך ורק למפעיל הפלטפורמה) -->
+  <div id="tab-superadmin" class="tab-panel">
+    <div class="panel-header">
+      <h1 class="panel-title">🗼 לוח הבקרה שלי</h1>
+    </div>
+    <div id="superadmin-content"></div>
+  </div>
+
 </main>
 </div>
 
@@ -1087,7 +1115,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-07-05a';
+var APP_VERSION  = '2026-07-09a';
 
 // בדיקת גרסה אוטומטית — טוען גרסה טרייה ישירות מ-GitHub (עוקף browser cache וגם CDN cache)
 (function() {
@@ -1109,6 +1137,8 @@ var APP_VERSION  = '2026-07-05a';
 
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-07-09a', t: 'שיפורי אמינות ונגישות: התראה ברורה אם השמירה לענן נתקעת בגלל עריכה בו-זמנית, סגירת חלונות אישור במקש Escape, ניגודיות טקסט משופרת' },
+  { v: '2026-07-08a', t: 'נוסף לוח בקרה פנימי לניהול לקוחות, קליטת לידים אוטומטית מהאתר ותזכורות חיוב ביומן המשימות' },
   { v: '2026-07-05a', t: 'חיזוק אבטחה (הגנת נתוני דיבוג) וטעינת ספריות מהירה ובטוחה יותר' },
   { v: '2026-07-03e', t: 'עדכון מערכת' },
   { v: '2026-07-03d', t: 'עדכון מערכת' },
@@ -1233,6 +1263,37 @@ var UPDATE_NOTES = [
 ];
 /* ──────────────────────────────────────────────────── */
 
+/* ================================================================
+   טלמטריית שגיאות — P1 שלב 3. תופס שגיאות JS לא-מטופלות ודוחות
+   אוטומטית ל-Firestore (errorLog), כדי שתקלות בשטח יתגלו בלי שהלקוח
+   ידווח עליהן. מוגבל ל-3 דיווחים לכל טעינת עמוד כדי לא להציף.
+================================================================ */
+(function() {
+  var reportCount = 0;
+  var MAX_REPORTS = 3;
+  function reportError(message, stack) {
+    if (reportCount >= MAX_REPORTS) return;
+    reportCount++;
+    try {
+      if (!window.fb || typeof window.fb.logError !== 'function') return;
+      window.fb.logError({
+        message: String(message || '').slice(0, 300),
+        stack: String(stack || '').slice(0, 1000),
+        url: location.href.slice(0, 300),
+        appVersion: APP_VERSION,
+        ts: Date.now()
+      });
+    } catch (e) {}
+  }
+  window.addEventListener('error', function(e) {
+    reportError(e.message, e.error && e.error.stack);
+  });
+  window.addEventListener('unhandledrejection', function(e) {
+    var reason = e.reason;
+    reportError(reason && reason.message ? reason.message : String(reason), reason && reason.stack);
+  });
+})();
+
 var MHE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
 var DHE = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
 var DS  = ['א','ב','ג','ד','ה','ו','ש'];
@@ -1340,7 +1401,7 @@ function deleteRole(r) {
         ' onclick="toggleRole(this.dataset.rc)"' +
         ' style="cursor:pointer;' + (on ? 'background:var(--primary);color:#fff;border-color:var(--primary-dark)' : '') + '">' +
         escHtml(role) +
-        '<button style="background:none;border:none;cursor:pointer;font-size:11px;color:#B85E3E;padding:0 0 0 5px;line-height:1" data-rcd="' + escHtml(role) + '" onclick="event.stopPropagation();deleteRole(this.dataset.rcd)">✕</button>' +
+        '<button style="background:none;border:none;cursor:pointer;font-size:11px;color:#B85E3E;padding:0 0 0 5px;line-height:1" data-rcd="' + escHtml(role) + '" title="הסר תפקיד" aria-label="הסר תפקיד" onclick="event.stopPropagation();deleteRole(this.dataset.rcd)">✕</button>' +
         '</span>';
     }).join('');
   }
@@ -1364,7 +1425,7 @@ function addRoleFromModal() {
       span.className = 'role-chip';
       span.dataset.rc = r;
       span.setAttribute('onclick', 'toggleRole(this.dataset.rc)');
-      span.innerHTML = escHtml(r) + '<button style="background:none;border:none;cursor:pointer;font-size:11px;color:#B85E3E;padding:0 0 0 5px;line-height:1" data-rcd="' + escHtml(r) + '" onclick="event.stopPropagation();deleteRole(this.dataset.rcd)">✕</button>';
+      span.innerHTML = escHtml(r) + '<button style="background:none;border:none;cursor:pointer;font-size:11px;color:#B85E3E;padding:0 0 0 5px;line-height:1" data-rcd="' + escHtml(r) + '" title="הסר תפקיד" aria-label="הסר תפקיד" onclick="event.stopPropagation();deleteRole(this.dataset.rcd)">✕</button>';
       wrap.appendChild(span);
     }
   }
@@ -1478,18 +1539,19 @@ function setHoursRoleFilter(role) {
   hoursRoleFilter = role;
   renderHours();
 }
-function setHoursNameSearch(val) {
+// מדוברס — הטבלה נבנית מחדש בכל הקשה, כך שממתינים לעצירה קצרה בהקלדה לפני רינדור מלא.
+var setHoursNameSearch = debounce(function(val) {
   hoursNameSearch = val;
   renderHours();
   var inp = document.getElementById('hours-name-search');
   if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
-}
-function setPayrollNameSearch(val) {
+}, 180);
+var setPayrollNameSearch = debounce(function(val) {
   payrollNameSearch = val;
   renderPayroll();
   var inp = document.getElementById('payroll-name-search');
   if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
-}
+}, 180);
 function setTipsRoleFilter(role, ds) {
   tipsRoleFilter = role;
   getShiftDefs().forEach(function(def) {
@@ -1517,9 +1579,34 @@ function loadState() {
   } catch(e) {}
 }
 
-function persist() {
+// debounce גנרי — מחזיר עטיפה עם המתנה של wait ms, ועם .flush() לכתיבה מיידית (בלי המתנה).
+function debounce(fn, wait) {
+  var t = null;
+  function wrapped() {
+    var args = arguments, ctx = this;
+    clearTimeout(t);
+    t = setTimeout(function() { fn.apply(ctx, args); }, wait);
+  }
+  wrapped.flush = function() {
+    clearTimeout(t);
+    fn.apply(this, arguments);
+  };
+  return wrapped;
+}
+
+var _docSizeWarned = false;
+function _persistNow() {
   try {
-    localStorage.setItem(KEY, JSON.stringify(S));
+    var json = JSON.stringify(S);
+    localStorage.setItem(KEY, json);
+    // מד גודל מסמך: Firestore חוסם מסמכים מעל 1MB. מזהירים פעם אחת לסשן לפני שמגיעים לתקרה.
+    if (!_docSizeWarned) {
+      var bytes = new Blob([json]).size;
+      if (bytes > 700 * 1024) {
+        _docSizeWarned = true;
+        toast('⚠️ נפח הנתונים מתקרב למגבלת האחסון בענן — פנה לתמיכה', 'warn');
+      }
+    }
   } catch(e) {
     toast('⚠️ נגמר מקום בדפדפן! גבה את הנתונים עכשיו לפני שיאבדו', 'err');
   }
@@ -1527,6 +1614,13 @@ function persist() {
   // אחרת הנתונים האחרונים לא נשמרים בשום מקום עד הפעולה הבאה.
   scheduleFirestoreSync();
 }
+// persist() נקרא בכל שינוי נתון, כולל על כל הקשת מקש בשדות מסוימים — הכתיבה בפועל
+// (JSON.stringify + localStorage) מדוברסת ב-400ms כדי לא לחסום את הממשק. הזיכרון החי (S)
+// לא מושפע כלל, רק זמן הכתיבה לדיסק/לענן. persistFlush() לכתיבה מיידית (למשל לפני סגירת טאב).
+var _persistDebounced = debounce(_persistNow, 400);
+function persist() { _persistDebounced(); }
+function persistFlush() { _persistDebounced.flush(); }
+window.addEventListener('beforeunload', persistFlush);
 
 var _fsSyncTimer = null;
 var _fsSyncInFlight = false;
@@ -1536,10 +1630,29 @@ function scheduleFirestoreSync() {
   clearTimeout(_fsSyncTimer);
   _fsSyncTimer = setTimeout(_runFirestoreSync, 2500);
 }
+// הגנת התנגשות בסיסית: כל עסק הוא מסמך Firestore יחיד שנשמר בדריסה מלאה (setDoc) —
+// בלי בדיקה כאן, שני משתמשים שעורכים באותו זמן היו דורסים בשקט אחד את השני.
+// _lastKnownUpdatedAt מוצב בטעינה הראשונית (ר' authInit) ומתעדכן בכל שמירה מוצלחת.
+// לאחר שהתגלתה התנגשות, לא ממשיכים לכתוב לענן (כדי לא לדרוס את מה שהצד השני שמר) —
+// אבל בניגוד לגרסה הקודמת, זה מוצג כבאנר קבוע (לא טוסט חד-פעמי שנעלם) בכל ניסיון שמירה
+// נוסף, כדי שהמשתמש לא יישאר בלי לדעת שהנתונים שלו לא מסונכרנים יותר.
+var _lastKnownUpdatedAt = 0;
 function _runFirestoreSync() {
   if (_fsSyncInFlight) { _fsSyncPending = true; return; }
   _fsSyncInFlight = true;
-  window.fb.saveData(currentBusinessId, S).catch(function() {
+  window.fb.loadData(currentBusinessId).then(function(snap) {
+    var remote = snap.exists() ? snap.data() : null;
+    var remoteUpdatedAt = (remote && remote.updatedAt) || 0;
+    if (remoteUpdatedAt && _lastKnownUpdatedAt && remoteUpdatedAt !== _lastKnownUpdatedAt) {
+      showSyncConflictBanner();
+      return;
+    }
+    var newUpdatedAt = Date.now();
+    var payload = Object.assign({}, S, { updatedAt: newUpdatedAt });
+    return window.fb.saveData(currentBusinessId, payload).then(function() {
+      _lastKnownUpdatedAt = newUpdatedAt;
+    });
+  }).catch(function() {
     toast('⚠️ סנכרון לענן נכשל — הנתונים נשמרו מקומית בלבד', 'err');
   }).then(function() {
     _fsSyncInFlight = false;
@@ -1552,7 +1665,26 @@ function _runFirestoreSync() {
 async function persistAndReload(delayMs, _attempt) {
   _attempt = _attempt || 1;
   clearTimeout(_fsSyncTimer);
-  persist();
+  persistFlush(); // כתיבה מקומית מיידית, לא מדוברסת — הרענון קורה תוך רגעים
+
+  // בדיקת התנגשות לפני דריסה מלאה: אם מישהו אחר שמר נתונים בענן בינתיים (למשל חבר צוות
+  // אחר שעורך עכשיו), שחזור/ייבוא בלי בדיקה היה דורס את השינויים שלו בשקט לגמרי.
+  if (_attempt === 1 && currentBusinessId && window.fb) {
+    try {
+      var snap = await window.fb.loadData(currentBusinessId);
+      var remote = snap.exists() ? snap.data() : null;
+      var remoteUpdatedAt = (remote && remote.updatedAt) || 0;
+      if (remoteUpdatedAt && _lastKnownUpdatedAt && remoteUpdatedAt !== _lastKnownUpdatedAt) {
+        var proceed = await customConfirm({
+          title: 'מישהו אחר עדכן את הנתונים בינתיים',
+          message: 'ייתכן שחבר צוות אחר שינה נתונים בזמן שהיית בפעולה הזו. המשך יחליף את הנתונים שלו בגרסה שברשותך כרגע — ולא ניתן לבטל את זה.\n\nלהמשיך בכל זאת?',
+          confirmText: 'כן, החלף בכל זאת', danger: true
+        });
+        if (!proceed) { toast('הפעולה בוטלה', 'ok'); return; }
+      }
+    } catch (e) {} // אם בדיקת ההתנגשות עצמה נכשלה (למשל אין רשת) — ממשיכים לנתיב השמירה הרגיל, שכולל כבר ניסיונות חוזרים משלו
+  }
+
   if (currentBusinessId && window.fb) {
     try {
       await window.fb.saveData(currentBusinessId, S);
@@ -1583,10 +1715,14 @@ function customConfirm(opts) {
   return new Promise(function(resolve) {
     var overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10050;display:flex;align-items:center;justify-content:center;direction:rtl;padding:16px';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'cc-title');
+    overlay.setAttribute('aria-describedby', 'cc-message');
     overlay.innerHTML =
       '<div style="background:#fff;border-radius:18px;padding:26px 28px;max-width:430px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:right">' +
-        '<div style="font-size:18px;font-weight:800;margin-bottom:12px;color:' + (danger ? 'var(--error)' : 'var(--text)') + '">' + (danger ? '⚠️ ' : '') + escHtml(title) + '</div>' +
-        '<div style="font-size:14.5px;line-height:1.65;color:var(--text-sec);margin-bottom:' + (requireText ? '14px' : '24px') + '">' + message + '</div>' +
+        '<div id="cc-title" style="font-size:18px;font-weight:800;margin-bottom:12px;color:' + (danger ? 'var(--error)' : 'var(--text)') + '">' + (danger ? '⚠️ ' : '') + escHtml(title) + '</div>' +
+        '<div id="cc-message" style="font-size:14.5px;line-height:1.65;color:var(--text-sec);margin-bottom:' + (requireText ? '14px' : '24px') + '">' + message + '</div>' +
         (requireText ?
           '<div style="margin-bottom:18px">' +
             '<div style="font-size:12.5px;color:var(--text-muted);margin-bottom:6px">הקלד "<strong>' + escHtml(requireText) + '</strong>" לאישור:</div>' +
@@ -1599,7 +1735,25 @@ function customConfirm(opts) {
         '</div>' +
       '</div>';
     document.body.appendChild(overlay);
-    function finish(result) { overlay.remove(); resolve(result); }
+    var _prevFocus = document.activeElement;
+    function finish(result) {
+      document.removeEventListener('keydown', onKeydown, true);
+      overlay.remove();
+      if (_prevFocus && _prevFocus.focus) _prevFocus.focus();
+      resolve(result);
+    }
+    function onKeydown(e) {
+      if (e.key === 'Escape') { e.preventDefault(); finish(false); return; }
+      if (e.key === 'Tab') {
+        // מלכודת פוקוס בסיסית — לא נותנים ל-Tab לברוח מהחלון לרכיבים שמתחתיו
+        var focusables = overlay.querySelectorAll('button, input, [tabindex]:not([tabindex="-1"])');
+        if (!focusables.length) return;
+        var first = focusables[0], last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    }
+    document.addEventListener('keydown', onKeydown, true);
     overlay.querySelector('#cc-cancel-btn').onclick  = function() { finish(false); };
     overlay.querySelector('#cc-confirm-btn').onclick = function() { if (!overlay.querySelector('#cc-confirm-btn').disabled) finish(true); };
     overlay.addEventListener('click', function(e) { if (e.target === overlay) finish(false); });
@@ -1866,7 +2020,7 @@ function openEmpModal(id) {
       ' onclick="toggleRole(this.dataset.rc)"' +
       ' style="cursor:pointer;' + (on ? 'background:var(--primary);color:#fff;border-color:var(--primary-dark)' : '') + '">' +
       escHtml(r) +
-      '<button style="background:none;border:none;cursor:pointer;font-size:11px;color:#B85E3E;padding:0 0 0 5px;line-height:1" data-rcd="' + escHtml(r) + '" onclick="event.stopPropagation();deleteRole(this.dataset.rcd)">✕</button>' +
+      '<button style="background:none;border:none;cursor:pointer;font-size:11px;color:#B85E3E;padding:0 0 0 5px;line-height:1" data-rcd="' + escHtml(r) + '" title="הסר תפקיד" aria-label="הסר תפקיד" onclick="event.stopPropagation();deleteRole(this.dataset.rcd)">✕</button>' +
       '</span>';
   }).join('');
   var roleChipsHtml =
@@ -3440,7 +3594,7 @@ function openTipsModal(ds) {
         '<div style="font-size:13px;font-weight:600;opacity:.85;margin-top:2px">' + d + ' ' + DHE[wd] + ' (' + dowLabel + ') — ' + ds + '</div>' +
       '</div>' +
       '<button onclick="nextTipsDay()" style="' + navBtn + (canNext ? '' : 'opacity:.25;cursor:default') + '" ' + (canNext ? '' : 'disabled') + '>←</button>' +
-      '<button class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.3);padding:8px 14px;font-size:13px;font-weight:700;margin-right:4px" onclick="closeTipsModal()">✕</button>' +
+      '<button class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.3);padding:8px 14px;font-size:13px;font-weight:700;margin-right:4px" title="סגור" aria-label="סגור" onclick="closeTipsModal()">✕</button>' +
     '</div>' +
     '<div style="padding:18px 20px;display:flex;flex-direction:column;gap:16px">' + shiftSections + '</div>';
   document.getElementById('tips-modal').classList.remove('hidden');
@@ -3581,7 +3735,7 @@ function openEmpTipsModal(empId, ym) {
         '</div>' +
         '<div style="display:flex;gap:8px">' +
           '<button class="btn btn-primary btn-sm" onclick="exportEmpTipsXlsx()">📥 ייצוא Excel</button>' +
-          '<button class="btn btn-secondary btn-icon btn-sm" onclick="closeEmpTipsModal()">✕</button>' +
+          '<button class="btn btn-secondary btn-icon btn-sm" title="סגור" aria-label="סגור" onclick="closeEmpTipsModal()">✕</button>' +
         '</div>' +
       '</div>' +
     '</div>' +
@@ -3740,7 +3894,7 @@ function renderShiftSection(ds, shift) {
             'onclick="applyAdjNote(\'' + ds + '\',\'' + shift + '\',' + i + ',' + ni + ')">' +
             escHtml(n) +
             '<button style="background:none;border:none;cursor:pointer;font-size:11px;color:#B85E3E;padding:0 0 0 2px;line-height:1" ' +
-            'onclick="event.stopPropagation();removeAdjNote(' + ni + ')">✕</button>' +
+            'title="הסר הערה" aria-label="הסר הערה" onclick="event.stopPropagation();removeAdjNote(' + ni + ')">✕</button>' +
           '</span>';
         }).join('') +
       '</div>';
@@ -6374,6 +6528,18 @@ function dismissBanner() {
   sessionStorage.setItem('cafeManager_bannerDismissed', '1');
 }
 
+// לא נשמר sessionStorage בכוונה — אם המשתמש סוגר את הבאנר וממשיך לערוך, וההתנגשות
+// עדיין לא נפתרה (עוד לא רענן), הבאנר יופיע שוב בניסיון השמירה הבא. זו לא הטרדה מיותרת —
+// זו בדיוק ההתראה שהמשתמש צריך לראות כל עוד השינויים שלו לא מגיעים לענן.
+function dismissSyncConflictBanner() {
+  var b = document.getElementById('sync-conflict-banner');
+  if (b) b.style.display = 'none';
+}
+function showSyncConflictBanner() {
+  var b = document.getElementById('sync-conflict-banner');
+  if (b) b.style.display = 'flex';
+}
+
 function showBackupBannerIfNeeded() {
   if (sessionStorage.getItem('cafeManager_bannerDismissed')) return;
   var last = localStorage.getItem('cafeManager_lastBackup');
@@ -6981,6 +7147,248 @@ function renderTasks(focusInput) {
   }
 }
 
+/* ================================================================
+   SUPER-ADMIN — לוח הבקרה שלי (P1: מיני-CRM)
+   גלוי אך ורק ל-isSuperAdmin(). הנתונים חיים ב-S.adminClients — בתוך
+   העסק האישי של המפעיל, ולכן לא דורשים שום שינוי בכללי Firestore.
+================================================================ */
+var ADMIN_STATUS_META = {
+  trial:   { label: 'בטא/ניסיון', color: '#2563EB' },
+  paid:    { label: 'שולם',       color: '#1E7E4D' },
+  pending: { label: 'ממתין לתשלום', color: '#B7791F' },
+  overdue: { label: 'באיחור',     color: '#C0392B' }
+};
+
+function openAdminClientModal(id) {
+  var c = id ? (S.adminClients || []).find(function(x) { return x.id === id; }) : null;
+  var html =
+    '<div class="modal-header"><h3>' + (c ? 'עריכת לקוח' : 'לקוח חדש') + '</h3></div>' +
+    '<div class="modal-body" style="display:flex;flex-direction:column;gap:12px">' +
+      '<div><label style="font-size:12px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:5px">שם העסק / הלקוח</label>' +
+        '<input type="text" id="ac-name" value="' + (c ? escHtml(c.name) : '') + '" placeholder="למשל: מסעדת הים הכחול" style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:10px;font-size:15px;direction:rtl;box-sizing:border-box"></div>' +
+      '<div><label style="font-size:12px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:5px">מסלול / מחיר</label>' +
+        '<input type="text" id="ac-plan" value="' + (c ? escHtml(c.plan || '') : '') + '" placeholder="למשל: קטן ₪149/חודש" style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:10px;font-size:15px;direction:rtl;box-sizing:border-box"></div>' +
+      '<div><label style="font-size:12px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:5px">סטטוס תשלום</label>' +
+        '<select id="ac-status" style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:10px;font-size:15px;direction:rtl;box-sizing:border-box">' +
+          Object.keys(ADMIN_STATUS_META).map(function(k) {
+            return '<option value="' + k + '"' + (c && c.status === k ? ' selected' : (!c && k === 'trial' ? ' selected' : '')) + '>' + ADMIN_STATUS_META[k].label + '</option>';
+          }).join('') +
+        '</select></div>' +
+      '<div><label style="font-size:12px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:5px">תאריך חיוב הבא (אופציונלי)</label>' +
+        '<input type="date" id="ac-billing" value="' + (c && c.nextBilling ? c.nextBilling : '') + '" style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:10px;font-size:15px;box-sizing:border-box"></div>' +
+      '<div><label style="font-size:12px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:5px">הערות</label>' +
+        '<textarea id="ac-notes" rows="3" placeholder="פרטי קשר, סטטוס שיחה, כל מה שכדאי לזכור..." style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:10px;font-size:14px;direction:rtl;box-sizing:border-box;resize:vertical">' + (c ? escHtml(c.notes || '') : '') + '</textarea></div>' +
+    '</div>' +
+    '<div class="modal-footer">' +
+      '<button class="btn btn-secondary" onclick="closeModal()">ביטול</button>' +
+      '<button class="btn btn-primary" onclick="saveAdminClient(' + (c ? '\'' + c.id + '\'' : 'null') + ')">💾 שמירה</button>' +
+    '</div>';
+  document.getElementById('modal-box').innerHTML = html;
+  document.getElementById('modal').classList.remove('hidden');
+}
+
+function saveAdminClient(id) {
+  var name = document.getElementById('ac-name').value.trim();
+  if (!name) { toast('צריך לרשום שם עסק/לקוח', 'warn'); return; }
+  var rec = {
+    name: name,
+    plan: document.getElementById('ac-plan').value.trim(),
+    status: document.getElementById('ac-status').value,
+    nextBilling: document.getElementById('ac-billing').value || '',
+    notes: document.getElementById('ac-notes').value.trim()
+  };
+  if (!S.adminClients) S.adminClients = [];
+  var target;
+  if (id) {
+    var existing = S.adminClients.find(function(x) { return x.id === id; });
+    if (existing) { Object.assign(existing, rec); target = existing; }
+  } else {
+    rec.id = Date.now() + '_' + Math.random().toString(36).slice(2);
+    rec.createdAt = new Date().toISOString().slice(0, 10);
+    S.adminClients.unshift(rec);
+    target = rec;
+  }
+  if (target) syncBillingTask(target);
+  persist();
+  closeModal();
+  renderSuperAdmin();
+  toast('✅ נשמר', 'ok');
+}
+
+async function deleteAdminClient(id) {
+  var ok = await customConfirm({
+    title: 'מחיקת לקוח',
+    message: 'למחוק את הלקוח הזה מלוח הבקרה? הפעולה הזו לא מוחקת את המערכת שלו, רק את הרישום כאן.',
+    confirmText: 'מחק', danger: true
+  });
+  if (!ok) return;
+  S.adminClients = (S.adminClients || []).filter(function(x) { return x.id !== id; });
+  removeBillingTask(id);
+  persist();
+  renderSuperAdmin();
+}
+
+// ── תזכורות חיוב אוטומטיות — משתמשות ביומן המשימות הקיים (S.tasks), בלי מנגנון נפרד ──
+function billingTaskId(clientId) { return 'billing_' + clientId; }
+
+function syncBillingTask(c) {
+  if (!S.tasks) S.tasks = [];
+  var tid = billingTaskId(c.id);
+  var existing = S.tasks.find(function(t) { return t.id === tid; });
+  if (!c.nextBilling) {
+    if (existing) S.tasks = S.tasks.filter(function(t) { return t.id !== tid; });
+    return;
+  }
+  var text = '💰 תזכורת חיוב: ' + c.name + (c.plan ? ' (' + c.plan + ')' : '');
+  if (existing) {
+    existing.text = text;
+    existing.dueDate = c.nextBilling;
+  } else {
+    S.tasks.unshift({ id: tid, text: text, dueDate: c.nextBilling, done: false, createdAt: new Date().toISOString().slice(0, 10), adminClientId: c.id });
+  }
+}
+
+function removeBillingTask(clientId) {
+  if (!S.tasks) return;
+  S.tasks = S.tasks.filter(function(t) { return t.id !== billingTaskId(clientId); });
+}
+
+function renderSuperAdmin() {
+  var cont = document.getElementById('superadmin-content');
+  if (!cont) return;
+  if (!isSuperAdmin()) {
+    cont.innerHTML = '<div class="empty"><div class="empty-icon">🔒</div><div class="empty-title">אין גישה</div><div class="empty-sub">הלשונית הזו שמורה למפעיל הפלטפורמה</div></div>';
+    return;
+  }
+  if (!S.adminClients) S.adminClients = [];
+  var clients = S.adminClients;
+  var paidCount = clients.filter(function(c) { return c.status === 'paid'; }).length;
+  var overdueCount = clients.filter(function(c) { return c.status === 'overdue'; }).length;
+
+  var summary =
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px">' +
+      '<div class="card" style="text-align:center;padding:16px"><div style="font-size:26px;font-weight:800">' + clients.length + '</div><div style="font-size:12.5px;color:var(--text-muted)">סה"כ לקוחות</div></div>' +
+      '<div class="card" style="text-align:center;padding:16px"><div style="font-size:26px;font-weight:800;color:#1E7E4D">' + paidCount + '</div><div style="font-size:12.5px;color:var(--text-muted)">משלמים</div></div>' +
+      '<div class="card" style="text-align:center;padding:16px"><div style="font-size:26px;font-weight:800;color:#C0392B">' + overdueCount + '</div><div style="font-size:12.5px;color:var(--text-muted)">באיחור</div></div>' +
+    '</div>';
+
+  var addBtn = '<button class="btn btn-primary" onclick="openAdminClientModal(null)" style="margin-bottom:16px">+ הוסף לקוח חדש</button>';
+
+  var clientCard = function(c) {
+    var meta = ADMIN_STATUS_META[c.status] || ADMIN_STATUS_META.trial;
+    var billingTxt = c.nextBilling ? ('📅 חיוב הבא: ' + c.nextBilling) : '';
+    return '<div class="card" style="margin-bottom:12px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">' +
+        '<div>' +
+          '<div style="font-size:16px;font-weight:700">' + escHtml(c.name) + '</div>' +
+          '<div style="font-size:13px;color:var(--text-muted);margin-top:2px">' + (c.plan ? escHtml(c.plan) : 'ללא מסלול מוגדר') + '</div>' +
+        '</div>' +
+        '<span style="background:' + meta.color + ';color:#fff;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap">' + meta.label + '</span>' +
+      '</div>' +
+      (billingTxt ? '<div style="font-size:12.5px;color:var(--text-muted);margin-top:8px">' + billingTxt + '</div>' : '') +
+      (c.notes ? '<div style="font-size:13px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);white-space:pre-wrap">' + escHtml(c.notes) + '</div>' : '') +
+      '<div style="display:flex;gap:8px;margin-top:12px">' +
+        '<button class="btn btn-secondary btn-sm" onclick="openAdminClientModal(\'' + c.id + '\')">✏️ עריכה</button>' +
+        '<button class="btn btn-secondary btn-sm" onclick="deleteAdminClient(\'' + c.id + '\')" style="color:var(--error)">🗑️ מחיקה</button>' +
+      '</div>' +
+    '</div>';
+  };
+
+  cont.innerHTML = summary +
+    '<div id="sa-leads-section" style="margin-bottom:20px"><div class="empty" style="padding:20px"><div class="empty-sub">טוען לידים מהאתר…</div></div></div>' +
+    addBtn +
+    (clients.length === 0 ?
+      '<div class="empty"><div class="empty-icon">🗼</div><div class="empty-title">אין לקוחות עדיין</div><div class="empty-sub">הוסיפו את לקוח הבטא הראשון שלכם למעלה</div></div>' :
+      clients.map(clientCard).join('')
+    ) +
+    '<div id="sa-errors-section" style="margin-top:24px"></div>';
+
+  loadSuperAdminLeads();
+  loadSuperAdminErrors();
+}
+
+async function loadSuperAdminErrors() {
+  var box = document.getElementById('sa-errors-section');
+  if (!box) return;
+  var errs = [];
+  try {
+    var snap = await window.fb.listErrors();
+    snap.forEach(function(d) { errs.push(Object.assign({ id: d.id }, d.data())); });
+  } catch (e) { return; }
+  if (errs.length === 0) { box.innerHTML = ''; return; }
+  var dateTxt = function(ts) { try { return new Date(ts).toLocaleString('he-IL'); } catch (e) { return ''; } };
+  var errCard = function(er) {
+    return '<div class="card" style="margin-bottom:10px;border-right:3px solid var(--error)">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-size:13.5px;font-weight:700;color:var(--error);word-break:break-word">' + escHtml(er.message || '') + '</div>' +
+          '<div style="font-size:11.5px;color:var(--text-muted);margin-top:4px">🕒 ' + dateTxt(er.ts) + ' · גרסה ' + escHtml(er.appVersion || '') + '</div>' +
+          '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;word-break:break-all">' + escHtml(er.url || '') + '</div>' +
+        '</div>' +
+        '<button class="btn btn-secondary btn-sm" onclick="dismissError(\'' + er.id + '\')">✖</button>' +
+      '</div>' +
+    '</div>';
+  };
+  box.innerHTML = '<div style="font-size:13px;font-weight:700;color:var(--text-muted);margin-bottom:8px">🐞 שגיאות אחרונות מהשטח (' + errs.length + ')</div>' +
+    errs.map(errCard).join('');
+}
+
+async function dismissError(id) {
+  try { await window.fb.deleteError(id); } catch (e) {}
+  loadSuperAdminErrors();
+}
+
+async function loadSuperAdminLeads() {
+  var box = document.getElementById('sa-leads-section');
+  if (!box) return;
+  var leads = [];
+  try {
+    var snap = await window.fb.listLeads();
+    snap.forEach(function(d) { leads.push(Object.assign({ id: d.id }, d.data())); });
+  } catch (e) {
+    box.innerHTML = '<div class="empty" style="padding:20px"><div class="empty-sub">שגיאה בטעינת לידים (ייתכן שחוקי ה-Firestore לקטגוריית leads עדיין לא פורסמו)</div></div>';
+    return;
+  }
+  var newLeads = leads.filter(function(l) { return l.status === 'new'; });
+  if (newLeads.length === 0) { box.innerHTML = ''; return; }
+  var dateTxt = function(ts) { try { return new Date(ts).toLocaleDateString('he-IL'); } catch (e) { return ''; } };
+  var leadCard = function(l) {
+    return '<div class="card" style="margin-bottom:10px;border-right:3px solid var(--primary)">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">' +
+        '<div>' +
+          '<div style="font-size:15px;font-weight:700">' + escHtml(l.name || '') + '</div>' +
+          '<div style="font-size:13px;color:var(--text-muted);margin-top:2px">📞 ' + escHtml(l.phone || '') + ' · ' + dateTxt(l.createdAt) + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;margin-top:10px">' +
+        '<button class="btn btn-primary btn-sm" onclick="convertLead(\'' + l.id + '\',\'' + l.name.replace(/'/g, "\\'") + '\',\'' + (l.phone || '').replace(/'/g, "\\'") + '\')">✅ הפוך ללקוח</button>' +
+        '<button class="btn btn-secondary btn-sm" onclick="dismissLead(\'' + l.id + '\')">✖ התעלם</button>' +
+      '</div>' +
+    '</div>';
+  };
+  box.innerHTML = '<div style="font-size:13px;font-weight:700;color:var(--text-muted);margin-bottom:8px">🆕 לידים חדשים מהאתר (' + newLeads.length + ')</div>' +
+    newLeads.map(leadCard).join('');
+}
+
+async function convertLead(id, name, phone) {
+  if (!S.adminClients) S.adminClients = [];
+  S.adminClients.unshift({
+    id: Date.now() + '_' + Math.random().toString(36).slice(2),
+    name: name, plan: '', status: 'trial', nextBilling: '',
+    notes: phone ? ('📞 ' + phone) : '',
+    createdAt: new Date().toISOString().slice(0, 10)
+  });
+  persist();
+  try { await window.fb.updateLeadStatus(id, 'converted'); } catch (e) {}
+  renderSuperAdmin();
+  toast('✅ הליד הפך ללקוח', 'ok');
+}
+
+async function dismissLead(id) {
+  try { await window.fb.updateLeadStatus(id, 'dismissed'); } catch (e) {}
+  loadSuperAdminLeads();
+}
+
 // Register renderers
 RENDER_MAP = {
   home:      renderToday,
@@ -6991,7 +7399,8 @@ RENDER_MAP = {
   tips:      renderTips,
   purchases: renderPurchases,
   control:   renderControl,
-  tasks:     renderTasks
+  tasks:     renderTasks,
+  superadmin: renderSuperAdmin
 };
 
 /* ================================================================
@@ -7105,6 +7514,9 @@ function applyBusinessType() {
 }
 
 function applyRolePermissions() {
+  var superBtn = document.getElementById('btn-superadmin');
+  if (superBtn) superBtn.style.display = isSuperAdmin() ? '' : 'none';
+
   var ownerEls   = document.querySelectorAll('.owner-only');
   var logoEl     = document.querySelector('.logo');
   var hidden     = window._bizTypeHiddenTabs || [];
@@ -7112,6 +7524,7 @@ function applyRolePermissions() {
     ownerEls.forEach(function(el) { el.style.display = ''; });
     document.querySelectorAll('.tab-btn').forEach(function(b) {
       var name = b.id.replace('btn-', '');
+      if (name === 'superadmin') return; // נשלט אך ורק ע"י isSuperAdmin() למעלה, לא ע"י role עסקי
       b.style.display = (name === 'home' || hidden.indexOf(name) === -1) ? '' : 'none';
     });
     if (logoEl) { logoEl.style.cursor = 'pointer'; logoEl.onclick = openBizSettings; }
@@ -7442,6 +7855,18 @@ function renderUserGreeting() {
 var LAST_EMAIL_KEY = 'cafeManager_lastEmail';
 function isOwner() { return currentRole === 'owner'; }
 
+// לוח הבקרה (P1) — מוגבל אך ורק לחשבון המפעיל של הפלטפורמה עצמה (לא לבעלי עסקים לקוחות,
+// שגם הם מקבלים role==='owner' בעסק שלהם). הנתונים חיים בתוך S.adminClients, שנטען מהעסק
+// האישי של המפעיל בלבד — כך שגם אם משתמש אחר יעקוף את הכפתור המוסתר, הוא יראה רק את
+// S.adminClients הריק/האישי שלו-עצמו, לעולם לא את נתוני הלקוחות האמיתיים.
+var SUPERADMIN_EMAIL = 'maromezra5@gmail.com';
+function isSuperAdmin() {
+  try {
+    var u = window.fb && window.fb.currentUser && window.fb.currentUser();
+    return !!u && (u.email || '').toLowerCase() === SUPERADMIN_EMAIL;
+  } catch (e) { return false; }
+}
+
 // Race any Firebase call against a timeout so a stalled connection shows
 // an error instead of leaving the UI stuck on "טוען..." forever.
 function _withTimeout(promise, ms, label) {
@@ -7673,6 +8098,7 @@ async function authLoadAndShowApp(user) {
       if (cloudData && Array.isArray(cloudData.employees)) {
         S = cloudData;
         window._cloudDataLoaded = true;
+        _lastKnownUpdatedAt = cloudData.updatedAt || 0;
       }
     }
   } catch (e) {
@@ -8493,7 +8919,14 @@ function dismissSetupWizard() {
 }
 
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') { closeModal(); return; }
+  if (e.key === 'Escape') {
+    var tipsM = document.getElementById('tips-modal');
+    var empTipsM = document.getElementById('emp-tips-modal');
+    if (tipsM && !tipsM.classList.contains('hidden')) { closeTipsModal(); return; }
+    if (empTipsM && !empTipsM.classList.contains('hidden')) { closeEmpTipsModal(); return; }
+    closeModal();
+    return;
+  }
   if (e.key !== 'Enter') return;
   var el = e.target;
   if (!el || el.tagName !== 'INPUT') return;
