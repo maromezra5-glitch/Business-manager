@@ -1121,7 +1121,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-07-09b';
+var APP_VERSION  = '2026-07-11a';
 
 // בדיקת גרסה אוטומטית — טוען גרסה טרייה ישירות מ-GitHub (עוקף browser cache וגם CDN cache)
 (function() {
@@ -1143,6 +1143,7 @@ var APP_VERSION  = '2026-07-09b';
 
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-07-11a', t: 'תוקנה קריסה בלשונית הקניות אצל עסקים עם גרשיים בשם הספק (למשל בע"מ) — הבאג התגלה אוטומטית דרך מערכת דיווח התקלות החדשה' },
   { v: '2026-07-09b', t: 'דיווח תקלות אוטומטי משופר ומדידת שימוש אנונימית — כדי שנתקן בעיות עוד לפני שתרגישו בהן' },
   { v: '2026-07-09a', t: 'שיפורי אמינות ונגישות: התראה ברורה אם השמירה לענן נתקעת בגלל עריכה בו-זמנית, סגירת חלונות אישור במקש Escape, ניגודיות טקסט משופרת' },
   { v: '2026-07-08a', t: 'נוסף לוח בקרה פנימי לניהול לקוחות, קליטת לידים אוטומטית מהאתר ותזכורות חיוב ביומן המשימות' },
@@ -3483,7 +3484,7 @@ function onZInput(inp) {
   var rt = zChLive.reduce(function(s,f){ return s + toNum(rec[f.k]); }, 0);
   var rtVatF = 1 + getVat() / 100;
   var rtNet  = rt > 0 ? rt / rtVatF : 0;
-  var rtEl = document.querySelector('[data-zrt="' + ds + '"]');
+  var rtEl = document.querySelector('[data-zrt="' + CSS.escape(ds) + '"]');
   if (rtEl) {
     rtEl.innerHTML = '<div style="width:120px;overflow:hidden">' +
       '<strong style="color:' + (rt>0?'var(--success)':'var(--text-muted)') + '">' + (rt>0?ILS(rt):'—') + '</strong>' +
@@ -4178,7 +4179,7 @@ function updateTipsCalc(ds, shift) {
   persist();
 
   var defs2 = getShiftDefs();
-  var rowEl = document.querySelector('[data-tips-ds="' + ds + '"]');
+  var rowEl = document.querySelector('[data-tips-ds="' + CSS.escape(ds) + '"]');
   if (rowEl) {
     var cells = rowEl.cells;
     var dayT = 0;
@@ -4738,7 +4739,7 @@ function onPurInput(inp) {
   S.suppliers.forEach(function(s){ rt += toNum(rec[s]); });
   var rtColor = rt>0 ? 'var(--primary)' : (rt<0 ? 'var(--error)' : 'var(--text-muted)');
   var rtVatFac = 1 + getVat() / 100;
-  var rtEl = document.querySelector('[data-prt="' + ds + '"]');
+  var rtEl = document.querySelector('[data-prt="' + CSS.escape(ds) + '"]');
   if (rtEl) {
     rtEl.innerHTML = '<strong style="color:' + rtColor + '">' + (rt!==0?ILS(rt):'—') + '</strong>' +
       '<div style="font-size:10.5px;color:#2563eb;font-weight:600;margin-top:1px">' + (rt !== 0 ? 'ללא מע"מ: ' + ILS(rt / rtVatFac) : ' ') + '</div>';
@@ -4749,7 +4750,7 @@ function onPurInput(inp) {
   var ct = 0;
   for (var d2 = 1; d2 <= days; d2++) ct += toNum((S.purchases[ym][dateFull(ym,d2)] || {})[sup]);
   var ctColor = ct>0 ? 'var(--primary)' : (ct<0 ? 'var(--error)' : 'inherit');
-  var ctEl = document.querySelector('[data-stot="' + sup + '"]');
+  var ctEl = document.querySelector('[data-stot="' + CSS.escape(sup) + '"]');
   if (ctEl) { ctEl.innerHTML = '<strong style="color:' + ctColor + '">' + (ct!==0?ILS(ct):'—') + '</strong>'; _flashNum(ctEl); }
 
   var grand = 0;
@@ -4762,7 +4763,7 @@ function onPurInput(inp) {
 
   var vatF = 1 + getVat() / 100;
   S.suppliers.forEach(function(s){
-    var stEl = document.querySelector('[data-pvat="' + s + '"]');
+    var stEl = document.querySelector('[data-pvat="' + CSS.escape(s) + '"]');
     if (!stEl) return;
     var st = 0;
     for (var d4=1; d4<=days; d4++) st += toNum((S.purchases[ym][dateFull(ym,d4)] || {})[s]);
