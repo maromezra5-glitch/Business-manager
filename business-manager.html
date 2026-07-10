@@ -109,11 +109,15 @@
     // ===== טלמטריית שגיאות — P1 שלב 3 ("טלמטריה"), כתיבה פתוחה+מוגבלת-שדות, קריאה/מחיקה רק לסופר-אדמין =====
     logError: function(data) { return addDoc(collection(fbDb, 'errorLog'), data).catch(function() {}); },
     listErrors: function() { return getDocs(query(collection(fbDb, 'errorLog'), orderBy('ts', 'desc'), limit(30))); },
-    deleteError: function(id) { return deleteDoc(doc(fbDb, 'errorLog', id)); }
+    deleteError: function(id) { return deleteDoc(doc(fbDb, 'errorLog', id)); },
+
+    // ===== אירועי שימוש (P2) — כתיבה רק למשתמש מחובר; נכשל בשקט אם חוקי events טרם פורסמו =====
+    logEvent: function(data) { return addDoc(collection(fbDb, 'events'), data).catch(function() {}); }
   };
 </script>
 <style>
 :root {
+  color-scheme: light;
   --primary: #D97757;
   --primary-dark: #B85E3E;
   --primary-light: #F5E6DF;
@@ -137,6 +141,7 @@
   --glow-success: 0 0 20px rgba(30,125,75,.22);
 }
 [data-theme="dark"] {
+  color-scheme: dark;
   --primary-light: rgba(217,119,87,.18);
   --bg: #17120F;
   --surface: #221C18;
@@ -909,6 +914,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
       <div id="admin-menu" class="hdr-dropdown-menu hidden">
         <button onclick="closeAdminMenu();exportBackup()">💾 גיבוי נתונים</button>
         <button onclick="closeAdminMenu();exportReadableSummary()" title="קובץ אקסל קריא — לא לשחזור, רק לעיון">📄 תקציר קריא לאקסל</button>
+        <button onclick="closeAdminMenu();openAccountantPackageModal()" title="קובץ אחד עם כל הדוחות של החודש — מוכן לשליחה לרואה חשבון">📦 חבילה לרואה חשבון</button>
         <button onclick="closeAdminMenu();triggerImport()">📂 שחזור מגיבוי</button>
         <button onclick="closeAdminMenu();renderAuditLog()">📋 יומן פעולות</button>
         <button onclick="closeAdminMenu();openUserMgmt()">👤 ניהול משתמשים</button>
@@ -1115,7 +1121,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-07-09a';
+var APP_VERSION  = '2026-07-09b';
 
 // בדיקת גרסה אוטומטית — טוען גרסה טרייה ישירות מ-GitHub (עוקף browser cache וגם CDN cache)
 (function() {
@@ -1137,6 +1143,7 @@ var APP_VERSION  = '2026-07-09a';
 
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-07-09b', t: 'דיווח תקלות אוטומטי משופר ומדידת שימוש אנונימית — כדי שנתקן בעיות עוד לפני שתרגישו בהן' },
   { v: '2026-07-09a', t: 'שיפורי אמינות ונגישות: התראה ברורה אם השמירה לענן נתקעת בגלל עריכה בו-זמנית, סגירת חלונות אישור במקש Escape, ניגודיות טקסט משופרת' },
   { v: '2026-07-08a', t: 'נוסף לוח בקרה פנימי לניהול לקוחות, קליטת לידים אוטומטית מהאתר ותזכורות חיוב ביומן המשימות' },
   { v: '2026-07-05a', t: 'חיזוק אבטחה (הגנת נתוני דיבוג) וטעינת ספריות מהירה ובטוחה יותר' },
@@ -1276,10 +1283,11 @@ var UPDATE_NOTES = [
     reportCount++;
     try {
       if (!window.fb || typeof window.fb.logError !== 'function') return;
+      // חשוב: חוקי Firestore דורשים size() < 300/1000 (קטן ממש), לכן החיתוך ל-299/999
       window.fb.logError({
-        message: String(message || '').slice(0, 300),
-        stack: String(stack || '').slice(0, 1000),
-        url: location.href.slice(0, 300),
+        message: String(message || '').slice(0, 299),
+        stack: String(stack || '').slice(0, 999),
+        url: location.href.slice(0, 299),
         appVersion: APP_VERSION,
         ts: Date.now()
       });
@@ -1293,6 +1301,24 @@ var UPDATE_NOTES = [
     reportError(reason && reason.message ? reason.message : String(reason), reason && reason.stack);
   });
 })();
+
+/* ================================================================
+   אירועי שימוש (P2 — מגדל הפיקוח). כניסה לאפליקציה + לשונית ראשונה
+   שנפתחת בכל סשן. נכשל בשקט אם חוקי events טרם פורסמו ב-Firestore.
+================================================================ */
+var _wtTabsSeen = {};
+function _wtEvent(type, detail) {
+  try {
+    if (!window.fb || typeof window.fb.logEvent !== 'function') return;
+    window.fb.logEvent({
+      type: String(type).slice(0, 39),
+      detail: String(detail == null ? '' : detail).slice(0, 499),
+      businessId: (typeof currentBusinessId !== 'undefined' && currentBusinessId) ? String(currentBusinessId).slice(0, 59) : '',
+      appVersion: APP_VERSION,
+      ts: Date.now()
+    });
+  } catch (e) {}
+}
 
 var MHE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
 var DHE = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
@@ -1932,6 +1958,8 @@ function switchTab(name) {
     p.classList.toggle('active', p.id === 'tab-' + name);
   });
   if (RENDER_MAP[name]) RENDER_MAP[name]();
+  // אירוע שימוש: פעם אחת לכל לשונית בכל סשן (לא מציף את Firestore)
+  if (!_wtTabsSeen[name]) { _wtTabsSeen[name] = 1; _wtEvent('tab', name); }
 }
 
 /* ================================================================
@@ -5489,9 +5517,9 @@ function xlxCheck() {
   return true;
 }
 
-function exportPayroll() {
-  if (!xlxCheck()) return;
-  var ym    = document.getElementById('payroll-month').value;
+// מפיק את שני גיליונות דוח המשכורות (סיכום+פירוט) לחודש נתון, ללא תלות בשדה DOM —
+// כך שגם הכפתור הרגיל וגם חבילת הרו"ח המאוחדת (P6) יכולים להשתמש באותה לוגיקה בדיוק.
+function _buildPayrollSheets(ym) {
   var parts = ym.split('-');
   var mn    = MHE[parseInt(parts[1])-1] + ' ' + parts[0];
   var emps  = S.employees.filter(function(e){ return e.active; });
@@ -5565,17 +5593,24 @@ function exportPayroll() {
     detail.push([]);
   });
 
-  var ws1 = XLSX.utils.aoa_to_sheet(data);
-  var ws2 = XLSX.utils.aoa_to_sheet(detail);
-  var wb  = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws1, 'סיכום משכורות');
-  XLSX.utils.book_append_sheet(wb, ws2, 'פירוט עובדים');
-  XLSX.writeFile(wb, 'משכורות_' + parts[0] + '_' + parts[1] + '.xlsx');
+  return {
+    sheets: [
+      { name: 'סיכום משכורות', ws: XLSX.utils.aoa_to_sheet(data) },
+      { name: 'פירוט עובדים', ws: XLSX.utils.aoa_to_sheet(detail) }
+    ],
+    filename: 'משכורות_' + parts[0] + '_' + parts[1] + '.xlsx'
+  };
+}
+function exportPayroll() {
+  if (!xlxCheck()) return;
+  var ym = document.getElementById('payroll-month').value;
+  var out = _buildPayrollSheets(ym);
+  var wb = XLSX.utils.book_new();
+  out.sheets.forEach(function(s) { XLSX.utils.book_append_sheet(wb, s.ws, s.name); });
+  XLSX.writeFile(wb, out.filename);
 }
 
-function exportZ() {
-  if (!xlxCheck()) return;
-  var ym      = document.getElementById('z-month').value;
+function _buildZSheet(ym) {
   var parts   = ym.split('-');
   var mn      = MHE[parseInt(parts[1])-1] + ' ' + parts[0];
   var days    = daysInMonth(ym);
@@ -5598,15 +5633,18 @@ function exportZ() {
   var gt = tArr.reduce(function(a,b){return a+b;},0);
   data.push([], ['סה"כ חודשי (עם מע"מ)',''].concat(tArr).concat([voidsT, gt, +(gt/vatF).toFixed(2)]));
   data.push(['סה"כ חודשי (ללא מע"מ ' + vat + '%)',''].concat(tArr.map(function(v){return +(v/vatF).toFixed(2);})).concat(['', +(gt/vatF).toFixed(2),'']));
-  var ws = XLSX.utils.aoa_to_sheet(data);
+  return { sheets: [{ name: mn, ws: XLSX.utils.aoa_to_sheet(data) }], filename: 'דוח_Z_' + parts[0] + '_' + parts[1] + '.xlsx' };
+}
+function exportZ() {
+  if (!xlxCheck()) return;
+  var ym = document.getElementById('z-month').value;
+  var out = _buildZSheet(ym);
   var wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, mn);
-  XLSX.writeFile(wb, 'דוח_Z_' + parts[0] + '_' + parts[1] + '.xlsx');
+  out.sheets.forEach(function(s) { XLSX.utils.book_append_sheet(wb, s.ws, s.name); });
+  XLSX.writeFile(wb, out.filename);
 }
 
-function exportTips() {
-  if (!xlxCheck()) return;
-  var ym    = document.getElementById('tips-month').value;
+function _buildTipsSheet(ym) {
   var parts  = ym.split('-');
   var mn     = MHE[parseInt(parts[1])-1] + ' ' + parts[0];
   var days   = daysInMonth(ym);
@@ -5637,10 +5675,15 @@ function exportTips() {
   var grandT = defs2.reduce(function(s,def){ return s + defTotals[def.id]; }, 0);
   totRow.push(grandT);
   data.push([], totRow);
-  var ws = XLSX.utils.aoa_to_sheet(data);
+  return { sheets: [{ name: mn, ws: XLSX.utils.aoa_to_sheet(data) }], filename: 'טיפים_' + parts[0] + '_' + parts[1] + '.xlsx' };
+}
+function exportTips() {
+  if (!xlxCheck()) return;
+  var ym = document.getElementById('tips-month').value;
+  var out = _buildTipsSheet(ym);
   var wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, mn);
-  XLSX.writeFile(wb, 'טיפים_' + parts[0] + '_' + parts[1] + '.xlsx');
+  out.sheets.forEach(function(s) { XLSX.utils.book_append_sheet(wb, s.ws, s.name); });
+  XLSX.writeFile(wb, out.filename);
 }
 
 function openEmpDetail(empId, ym, showTips) {
@@ -5824,9 +5867,7 @@ function exportEmpDetailXlsx(empId, ym, showTips) {
   XLSX.writeFile(wb, 'שכר_' + emp.name + '_' + ym + '.xlsx');
 }
 
-function exportPurchases() {
-  if (!xlxCheck()) return;
-  var ym    = document.getElementById('pur-month').value;
+function _buildPurchasesSheet(ym) {
   var parts = ym.split('-');
   var mn    = MHE[parseInt(parts[1])-1] + ' ' + parts[0];
   var sups  = S.suppliers;
@@ -5842,15 +5883,18 @@ function exportPurchases() {
     data.push([ds].concat(vv).concat([vv.reduce(function(a,b){return a+b;},0)]));
   }
   data.push([], ['סה"כ'].concat(st).concat([st.reduce(function(a,b){return a+b;},0)]));
-  var ws = XLSX.utils.aoa_to_sheet(data);
+  return { sheets: [{ name: mn, ws: XLSX.utils.aoa_to_sheet(data) }], filename: 'קניות_' + parts[0] + '_' + parts[1] + '.xlsx' };
+}
+function exportPurchases() {
+  if (!xlxCheck()) return;
+  var ym = document.getElementById('pur-month').value;
+  var out = _buildPurchasesSheet(ym);
   var wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, mn);
-  XLSX.writeFile(wb, 'קניות_' + parts[0] + '_' + parts[1] + '.xlsx');
+  out.sheets.forEach(function(s) { XLSX.utils.book_append_sheet(wb, s.ws, s.name); });
+  XLSX.writeFile(wb, out.filename);
 }
 
-function exportControl() {
-  if (!xlxCheck()) return;
-  var ym    = document.getElementById('ctrl-month').value;
+function _buildControlSheet(ym) {
   var parts = ym.split('-');
   var mn    = MHE[parseInt(parts[1])-1] + ' ' + parts[0];
   var ctrl  = S.control[ym] || {};
@@ -5918,10 +5962,89 @@ function exportControl() {
     [costPctLabel(), +fc.toFixed(1)],
     ['Labor Cost %', +lc.toFixed(1)]
   );
-  var ws = XLSX.utils.aoa_to_sheet(data);
+  return { sheets: [{ name: 'רווח והפסד', ws: XLSX.utils.aoa_to_sheet(data) }], filename: 'P&L_' + parts[0] + '_' + parts[1] + '.xlsx' };
+}
+function exportControl() {
+  if (!xlxCheck()) return;
+  var ym = document.getElementById('ctrl-month').value;
+  var out = _buildControlSheet(ym);
   var wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'רווח והפסד');
-  XLSX.writeFile(wb, 'P&L_' + parts[0] + '_' + parts[1] + '.xlsx');
+  out.sheets.forEach(function(s) { XLSX.utils.book_append_sheet(wb, s.ws, s.name); });
+  XLSX.writeFile(wb, out.filename);
+}
+
+/* ================================================================
+   חבילה לרואה חשבון (P6) — מאחדת את כל דוחות הייצוא הקיימים (משכורות,
+   דוח Z, טיפים, קניות, רווח והפסד) לקובץ Excel אחד עם גיליון מכתב מלווה,
+   במקום 5 קבצים נפרדים. משתמשת באותן פונקציות בנייה בדיוק כמו הכפתורים
+   הרגילים בכל לשונית — אין כפל לוגיקה, רק איחוד הפלט לקובץ אחד.
+================================================================ */
+function openAccountantPackageModal() {
+  var now = new Date();
+  var prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  var defaultYm = prevMonth.getFullYear() + '-' + String(prevMonth.getMonth() + 1).padStart(2, '0');
+  var html =
+    '<div class="modal-header"><h3>📦 חבילה לרואה חשבון</h3></div>' +
+    '<div class="modal-body" style="display:flex;flex-direction:column;gap:12px">' +
+      '<p style="font-size:13.5px;color:var(--text-sec);margin:0">קובץ Excel אחד עם כל הדוחות של החודש — מכתב מלווה, משכורות, דוח Z, טיפים, קניות ורווח והפסד.</p>' +
+      '<div><label style="font-size:12px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:5px">חודש</label>' +
+        '<input type="month" id="acct-pkg-month" value="' + defaultYm + '" style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:10px;font-size:15px;box-sizing:border-box"></div>' +
+    '</div>' +
+    '<div class="modal-footer">' +
+      '<button class="btn btn-secondary" onclick="closeModal()">ביטול</button>' +
+      '<button class="btn btn-primary" onclick="exportAccountantPackage(document.getElementById(\'acct-pkg-month\').value)">📥 צור והורד</button>' +
+    '</div>';
+  document.getElementById('modal-box').innerHTML = html;
+  document.getElementById('modal').classList.remove('hidden');
+}
+
+function _buildAccountantCoverSheet(ym) {
+  var parts = ym.split('-');
+  var mn = MHE[parseInt(parts[1]) - 1] + ' ' + parts[0];
+  var bizName = ((S.settings || {}).biz || {}).name || '';
+  var data = [
+    ['חבילת דוחות לרואה חשבון'],
+    [],
+    ['עסק', bizName],
+    ['חודש', mn],
+    ['הופק בתאריך', new Date().toLocaleDateString('he-IL')],
+    [],
+    ['הקובץ כולל את הגיליונות הבאים:'],
+    ['1. סיכום משכורות'],
+    ['2. פירוט עובדים'],
+    ['3. דוח Z (מכירות ומע"מ)'],
+    ['4. דוח טיפים'],
+    ['5. קניות ספקים'],
+    ['6. רווח והפסד']
+  ];
+  return XLSX.utils.aoa_to_sheet(data);
+}
+
+function exportAccountantPackage(ym) {
+  if (!xlxCheck()) return;
+  if (!ym) { toast('בחר חודש', 'warn'); return; }
+  var parts = ym.split('-');
+  var payroll = _buildPayrollSheets(ym);
+  var z = _buildZSheet(ym);
+  var tips = _buildTipsSheet(ym);
+  var purchases = _buildPurchasesSheet(ym);
+  var control = _buildControlSheet(ym);
+
+  // שמות ייחודיים לכל גיליון — כמה מהפונקציות המקוריות משתמשות באותו שם ברירת מחדל
+  // (למשל שם החודש) כי כל אחת מייצרת קובץ נפרד משלה; כאן הכל בקובץ אחד אז חייבים שמות שונים.
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, _buildAccountantCoverSheet(ym), 'מכתב מלווה');
+  XLSX.utils.book_append_sheet(wb, payroll.sheets[0].ws, 'סיכום משכורות');
+  XLSX.utils.book_append_sheet(wb, payroll.sheets[1].ws, 'פירוט עובדים');
+  XLSX.utils.book_append_sheet(wb, z.sheets[0].ws, 'דוח Z');
+  XLSX.utils.book_append_sheet(wb, tips.sheets[0].ws, 'דוח טיפים');
+  XLSX.utils.book_append_sheet(wb, purchases.sheets[0].ws, 'קניות ספקים');
+  XLSX.utils.book_append_sheet(wb, control.sheets[0].ws, 'רווח והפסד');
+
+  XLSX.writeFile(wb, 'חבילה_לרואה_חשבון_' + parts[0] + '_' + parts[1] + '.xlsx');
+  closeModal();
+  logAudit('ייצוא חבילה לרואה חשבון', ym);
+  toast('✅ החבילה הורדה בהצלחה', 'ok');
 }
 
 function printPayrollTable() {
@@ -8709,6 +8832,7 @@ function continueAppStart() {
   } else {
     checkForUpdate();
   }
+  _wtEvent('app_open', (typeof currentRole !== 'undefined' && currentRole) ? currentRole : 'owner');
   setTimeout(showTasksReminderIfNeeded, 1300);
 }
 
