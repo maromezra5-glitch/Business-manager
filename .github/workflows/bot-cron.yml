@@ -1,0 +1,13 @@
+name: Marina Bot Cloud Cron
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger bot cron endpoint
+        run: |
+          curl -fsS --max-time 45 "https://marina-bot.pages.dev/cron"             -H "x-cron-key: ${{ secrets.BOT_CRON_KEY }}"
