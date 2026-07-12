@@ -1,0 +1,17 @@
+name: Ecosystem Health Checks
+on:
+  schedule:
+    - cron: '0 */6 * * *'   # כל 6 שעות
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run cloud health checks (15 checks)
+        run: |
+          RESP=$(curl -fsS --max-time 90 "https://marina-bot.pages.dev/health"             -H "x-cron-key: ${{ secrets.BOT_CRON_KEY }}")
+          echo "$RESP"
+          echo "$RESP" | grep -q '"ok":true'
