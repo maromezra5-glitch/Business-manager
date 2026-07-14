@@ -907,6 +907,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
   </div>
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
     <div class="header-live"><div class="header-live-dot"></div><span class="header-live-txt">מערכת פעילה</span></div>
+    <div id="storage-badge" style="display:none;cursor:pointer;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;align-items:center;gap:5px" onclick="openStorageInfo()" title="לחץ לפרטים"></div>
     <div class="header-date" id="hdate"></div>
     <span id="hdr-user-greeting" class="header-date" style="font-weight:700"></span>
     <div class="hdr-dropdown owner-only" style="position:relative">
@@ -1121,7 +1122,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-07-14a';
+var APP_VERSION  = '2026-07-14b';
 
 // בדיקת גרסה אוטומטית — טוען גרסה טרייה ישירות מ-GitHub (עוקף browser cache וגם CDN cache)
 (function() {
@@ -1143,6 +1144,7 @@ var APP_VERSION  = '2026-07-14a';
 
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-07-14b', t: 'נוסף תג התראה בכותרת לבעלי עסק שמתקרבים למגבלת נפח האחסון בענן, עם קישור ישיר לפנייה לתמיכה' },
   { v: '2026-07-14a', t: 'כל קובצי האקסל (כולל חבילת רו"ח) נפתחים עכשיו מיושרים מימין-לשמאל עם רוחב עמודות נכון — בלי טקסט חתוך' },
   { v: '2026-07-11a', t: 'תוקנה קריסה בלשונית הקניות אצל עסקים עם גרשיים בשם הספק (למשל בע"מ) — הבאג התגלה אוטומטית דרך מערכת דיווח התקלות החדשה' },
   { v: '2026-07-09b', t: 'דיווח תקלות אוטומטי משופר ומדידת שימוש אנונימית — כדי שנתקן בעיות עוד לפני שתרגישו בהן' },
@@ -1623,17 +1625,18 @@ function debounce(fn, wait) {
 }
 
 var _docSizeWarned = false;
+var DOC_SIZE_LIMIT_BYTES = 1024 * 1024; // תקרת Firestore למסמך בודד
 function _persistNow() {
   try {
     var json = JSON.stringify(S);
     localStorage.setItem(KEY, json);
-    // מד גודל מסמך: Firestore חוסם מסמכים מעל 1MB. מזהירים פעם אחת לסשן לפני שמגיעים לתקרה.
-    if (!_docSizeWarned) {
-      var bytes = new Blob([json]).size;
-      if (bytes > 700 * 1024) {
-        _docSizeWarned = true;
-        toast('⚠️ נפח הנתונים מתקרב למגבלת האחסון בענן — פנה לתמיכה', 'warn');
-      }
+    // מד גודל מסמך: Firestore חוסם מסמכים מעל 1MB. מזהירים פעם אחת לסשן לפני שמגיעים לתקרה,
+    // ומעדכנים תג ויזואלי קבוע בכותרת (לא רק הודעה חולפת) כדי שתהיה תחושת שליטה, לא בהלה.
+    var bytes = new Blob([json]).size;
+    updateStorageBadge(bytes);
+    if (!_docSizeWarned && bytes > 700 * 1024) {
+      _docSizeWarned = true;
+      toast('⚠️ נפח הנתונים מתקרב למגבלת האחסון בענן — פנה לתמיכה', 'warn');
     }
   } catch(e) {
     toast('⚠️ נגמר מקום בדפדפן! גבה את הנתונים עכשיו לפני שיאבדו', 'err');
@@ -5513,6 +5516,34 @@ function toggleExpenseView() {
 /* ================================================================
    EXCEL EXPORTS
 ================================================================ */
+// מד נפח אחסון בכותרת — מוצג רק כשהוא באמת רלוונטי (60%+), כדי לתת תחושת
+// שליטה ("עברת X%") במקום התראת "פנה לתמיכה" מפחידה בלי הקשר. ר' _persistNow.
+function updateStorageBadge(bytes) {
+  var badge = document.getElementById('storage-badge');
+  if (!badge) return;
+  // רק לבעל/ת העסק — לא רלוונטי לעובד שמזין שעות, ונמנעים מהתנגשות עם applyRolePermissions()
+  var pct = Math.round((bytes / DOC_SIZE_LIMIT_BYTES) * 100);
+  if (!isOwner() || pct < 60) { badge.style.display = 'none'; return; }
+  var danger = pct >= 85;
+  badge.style.display = 'inline-flex';
+  badge.style.background = danger ? 'rgba(192,57,43,.15)' : 'rgba(183,121,31,.15)';
+  badge.style.color = danger ? '#C0392B' : '#B7791F';
+  badge.innerHTML = (danger ? '🔴' : '⚠️') + ' עברת ' + pct + '% מנפח האחסון';
+}
+function openStorageInfo() {
+  var bytes = new Blob([JSON.stringify(S)]).size;
+  var pct = Math.round((bytes / DOC_SIZE_LIMIT_BYTES) * 100);
+  var msg = 'היי, ראיתי שהעסק שלי הגיע ל-' + pct + '% מנפח האחסון במערכת ואשמח לעזרה.';
+  customConfirm({
+    title: '📦 נפח האחסון של העסק',
+    message: 'העסק שלך משתמש כרגע ב-' + pct + '% מנפח האחסון המוקצה לו בענן. זה קורה בדרך כלל אחרי הרבה שנים של נתונים (עובדים, שעות, דוחות) שנצברו במערכת. אין סיבה לדאגה — פשוט כדאי שנדבר על העברת חלק מההיסטוריה הישנה לארכיון, כדי שתמשיכו לעבוד חלק.',
+    confirmText: '🆘 לפנות לתמיכה בוואטסאפ',
+    cancelText: 'סגור'
+  }).then(function(confirmed) {
+    if (confirmed) window.open('https://wa.me/972548757552?text=' + encodeURIComponent(msg), '_blank', 'noopener');
+  });
+}
+
 function xlxCheck() {
   if (typeof XLSX === 'undefined') {
     alert('ייצוא Excel דורש חיבור לאינטרנט. אנא בדוק את החיבור ונסה שוב.');
