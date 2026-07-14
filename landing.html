@@ -26,6 +26,15 @@
     appId: "1:704666039986:web:b682cba06dbb51d3fffbab"
   });
   var leadsDb = getFirestore(leadsApp);
+
+  // ── מדידת ביקורים (P2 — מגדל הפיקוח) — כתיבה ציבורית מוגבלת-שדות, בלי לוגין ──
+  // נכשל בשקט אם חוק pageviews טרם פורסם ב-Firestore (אותו דפוס כמו saveLead).
+  try {
+    addDoc(collection(leadsDb, 'pageviews'), {
+      page: 'landing', ref: String(document.referrer || '').slice(0, 199), ts: Date.now()
+    }).catch(function() {});
+  } catch (e) {}
+
   window.saveLead = function(name, phone) {
     // חוקי Firestore דורשים name < 100 ו-phone < 30 תווים — קיצוץ כאן מבטיח
     // שעותק ה-CRM לא ייכשל בשקט על קלט ארוך (הוואטסאפ ממשיך לקבל את המלא)
