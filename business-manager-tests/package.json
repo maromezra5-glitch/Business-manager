@@ -1,0 +1,12 @@
+{
+  "name": "business-manager-tests",
+  "private": true,
+  "version": "1.0.0",
+  "description": "בדיקות יחידה על הלוגיקה העסקית של מנהל העסק (שכר, מע\"מ, השלמת טיפים) — מחלצות ומריצות את הקוד האמיתי מ-business-manager.html",
+  "scripts": {
+    "test": "jest --colors"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}
