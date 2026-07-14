@@ -1121,7 +1121,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-07-11a';
+var APP_VERSION  = '2026-07-14a';
 
 // בדיקת גרסה אוטומטית — טוען גרסה טרייה ישירות מ-GitHub (עוקף browser cache וגם CDN cache)
 (function() {
@@ -1143,6 +1143,7 @@ var APP_VERSION  = '2026-07-11a';
 
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-07-14a', t: 'כל קובצי האקסל (כולל חבילת רו"ח) נפתחים עכשיו מיושרים מימין-לשמאל עם רוחב עמודות נכון — בלי טקסט חתוך' },
   { v: '2026-07-11a', t: 'תוקנה קריסה בלשונית הקניות אצל עסקים עם גרשיים בשם הספק (למשל בע"מ) — הבאג התגלה אוטומטית דרך מערכת דיווח התקלות החדשה' },
   { v: '2026-07-09b', t: 'דיווח תקלות אוטומטי משופר ומדידת שימוש אנונימית — כדי שנתקן בעיות עוד לפני שתרגישו בהן' },
   { v: '2026-07-09a', t: 'שיפורי אמינות ונגישות: התראה ברורה אם השמירה לענן נתקעת בגלל עריכה בו-זמנית, סגירת חלונות אישור במקש Escape, ניגודיות טקסט משופרת' },
@@ -1831,8 +1832,9 @@ function exportAuditLog() {
   var log = _filteredAuditLog();
   var data = [['תאריך ושעה', 'משתמש', 'פעולה', 'פרטים']];
   log.forEach(function(e) { data.push([_auditLogDateStr(e.ts), e.user || '', e.action || '', e.details || '']); });
-  var ws = XLSX.utils.aoa_to_sheet(data);
+  var ws = _xlsxAutoFit(XLSX.utils.aoa_to_sheet(data), data);
   var wb = XLSX.utils.book_new();
+  _xlsxSetRTL(wb);
   XLSX.utils.book_append_sheet(wb, ws, 'יומן פעולות');
   XLSX.writeFile(wb, 'יומן_פעולות_' + curDate() + '.xlsx');
 }
@@ -3817,8 +3819,9 @@ function exportEmpTipsXlsx() {
     totHrs+=r.hours; totBase+=r.base; totAdj+=r.adj; totFinal+=r.final;
   });
   data.push(['','','','','סה"כ',+totHrs.toFixed(2),+totBase.toFixed(2),+totAdj.toFixed(2),+totFinal.toFixed(2)]);
-  var ws = XLSX.utils.aoa_to_sheet(data);
+  var ws = _xlsxAutoFit(XLSX.utils.aoa_to_sheet(data), data);
   var wb = XLSX.utils.book_new();
+  _xlsxSetRTL(wb);
   XLSX.utils.book_append_sheet(wb, ws, 'טיפים');
   XLSX.writeFile(wb, 'tips_' + escHtml(emp.name||empId) + '_' + ym + '.xlsx');
 }
@@ -5518,6 +5521,26 @@ function xlxCheck() {
   return true;
 }
 
+// מתקן את הבעיה שבה טורי האקסל נפתחים ברוחב ברירת המחדל הצר של Excel (כ-8.4
+// תווים) והטקסט העברי/ההערות נראים חתוכים — מחשב רוחב אמיתי לפי התוכן הארוך
+// ביותר בכל טור, ומגדיר גם כיווניות RTL כדי שהגיליון ייפתח ימין-לשמאל כמו
+// שמצופה מדוח בעברית. קרוא מיד אחרי aoa_to_sheet בכל בונה-גיליון.
+function _xlsxAutoFit(ws, data) {
+  var widths = [];
+  data.forEach(function(row) {
+    (row || []).forEach(function(cell, i) {
+      var len = (cell === null || cell === undefined) ? 0 : String(cell).length;
+      if (len > (widths[i] || 0)) widths[i] = len;
+    });
+  });
+  ws['!cols'] = widths.map(function(w) { return { wch: Math.min(Math.max(w + 2, 10), 45) }; });
+  return ws;
+}
+// RTL על כל חוברת העבודה (כל הגיליונות) — קרוא פעם אחת אחרי XLSX.utils.book_new().
+function _xlsxSetRTL(wb) {
+  wb.Workbook = { Views: [{ RTL: true }] };
+}
+
 // מפיק את שני גיליונות דוח המשכורות (סיכום+פירוט) לחודש נתון, ללא תלות בשדה DOM —
 // כך שגם הכפתור הרגיל וגם חבילת הרו"ח המאוחדת (P6) יכולים להשתמש באותה לוגיקה בדיוק.
 function _buildPayrollSheets(ym) {
@@ -5596,8 +5619,8 @@ function _buildPayrollSheets(ym) {
 
   return {
     sheets: [
-      { name: 'סיכום משכורות', ws: XLSX.utils.aoa_to_sheet(data) },
-      { name: 'פירוט עובדים', ws: XLSX.utils.aoa_to_sheet(detail) }
+      { name: 'סיכום משכורות', ws: _xlsxAutoFit(XLSX.utils.aoa_to_sheet(data), data) },
+      { name: 'פירוט עובדים', ws: _xlsxAutoFit(XLSX.utils.aoa_to_sheet(detail), detail) }
     ],
     filename: 'משכורות_' + parts[0] + '_' + parts[1] + '.xlsx'
   };
@@ -5607,6 +5630,7 @@ function exportPayroll() {
   var ym = document.getElementById('payroll-month').value;
   var out = _buildPayrollSheets(ym);
   var wb = XLSX.utils.book_new();
+  _xlsxSetRTL(wb);
   out.sheets.forEach(function(s) { XLSX.utils.book_append_sheet(wb, s.ws, s.name); });
   XLSX.writeFile(wb, out.filename);
 }
@@ -5634,13 +5658,14 @@ function _buildZSheet(ym) {
   var gt = tArr.reduce(function(a,b){return a+b;},0);
   data.push([], ['סה"כ חודשי (עם מע"מ)',''].concat(tArr).concat([voidsT, gt, +(gt/vatF).toFixed(2)]));
   data.push(['סה"כ חודשי (ללא מע"מ ' + vat + '%)',''].concat(tArr.map(function(v){return +(v/vatF).toFixed(2);})).concat(['', +(gt/vatF).toFixed(2),'']));
-  return { sheets: [{ name: mn, ws: XLSX.utils.aoa_to_sheet(data) }], filename: 'דוח_Z_' + parts[0] + '_' + parts[1] + '.xlsx' };
+  return { sheets: [{ name: mn, ws: _xlsxAutoFit(XLSX.utils.aoa_to_sheet(data), data) }], filename: 'דוח_Z_' + parts[0] + '_' + parts[1] + '.xlsx' };
 }
 function exportZ() {
   if (!xlxCheck()) return;
   var ym = document.getElementById('z-month').value;
   var out = _buildZSheet(ym);
   var wb = XLSX.utils.book_new();
+  _xlsxSetRTL(wb);
   out.sheets.forEach(function(s) { XLSX.utils.book_append_sheet(wb, s.ws, s.name); });
   XLSX.writeFile(wb, out.filename);
 }
@@ -5676,13 +5701,14 @@ function _buildTipsSheet(ym) {
   var grandT = defs2.reduce(function(s,def){ return s + defTotals[def.id]; }, 0);
   totRow.push(grandT);
   data.push([], totRow);
-  return { sheets: [{ name: mn, ws: XLSX.utils.aoa_to_sheet(data) }], filename: 'טיפים_' + parts[0] + '_' + parts[1] + '.xlsx' };
+  return { sheets: [{ name: mn, ws: _xlsxAutoFit(XLSX.utils.aoa_to_sheet(data), data) }], filename: 'טיפים_' + parts[0] + '_' + parts[1] + '.xlsx' };
 }
 function exportTips() {
   if (!xlxCheck()) return;
   var ym = document.getElementById('tips-month').value;
   var out = _buildTipsSheet(ym);
   var wb = XLSX.utils.book_new();
+  _xlsxSetRTL(wb);
   out.sheets.forEach(function(s) { XLSX.utils.book_append_sheet(wb, s.ws, s.name); });
   XLSX.writeFile(wb, out.filename);
 }
@@ -5862,8 +5888,9 @@ function exportEmpDetailXlsx(empId, ym, showTips) {
   }
   if (hasDays) data = data.concat(dayData);
 
-  var ws = XLSX.utils.aoa_to_sheet(data);
+  var ws = _xlsxAutoFit(XLSX.utils.aoa_to_sheet(data), data);
   var wb = XLSX.utils.book_new();
+  _xlsxSetRTL(wb);
   XLSX.utils.book_append_sheet(wb, ws, 'שכר');
   XLSX.writeFile(wb, 'שכר_' + emp.name + '_' + ym + '.xlsx');
 }
@@ -5884,13 +5911,14 @@ function _buildPurchasesSheet(ym) {
     data.push([ds].concat(vv).concat([vv.reduce(function(a,b){return a+b;},0)]));
   }
   data.push([], ['סה"כ'].concat(st).concat([st.reduce(function(a,b){return a+b;},0)]));
-  return { sheets: [{ name: mn, ws: XLSX.utils.aoa_to_sheet(data) }], filename: 'קניות_' + parts[0] + '_' + parts[1] + '.xlsx' };
+  return { sheets: [{ name: mn, ws: _xlsxAutoFit(XLSX.utils.aoa_to_sheet(data), data) }], filename: 'קניות_' + parts[0] + '_' + parts[1] + '.xlsx' };
 }
 function exportPurchases() {
   if (!xlxCheck()) return;
   var ym = document.getElementById('pur-month').value;
   var out = _buildPurchasesSheet(ym);
   var wb = XLSX.utils.book_new();
+  _xlsxSetRTL(wb);
   out.sheets.forEach(function(s) { XLSX.utils.book_append_sheet(wb, s.ws, s.name); });
   XLSX.writeFile(wb, out.filename);
 }
@@ -5963,13 +5991,14 @@ function _buildControlSheet(ym) {
     [costPctLabel(), +fc.toFixed(1)],
     ['Labor Cost %', +lc.toFixed(1)]
   );
-  return { sheets: [{ name: 'רווח והפסד', ws: XLSX.utils.aoa_to_sheet(data) }], filename: 'P&L_' + parts[0] + '_' + parts[1] + '.xlsx' };
+  return { sheets: [{ name: 'רווח והפסד', ws: _xlsxAutoFit(XLSX.utils.aoa_to_sheet(data), data) }], filename: 'P&L_' + parts[0] + '_' + parts[1] + '.xlsx' };
 }
 function exportControl() {
   if (!xlxCheck()) return;
   var ym = document.getElementById('ctrl-month').value;
   var out = _buildControlSheet(ym);
   var wb = XLSX.utils.book_new();
+  _xlsxSetRTL(wb);
   out.sheets.forEach(function(s) { XLSX.utils.book_append_sheet(wb, s.ws, s.name); });
   XLSX.writeFile(wb, out.filename);
 }
@@ -6018,7 +6047,7 @@ function _buildAccountantCoverSheet(ym) {
     ['5. קניות ספקים'],
     ['6. רווח והפסד']
   ];
-  return XLSX.utils.aoa_to_sheet(data);
+  return _xlsxAutoFit(XLSX.utils.aoa_to_sheet(data), data);
 }
 
 function exportAccountantPackage(ym) {
@@ -6034,6 +6063,7 @@ function exportAccountantPackage(ym) {
   // שמות ייחודיים לכל גיליון — כמה מהפונקציות המקוריות משתמשות באותו שם ברירת מחדל
   // (למשל שם החודש) כי כל אחת מייצרת קובץ נפרד משלה; כאן הכל בקובץ אחד אז חייבים שמות שונים.
   var wb = XLSX.utils.book_new();
+  _xlsxSetRTL(wb);
   XLSX.utils.book_append_sheet(wb, _buildAccountantCoverSheet(ym), 'מכתב מלווה');
   XLSX.utils.book_append_sheet(wb, payroll.sheets[0].ws, 'סיכום משכורות');
   XLSX.utils.book_append_sheet(wb, payroll.sheets[1].ws, 'פירוט עובדים');
@@ -6418,6 +6448,7 @@ async function exportBackup() {
 function exportReadableSummary() {
   if (!xlxCheck()) return;
   var wb = XLSX.utils.book_new();
+  _xlsxSetRTL(wb);
 
   var empData = [['שם', 'תפקיד(ים)', 'סוג שכר', 'תעריף שעתי / משכורת חודשית', 'טלפון', 'פעיל']];
   S.employees.forEach(function(e) {
@@ -6430,7 +6461,7 @@ function exportReadableSummary() {
       e.active ? 'כן' : 'לא'
     ]);
   });
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(empData), 'עובדים');
+  XLSX.utils.book_append_sheet(wb, _xlsxAutoFit(XLSX.utils.aoa_to_sheet(empData), empData), 'עובדים');
 
   var bizName = ((S.settings || {}).biz || {}).name || '';
   var vat     = getVat();
@@ -6441,7 +6472,7 @@ function exportReadableSummary() {
     ['מספר עובדים רשומים', S.employees.length],
     ['תאריך הפקת הקובץ', curDate()]
   ];
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(settingsData), 'הגדרות עסק');
+  XLSX.utils.book_append_sheet(wb, _xlsxAutoFit(XLSX.utils.aoa_to_sheet(settingsData), settingsData), 'הגדרות עסק');
 
   XLSX.writeFile(wb, 'תקציר_מערכת_' + curDate() + '.xlsx');
   toast('✅ קובץ תקציר יצא בהצלחה', 'ok');
