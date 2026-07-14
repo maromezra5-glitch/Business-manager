@@ -819,8 +819,7 @@ details.faq-item p { font-size: 13.5px; color: var(--text-sec); margin-top: 12px
 // ── Theme init (early, before render, to avoid flash) ──
 (function() {
   var saved = localStorage.getItem('bm-theme');
-  var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-  var theme = saved || (prefersDark ? 'dark' : 'light');
+  var theme = saved || 'dark';
   if (theme === 'dark') {
     document.documentElement.setAttribute('data-theme', 'dark');
     document.addEventListener('DOMContentLoaded', function() {
