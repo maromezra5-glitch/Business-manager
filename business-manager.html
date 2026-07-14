@@ -112,7 +112,12 @@
     deleteError: function(id) { return deleteDoc(doc(fbDb, 'errorLog', id)); },
 
     // ===== אירועי שימוש (P2) — כתיבה רק למשתמש מחובר; נכשל בשקט אם חוקי events טרם פורסמו =====
-    logEvent: function(data) { return addDoc(collection(fbDb, 'events'), data).catch(function() {}); }
+    logEvent: function(data) { return addDoc(collection(fbDb, 'events'), data).catch(function() {}); },
+
+    // ===== סטטוס מנוי — מסמך נפרד ממסמך העסק, כדי שלא יימחק בשמירת setDoc המלאה של העסק עצמו.
+    // כתיבה רק לסופר-אדמין, קריאה רק לבעל/ת אותו עסק (ר' openAdminClientModal / renderSubscriptionBadge) =====
+    setSubscriptionStatus: function(businessId, data) { return setDoc(doc(fbDb, 'subscriptions', businessId), data); },
+    watchSubscriptionStatus: function(businessId, cb) { return onSnapshot(doc(fbDb, 'subscriptions', businessId), cb); }
   };
 </script>
 <style>
@@ -907,6 +912,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
   </div>
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
     <div class="header-live"><div class="header-live-dot"></div><span class="header-live-txt">מערכת פעילה</span></div>
+    <div id="subscription-badge" style="display:none;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;align-items:center;gap:5px"></div>
     <div id="storage-badge" style="display:none;cursor:pointer;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;align-items:center;gap:5px" onclick="openStorageInfo()" title="לחץ לפרטים"></div>
     <div class="header-date" id="hdate"></div>
     <span id="hdr-user-greeting" class="header-date" style="font-weight:700"></span>
@@ -1122,7 +1128,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-07-14c';
+var APP_VERSION  = '2026-07-14d';
 
 // בדיקת גרסה אוטומטית — טוען גרסה טרייה ישירות מ-GitHub (עוקף browser cache וגם CDN cache)
 (function() {
@@ -1144,6 +1150,7 @@ var APP_VERSION  = '2026-07-14c';
 
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-07-14d', t: 'נוסף תג סטטוס מנוי בכותרת (ניתן לצפייה גם על ידי בעל/ת העסק עצמו/ה), ניתן לניהול מלוח הבקרה של הסופר-אדמין' },
   { v: '2026-07-14c', t: 'נוסף בדף הבית: תזכורת ימי הולדת בשבוע הקרוב, ותזכורת יזומה בתחילת החודש להפקת חבילת רו"ח אם עוד לא נשלחה' },
   { v: '2026-07-14b', t: 'נוסף תג התראה בכותרת לבעלי עסק שמתקרבים למגבלת נפח האחסון בענן, עם קישור ישיר לפנייה לתמיכה' },
   { v: '2026-07-14a', t: 'כל קובצי האקסל (כולל חבילת רו"ח) נפתחים עכשיו מיושרים מימין-לשמאל עם רוחב עמודות נכון — בלי טקסט חתוך' },
@@ -5565,6 +5572,20 @@ function updateStorageBadge(bytes) {
   badge.style.color = danger ? '#C0392B' : '#B7791F';
   badge.innerHTML = (danger ? '🔴' : '⚠️') + ' עברת ' + pct + '% מנפח האחסון';
 }
+// תג סטטוס מנוי בכותרת — מוצג רק לבעל/ת העסק, מוזן ממסמך subscriptions/{businessId} (ר' _watchSubscriptionStatus).
+// משתמש באותם שמות/צבעים בדיוק כמו ADMIN_STATUS_META בלוח הבקרה הפנימי, כדי שיהיה עקבי.
+function renderSubscriptionBadge(data) {
+  var badge = document.getElementById('subscription-badge');
+  if (!badge) return;
+  if (!isOwner() || !data || !data.status) { badge.style.display = 'none'; return; }
+  var meta = (typeof ADMIN_STATUS_META !== 'undefined' && ADMIN_STATUS_META[data.status]) || { label: data.status, color: '#6B6460' };
+  badge.style.display = 'inline-flex';
+  badge.style.background = meta.color + '22';
+  badge.style.color = meta.color;
+  badge.innerHTML = '● ' + escHtml(meta.label);
+  badge.title = data.plan ? ('מסלול: ' + data.plan) : '';
+}
+
 function openStorageInfo() {
   var bytes = new Blob([JSON.stringify(S)]).size;
   var pct = Math.round((bytes / DOC_SIZE_LIMIT_BYTES) * 100);
@@ -7371,7 +7392,10 @@ function renderTasks(focusInput) {
 /* ================================================================
    SUPER-ADMIN — לוח הבקרה שלי (P1: מיני-CRM)
    גלוי אך ורק ל-isSuperAdmin(). הנתונים חיים ב-S.adminClients — בתוך
-   העסק האישי של המפעיל, ולכן לא דורשים שום שינוי בכללי Firestore.
+   העסק האישי של המפעיל, ולא דורשים שום שינוי בכללי Firestore.
+   אם מוזן "מזהה משתמש (UID)" — הסטטוס נשלח גם למסמך subscriptions/{uid}
+   הנפרד (ר' window.fb.setSubscriptionStatus), כדי שהלקוח יראה את הסטטוס
+   שלו בעצמו דרך renderSubscriptionBadge/_watchSubscriptionStatus.
 ================================================================ */
 var ADMIN_STATUS_META = {
   trial:   { label: 'בטא/ניסיון', color: '#2563EB' },
@@ -7399,6 +7423,8 @@ function openAdminClientModal(id) {
         '<input type="date" id="ac-billing" value="' + (c && c.nextBilling ? c.nextBilling : '') + '" style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:10px;font-size:15px;box-sizing:border-box"></div>' +
       '<div><label style="font-size:12px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:5px">הערות</label>' +
         '<textarea id="ac-notes" rows="3" placeholder="פרטי קשר, סטטוס שיחה, כל מה שכדאי לזכור..." style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:10px;font-size:14px;direction:rtl;box-sizing:border-box;resize:vertical">' + (c ? escHtml(c.notes || '') : '') + '</textarea></div>' +
+      '<div><label style="font-size:12px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:5px">מזהה משתמש (UID) של הלקוח <span style="font-weight:400">— אופציונלי, מציג לו את הסטטוס בעצמו בכותרת המערכת</span></label>' +
+        '<input type="text" id="ac-uid" value="' + (c ? escHtml(c.businessId || '') : '') + '" placeholder="מזהה המשתמש מתוך Firebase Authentication" style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:10px;font-size:14px;direction:ltr;text-align:left;box-sizing:border-box"></div>' +
     '</div>' +
     '<div class="modal-footer">' +
       '<button class="btn btn-secondary" onclick="closeModal()">ביטול</button>' +
@@ -7416,7 +7442,8 @@ function saveAdminClient(id) {
     plan: document.getElementById('ac-plan').value.trim(),
     status: document.getElementById('ac-status').value,
     nextBilling: document.getElementById('ac-billing').value || '',
-    notes: document.getElementById('ac-notes').value.trim()
+    notes: document.getElementById('ac-notes').value.trim(),
+    businessId: document.getElementById('ac-uid').value.trim()
   };
   if (!S.adminClients) S.adminClients = [];
   var target;
@@ -7431,6 +7458,11 @@ function saveAdminClient(id) {
   }
   if (target) syncBillingTask(target);
   persist();
+  if (target && target.businessId && window.fb) {
+    window.fb.setSubscriptionStatus(target.businessId, {
+      status: target.status, plan: target.plan || '', nextBilling: target.nextBilling || '', updatedAt: Date.now()
+    }).catch(function() { toast('⚠️ נשמר מקומית, אך לא הצלחנו לעדכן את הסטטוס אצל הלקוח (בדוק את מזהה המשתמש)', 'warn'); });
+  }
   closeModal();
   renderSuperAdmin();
   toast('✅ נשמר', 'ok');
@@ -8332,6 +8364,7 @@ async function authLoadAndShowApp(user) {
   renderUserGreeting();
   renderBusinessSwitcher();
   _watchOwnPermissions(user.uid, currentBusinessId);
+  _watchSubscriptionStatus(currentBusinessId);
   _startPresenceHeartbeat(user.uid, currentBusinessId);
   if (!isOwner() && permUpdatedAt > permSeenAt) {
     setTimeout(function() { showPermissionsChangedNotice(user.uid, permUpdatedAt); }, 1000);
@@ -8370,6 +8403,15 @@ function _startPresenceHeartbeat(uid, businessId) {
   _presenceTimer = setInterval(function() {
     window.fb.updateLastSeen(uid, businessId).catch(function(){});
   }, 45000);
+}
+
+var _stopWatchingSubscription = null;
+function _watchSubscriptionStatus(businessId) {
+  if (_stopWatchingSubscription) { _stopWatchingSubscription(); _stopWatchingSubscription = null; }
+  if (!window.fb || !window.fb.watchSubscriptionStatus) return;
+  _stopWatchingSubscription = window.fb.watchSubscriptionStatus(businessId, function(snap) {
+    renderSubscriptionBadge(snap.exists() ? snap.data() : null);
+  });
 }
 
 var _stopWatchingPermissions = null;
