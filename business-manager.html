@@ -1128,7 +1128,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-07-14d';
+var APP_VERSION  = '2026-07-14e';
 
 // בדיקת גרסה אוטומטית — טוען גרסה טרייה ישירות מ-GitHub (עוקף browser cache וגם CDN cache)
 (function() {
@@ -1150,6 +1150,7 @@ var APP_VERSION  = '2026-07-14d';
 
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-07-14e', t: 'נוסף שדה "מזהה תפריט/משוב QR" בלוח הבקרה שלי, לקישור לקוחות לנתוני השימוש והמשוב שלהם במגדל הפיקוח' },
   { v: '2026-07-14d', t: 'נוסף תג סטטוס מנוי בכותרת (ניתן לצפייה גם על ידי בעל/ת העסק עצמו/ה), ניתן לניהול מלוח הבקרה של הסופר-אדמין' },
   { v: '2026-07-14c', t: 'נוסף בדף הבית: תזכורת ימי הולדת בשבוע הקרוב, ותזכורת יזומה בתחילת החודש להפקת חבילת רו"ח אם עוד לא נשלחה' },
   { v: '2026-07-14b', t: 'נוסף תג התראה בכותרת לבעלי עסק שמתקרבים למגבלת נפח האחסון בענן, עם קישור ישיר לפנייה לתמיכה' },
@@ -7423,8 +7424,10 @@ function openAdminClientModal(id) {
         '<input type="date" id="ac-billing" value="' + (c && c.nextBilling ? c.nextBilling : '') + '" style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:10px;font-size:15px;box-sizing:border-box"></div>' +
       '<div><label style="font-size:12px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:5px">הערות</label>' +
         '<textarea id="ac-notes" rows="3" placeholder="פרטי קשר, סטטוס שיחה, כל מה שכדאי לזכור..." style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:10px;font-size:14px;direction:rtl;box-sizing:border-box;resize:vertical">' + (c ? escHtml(c.notes || '') : '') + '</textarea></div>' +
-      '<div><label style="font-size:12px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:5px">מזהה משתמש (UID) של הלקוח <span style="font-weight:400">— אופציונלי, מציג לו את הסטטוס בעצמו בכותרת המערכת</span></label>' +
+      '<div><label style="font-size:12px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:5px">מזהה משתמש (UID) של הלקוח <span style="font-weight:400">— אופציונלי, מציג לו את הסטטוס בעצמו בכותרת המערכת, ומקשר אותו לנתוני השימוש במגדל הפיקוח</span></label>' +
         '<input type="text" id="ac-uid" value="' + (c ? escHtml(c.businessId || '') : '') + '" placeholder="מזהה המשתמש מתוך Firebase Authentication" style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:10px;font-size:14px;direction:ltr;text-align:left;box-sizing:border-box"></div>' +
+      '<div><label style="font-size:12px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:5px">מזהה תפריט/משוב QR של הלקוח <span style="font-weight:400">— אופציונלי, מקשר את המשובים שלו במגדל הפיקוח (למשל: marina-bay)</span></label>' +
+        '<input type="text" id="ac-feedback-id" value="' + (c ? escHtml(c.feedbackId || '') : '') + '" placeholder="businessId מתוך feedback-config.js של הלקוח" style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:10px;font-size:14px;direction:ltr;text-align:left;box-sizing:border-box"></div>' +
     '</div>' +
     '<div class="modal-footer">' +
       '<button class="btn btn-secondary" onclick="closeModal()">ביטול</button>' +
@@ -7443,7 +7446,8 @@ function saveAdminClient(id) {
     status: document.getElementById('ac-status').value,
     nextBilling: document.getElementById('ac-billing').value || '',
     notes: document.getElementById('ac-notes').value.trim(),
-    businessId: document.getElementById('ac-uid').value.trim()
+    businessId: document.getElementById('ac-uid').value.trim(),
+    feedbackId: document.getElementById('ac-feedback-id').value.trim()
   };
   if (!S.adminClients) S.adminClients = [];
   var target;
