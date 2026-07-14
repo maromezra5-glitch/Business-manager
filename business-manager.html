@@ -1122,7 +1122,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-07-14b';
+var APP_VERSION  = '2026-07-14c';
 
 // בדיקת גרסה אוטומטית — טוען גרסה טרייה ישירות מ-GitHub (עוקף browser cache וגם CDN cache)
 (function() {
@@ -1144,6 +1144,7 @@ var APP_VERSION  = '2026-07-14b';
 
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-07-14c', t: 'נוסף בדף הבית: תזכורת ימי הולדת בשבוע הקרוב, ותזכורת יזומה בתחילת החודש להפקת חבילת רו"ח אם עוד לא נשלחה' },
   { v: '2026-07-14b', t: 'נוסף תג התראה בכותרת לבעלי עסק שמתקרבים למגבלת נפח האחסון בענן, עם קישור ישיר לפנייה לתמיכה' },
   { v: '2026-07-14a', t: 'כל קובצי האקסל (כולל חבילת רו"ח) נפתחים עכשיו מיושרים מימין-לשמאל עם רוחב עמודות נכון — בלי טקסט חתוך' },
   { v: '2026-07-11a', t: 'תוקנה קריסה בלשונית הקניות אצל עסקים עם גרשיים בשם הספק (למשל בע"מ) — הבאג התגלה אוטומטית דרך מערכת דיווח התקלות החדשה' },
@@ -2319,6 +2320,22 @@ function renderToday() {
     '</div>';
   }
 
+  // ימי הולדת בשבוע הקרוב (לא כולל היום עצמו — מטופל למעלה) — כדי שבעל העסק יוכל להיערך מראש
+  var upcomingBdays = S.employees.filter(function(e){ return e.active && e.dob && e.dob.slice(5) !== todayMD; }).map(function(e) {
+    var md = e.dob.slice(5);
+    var year = Number(today.slice(0, 4));
+    var next = year + '-' + md;
+    var diff = Math.round((new Date(next) - new Date(today)) / 86400000);
+    if (diff <= 0) { next = (year + 1) + '-' + md; diff = Math.round((new Date(next) - new Date(today)) / 86400000); }
+    return { name: e.name, diff: diff };
+  }).filter(function(x){ return x.diff >= 1 && x.diff <= 7; }).sort(function(a, b){ return a.diff - b.diff; });
+  if (upcomingBdays.length > 0) {
+    cards += '<div class="s-card" style="border-color:#c4b5fd;background:#faf5ff;grid-column:1/-1">' +
+      '<div class="s-label" style="color:#7c3aed">🎈 ימי הולדת בשבוע הקרוב</div>' +
+      '<div class="s-value" style="font-size:14px;color:#7c3aed">' + escHtml(upcomingBdays.map(function(x){ return x.name + ' (בעוד ' + x.diff + (x.diff === 1 ? ' יום' : ' ימים') + ')'; }).join(', ')) + '</div>' +
+    '</div>';
+  }
+
   if (isTabAllowed('zreport')) {
     var zrec = S.zReports[today] || {};
     var todayIncome = getZChannels().reduce(function(s,f){ return s + toNum(zrec[f.k]); }, 0);
@@ -2361,6 +2378,24 @@ function renderToday() {
     var overdueCount = (S.tasks || []).filter(function(t){ return !t.done && t.dueDate && t.dueDate < today; }).length;
     cards += '<div class="s-card' + (overdueCount ? '' : ' green-card') + '"><div class="s-label">📝 משימות שעבר זמנן</div><div class="s-value' + (overdueCount ? ' red' : ' green') + '">' +
       (overdueCount || '✓ אין') + '</div></div>';
+  }
+
+  // תזכורת יזומה לחבילת רו"ח — רק בעל/ת העסק, רק בתחילת החודש (1-5), ורק אם החודש הקודם עוד לא נשלח
+  if (isOwner()) {
+    var dom = parseInt(today.slice(8, 10), 10);
+    if (dom <= 5) {
+      var ty = Number(today.slice(0, 4)), tm = Number(today.slice(5, 7));
+      var pm = tm - 1, py = ty;
+      if (pm === 0) { pm = 12; py = ty - 1; }
+      var prevYm = py + '-' + String(pm).padStart(2, '0');
+      var acctAlreadySent = (S.auditLog || []).some(function(a){ return a.action === 'ייצוא חבילה לרואה חשבון' && a.details === prevYm; });
+      if (!acctAlreadySent) {
+        cards += '<div class="s-card" style="border-color:#38bdf8;background:#f0f9ff;grid-column:1/-1;cursor:pointer" onclick="openAccountantPackageModal()" title="לחץ להכנת החבילה">' +
+          '<div class="s-label" style="color:#0369a1">📦 תזכורת: חבילה לרואה חשבון</div>' +
+          '<div class="s-value" style="font-size:14px;color:#0369a1">החודש הקודם עדיין לא הופק ונשלח — לחצו כאן להכנה מהירה</div>' +
+        '</div>';
+      }
+    }
   }
 
   var checklist = _buildOnboardingChecklist();
