@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0B111D">
+<title>Marom Ezra — פתרונות דיגיטליים לעסקים</title>
+<meta name="description" content="מרום עזרא — מערכות ניהול, אתרים ותפריטי QR לעסקים. כל הפרויקטים והדרכים ליצירת קשר במקום אחד.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Assistant:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy-950:#0A0F1B;
+    --navy-900:#111a2b;
+    --navy-800:#1b2740;
+    --navy-border:#2c3a57;
+    --gold-500:#c9a227;
+    --gold-300:#e8ca7c;
+    --gold-muted:#a98f5e;
+    --text:#f1ece0;
+    --text-sec:#9aa3b8;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:
+      radial-gradient(1200px 600px at 50% -10%, #16223a 0%, var(--navy-950) 55%),
+      var(--navy-950);
+    color:var(--text);
+    font-family:'Assistant',sans-serif;
+    min-height:100dvh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:56px 20px 40px;
+  }
+  .card-wrap{width:100%;max-width:520px;display:flex;flex-direction:column;align-items:center}
+
+  .logo-box{
+    width:64px;height:64px;border:1.5px solid var(--gold-500);
+    display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(160deg,#171f33,#0d1220);
+    box-shadow:0 0 0 1px rgba(201,162,39,.15), 0 8px 24px rgba(0,0,0,.5);
+    margin-bottom:22px;
+  }
+  .logo-box span{
+    font-family:'Cormorant Garamond',serif;font-weight:600;font-size:26px;
+    color:var(--gold-300);letter-spacing:2px;
+  }
+
+  h1{
+    font-family:'Cormorant Garamond',serif;font-weight:700;
+    font-size:clamp(34px,7vw,46px);letter-spacing:5px;
+    margin:0;color:var(--text);text-align:center;text-wrap:balance;
+  }
+  .divider{width:64px;height:1px;background:linear-gradient(90deg,transparent,var(--gold-500),transparent);margin:18px 0}
+  .tagline{
+    color:var(--gold-muted);font-size:15px;letter-spacing:1.5px;text-align:center;
+    margin:0 0 44px;font-weight:500;
+  }
+
+  .section-label{
+    align-self:flex-start;font-size:12px;letter-spacing:2.5px;color:var(--gold-muted);
+    text-transform:uppercase;margin:8px 0 12px;font-weight:600;
+  }
+
+  .links{width:100%;display:flex;flex-direction:column;gap:12px;margin-bottom:36px}
+  .link-card{
+    display:flex;align-items:center;gap:16px;
+    background:var(--navy-900);border:1px solid var(--navy-border);
+    border-radius:2px;padding:18px 20px;text-decoration:none;color:var(--text);
+    transition:border-color .2s ease, transform .2s ease, background .2s ease;
+    position:relative; overflow:hidden;
+  }
+  .link-card::before{
+    content:"";position:absolute;inset-inline-start:0;top:0;bottom:0;width:2px;
+    background:var(--gold-500);transform:scaleY(0);transition:transform .2s ease;
+    transform-origin:bottom;
+  }
+  .link-card:hover{border-color:var(--gold-500);background:var(--navy-800);transform:translateY(-1px)}
+  .link-card:hover::before{transform:scaleY(1)}
+  .link-icon{
+    flex:none;width:40px;height:40px;border-radius:50%;
+    background:var(--navy-800);border:1px solid var(--navy-border);
+    display:flex;align-items:center;justify-content:center;font-size:18px;
+  }
+  .link-body{flex:1;min-width:0}
+  .link-title{font-weight:700;font-size:16px;color:var(--text);margin:0 0 3px}
+  .link-desc{font-size:13.5px;color:var(--text-sec);margin:0;line-height:1.4}
+  .link-arrow{flex:none;color:var(--gold-muted);font-size:18px}
+  .badge-live{
+    display:inline-block;font-size:10.5px;letter-spacing:1px;color:#7fd99a;
+    border:1px solid #2e5a3d;background:#0f2117;border-radius:20px;
+    padding:2px 9px;margin-inline-start:8px;vertical-align:middle;
+  }
+
+  .contact{
+    width:100%;background:var(--navy-900);border:1px solid var(--navy-border);
+    padding:24px 22px;display:flex;flex-direction:column;align-items:center;gap:16px;
+    margin-top:8px;
+  }
+  .contact-title{font-size:13px;letter-spacing:2px;color:var(--gold-muted);text-transform:uppercase;font-weight:600}
+  .wa-btn{
+    display:flex;align-items:center;justify-content:center;gap:10px;width:100%;
+    background:linear-gradient(160deg,var(--gold-300),var(--gold-500));
+    color:#1a1406;font-weight:700;font-size:15.5px;text-decoration:none;
+    padding:14px 18px;border-radius:2px;letter-spacing:.3px;
+  }
+  .contact-rows{display:flex;flex-direction:column;gap:9px;width:100%;align-items:center}
+  .contact-rows a{color:var(--text-sec);text-decoration:none;font-size:14.5px;display:flex;align-items:center;gap:8px}
+  .contact-rows a:hover{color:var(--gold-300)}
+  .contact-rows .ic{width:16px;text-align:center;color:var(--gold-muted)}
+
+  footer{margin-top:40px;color:#5a6478;font-size:12px;letter-spacing:.5px;text-align:center}
+  footer a{color:#5a6478}
+</style>
+</head>
+<body>
+  <div class="card-wrap">
+    <div class="logo-box"><span>ME</span></div>
+    <h1>MAROM&nbsp;EZRA</h1>
+    <div class="divider"></div>
+    <p class="tagline">פתרונות דיגיטליים לעסקים — ניהול, נוכחות ומכירה</p>
+
+    <div class="section-label">הפרויקטים שלי</div>
+    <div class="links">
+      <a class="link-card" href="https://maromezra5-glitch.github.io/Business-manager/sales.html">
+        <div class="link-icon">📊</div>
+        <div class="link-body">
+          <p class="link-title">Business Manager<span class="badge-live">פעיל</span></p>
+          <p class="link-desc">מערכת ניהול עסק מלאה — עובדים, שעות, משכורות, טיפים, דוח Z ורווח יומי</p>
+        </div>
+        <div class="link-arrow">←</div>
+      </a>
+
+      <a class="link-card" href="https://maromezra5-glitch.github.io/Business-manager/sales-digital.html">
+        <div class="link-icon">🌐</div>
+        <div class="link-body">
+          <p class="link-title">נוכחות דיגיטלית</p>
+          <p class="link-desc">אתר עסקי מרשים, תפריט QR ומשוב QR — הנוכחות הדיגיטלית של העסק שלכם</p>
+        </div>
+        <div class="link-arrow">←</div>
+      </a>
+
+      <a class="link-card" href="https://marina-bay-7th.pages.dev" target="_blank" rel="noopener">
+        <div class="link-icon">🛥️</div>
+        <div class="link-body">
+          <p class="link-title">Marina Bay Herzliya<span class="badge-live">דוגמה חיה</span></p>
+          <p class="link-desc">אתר immersive לדוגמה שבנינו למסעדה במרינה הרצליה — לצפייה חופשית</p>
+        </div>
+        <div class="link-arrow">←</div>
+      </a>
+    </div>
+
+    <div class="contact">
+      <div class="contact-title">בואו נדבר</div>
+      <a class="wa-btn" href="https://wa.me/972548757552?text=%D7%94%D7%99%D7%99%20%D7%9E%D7%A8%D7%95%D7%9D%2C%20%D7%A1%D7%A8%D7%A7%D7%AA%D7%99%20%D7%90%D7%AA%20%D7%94%D7%A2%D7%9E%D7%95%D7%93%20%D7%9E%D7%94%D7%9B%D7%A8%D7%98%D7%99%D7%A1%20%D7%91%D7%99%D7%A7%D7%95%D7%A8" target="_blank" rel="noopener">💬 דברו איתי בוואטסאפ</a>
+      <div class="contact-rows">
+        <a href="mailto:maromezra5@gmail.com"><span class="ic">✉</span> maromezra5@gmail.com</a>
+        <a href="tel:+972548757552"><span class="ic">📞</span> 054-8757552</a>
+      </div>
+    </div>
+
+    <footer>© 2026 Marom Ezra</footer>
+  </div>
+</body>
+</html>
