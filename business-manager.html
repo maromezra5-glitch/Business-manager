@@ -56,6 +56,13 @@
   const fbAuth    = getAuth(fbApp);
   const fbDb      = getFirestore(fbApp);
   const googleProvider = new GoogleAuthProvider();
+  // ⚠️⚠️⚠️ **`select_account` — נוסף 18.8.26 אחרי כשל אמיתי.**
+  //    בלעדיו Google נכנס **בשקט** עם החשבון שכבר מחובר בדפדפן ואינו
+  //    שואל דבר. מרום היה בטוח שבחר את חשבון העבודה; ב-D1 נרשמו שתי
+  //    כניסות ושתיהן `personal`. המשתמש אינו יכול לדעת שהוא לא נשאל.
+  // ⛔ במערכת עם שתי זהויות לאותו אדם זו אינה נוחות אלא נכונות:
+  //    בלי בורר אין דרך להיכנס בכוונה עם הזהות השנייה.
+  googleProvider.setCustomParameters({ prompt: 'select_account' });
 
   window.fb = {
     signUp:   function(email, pw) { return createUserWithEmailAndPassword(fbAuth, email, pw); },
@@ -89,6 +96,12 @@
     updateLastSeen: function(uid, businessId) { return updateDoc(doc(fbDb, 'memberships', uid + '_' + businessId), {lastSeenAt: Date.now()}); },
     listMembers:   function(businessId) { return getDocs(query(collection(fbDb, 'memberships'), where('businessId', '==', businessId))); },
     removeMember:  function(uid, businessId) { return deleteDoc(doc(fbDb, 'memberships', uid + '_' + businessId)); },
+
+    // ⚠️⚠️ **מפת-הזהויות · הקרנה מ-HQ, קריאה בלבד.** שני חשבונות Google
+    //    של אותו אדם מצביעים על **חברות אחת** — זו של `canonical_uid`.
+    //    ⛔ הלקוח אינו יכול לכתוב לכאן (`allow write: if false`), ולכן
+    //    `canonical_uid` לעולם אינו מגיע מהדפדפן.
+    getIdentityMap: function(uid) { return getDoc(doc(fbDb, 'identityMap', uid)); },
 
     blockUser:     function(uid, businessId) { return setDoc(doc(fbDb, 'blockedUsers', uid + '_' + businessId), {blockedAt: Date.now(), uid: uid, businessId: businessId}); },
     unblockUser:   function(uid, businessId) { return deleteDoc(doc(fbDb, 'blockedUsers', uid + '_' + businessId)).catch(function(){}); },
@@ -157,6 +170,7 @@
 
   // ⚠️ בזיכרון בלבד. לא נכתב, לא נקרא, לא שורד רענון — במכוון.
   var accessToken = null;
+  var canonical = null;
   var refreshTimer = null;
   var state = 'idle';   // idle · active · unavailable · disabled
 
@@ -235,16 +249,34 @@
         state = 'unavailable'; log('HQ · הזהות אינה רשומה', res.status); return;
       }
       adopt(await res.json());
+      // ⚠️ המזהה הקנוני משמש **רק** להעברת בחירת-עסק בין שתי הזהויות
+      //    של אותו אדם. ⛔ אינו תנאי לגישה, ותקלה כאן אינה נראית.
+      try {
+        var me = await call('/api/identity/me', { headers: { Authorization: 'Bearer ' + accessToken } });
+        if (me.ok) canonical = (await me.json()).user_id || null;
+      } catch (e) {}
       log('סשן HQ נפתח');
     } catch (e) { state = 'unavailable'; log('שגיאת רשת — ממשיכים בלי HQ'); }
   }
 
   async function detach() {
     clearTimer();
-    var had = !!accessToken;
-    accessToken = null; state = 'idle';
-    if (!HQ.enabled || !had) return;
-    try { await call('/api/identity/logout', { method: 'POST' }); } catch (e) {}
+    // ⚠️⚠️⚠️ **הטוקן נשמר לפני שהוא מתאפס — באג שנתפס ב-D1, 18.8.26.**
+    //    הגרסה הקודמת אִפסה את `accessToken` ואז קראה ל-`logout`
+    //    **בלי כותרת Authorization**. השרת דחה ב-401, ה-`catch` הריק
+    //    בלע את זה, והסשן נשאר **חי** — עד שבועיים אחרי שהמשתמש לחץ
+    //    "התנתק". ⛔ "התנתקתי" שאינו מבטל סשן הוא בדיוק הכשל השקט
+    //    שכל שכבת ה-revocation נבנתה כדי למנוע.
+    var token = accessToken;
+    accessToken = null; canonical = null; state = 'idle';
+    if (!HQ.enabled || !token) return;
+    try {
+      var r = await call('/api/identity/logout', {
+        method: 'POST', headers: { Authorization: 'Bearer ' + token } });
+      // ⚠️ נרשם לקונסול, כי ניתוק שנכשל בשרת הוא מידע תפעולי אמיתי —
+      //    אבל **אינו** נחשף למשתמש: מבחינתו הוא כבר מנותק מקומית.
+      log(r.ok ? 'סשן HQ בוטל בשרת' : 'ניתוק HQ נכשל', r.status);
+    } catch (e) { log('ניתוק HQ · שגיאת רשת'); }
   }
 
   window.hqIdentity = {
@@ -256,6 +288,8 @@
     refresh: refresh,
     /** ⚠️ מחזיר את הטוקן לקריאות עתידיות ל-HQ. `null` = אין סשן. */
     token: function () { return accessToken; },
+    /** ⚠️ `null` כש-HQ אינו זמין — והכל ממשיך לעבוד. */
+    canonicalUserId: function () { return canonical; },
     state: function () { return state; },
     config: HQ,
   };
@@ -279,6 +313,13 @@
   --warning-bg: #FEF3DC;
   --error: #C0392B;
   --error-bg: #FDECEC;
+  /* ── אדום "מלא" לרקע עם טקסט לבן ──
+     ל-error יש שני תפקידים שונים שנלחמים זה בזה: כשהוא **טקסט** על רקע כהה
+     הוא צריך להיות בהיר, וכשהוא **רקע** לטקסט לבן הוא צריך להיות כהה.
+     במצב כהה --error הובהר לטובת קריאוּת הטקסט, וזה שבר את התגית הלבנה
+     ("להוסיף למשכורת") — לבן עליו יצא 3.37 במקום 4.5. לכן תפקיד הרקע
+     קיבל טוקן משלו, זהה בשני המצבים. */
+  --error-solid: #B3392C;
   --shadow-sm: 0 1px 4px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
   --shadow-md: 0 6px 22px rgba(0,0,0,.13);
   --shadow-lg: 0 14px 40px rgba(0,0,0,.18);
@@ -289,18 +330,27 @@
 [data-theme="dark"] {
   color-scheme: dark;
   --primary-light: rgba(217,119,87,.18);
+  /* נמדד: #B85E3E על --primary-light במצב כהה נותן 2.89:1 — מתחת
+     לסף. הטוקן משמש 25 פעם, כולן color/border ואף לא אחת כרקע,
+     ולכן הבהרה כאן בטוחה. הערך החדש נמדד ל-5.6:1. */
+  --primary-dark: #E29A7C;
   --bg: #17120F;
   --surface: #221C18;
   --border: #3C322B;
   --text: #F1EBE6;
   --text-sec: #C7BDB4;
-  --text-muted: #8E847B;
+  /* הובהר מ-#8E847B: על רקע טבלה כהה הוא נתן 4.32:1 — מתחת לסף 4.5 של WCAG AA.
+     הערך הזה נמדד מול ארבעה משטחים כהים ועובר בכולם (4.64 ומעלה). */
+  --text-muted: #998F85;
   --success: #3DBE7B;
   --success-bg: rgba(30,125,75,.2);
   --warning: #E0A23C;
   --warning-bg: rgba(200,125,14,.2);
-  --error: #E36456;
+  /* הובהר מ-#E36456 (4.36:1 על כותרת טבלה) כדי לעבור כטקסט במצב כהה.
+     תפקיד ה"רקע עם טקסט לבן" עבר ל---error-solid ולכן ההבהרה כאן בטוחה. */
+  --error: #EA7468;
   --error-bg: rgba(192,57,43,.2);
+  --error-solid: #B3392C;
   --shadow-sm: 0 1px 4px rgba(0,0,0,.45), 0 1px 2px rgba(0,0,0,.3);
   --shadow-md: 0 6px 22px rgba(0,0,0,.55);
   --shadow-lg: 0 14px 40px rgba(0,0,0,.65);
@@ -434,7 +484,9 @@
 [data-theme="dark"] .shift-card.evening-card { background: rgba(91,111,181,.1); }
 [data-theme="dark"] .tips-morning { background: rgba(217,119,87,.1); }
 [data-theme="dark"] .tips-evening { background: rgba(91,111,181,.1); }
-[data-theme="dark"] .srpt-emp-hdr { background: linear-gradient(135deg, rgba(220,38,38,.16), rgba(220,38,38,.26)); }
+/* תואם לשינוי במצב הבהיר: רקע ניטרלי במקום שטיפת אדום, והפס האדום בצד
+   נשאר הסימן היחיד. בלי זה המצב הכהה היה נשאר עם הרקע האדום הישן. */
+[data-theme="dark"] .srpt-emp-hdr { background: var(--surface); border-bottom-color: var(--border); }
 [data-theme="dark"] .srpt-ok { background: rgba(255,255,255,.02); }
 [data-theme="dark"] .srpt-tbl th { background: rgba(255,255,255,.05); }
 [data-theme="dark"] .backup-banner { background: linear-gradient(90deg, rgba(217,119,87,.14), rgba(217,119,87,.08)); color: #E8B894; }
@@ -789,6 +841,26 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 .shift-block { border-radius: 18px; overflow: hidden; border: 2px solid rgba(0,0,0,.08); box-shadow: 0 6px 24px rgba(0,0,0,.1); animation: slideUp .28s ease both; }
 .shift-block-hdr { padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .shift-block-stats { display: flex; border-top: 1px solid rgba(0,0,0,.08); border-bottom: 1px solid rgba(0,0,0,.08); background: rgba(0,0,0,.028); }
+/* ── משמרת מקופלת (בלי נתונים) ──
+   כל הצבעים דרך טוקנים, אחרת המצב הכהה נשבר. גובה 56px — מעל יעד המגע
+   המומלץ (44px), בניגוד לרוב הפקדים במודאל שהיו 24-34px. */
+.shift-collapsed {
+  width: 100%; min-height: 56px; display: flex; align-items: center; gap: 12px;
+  padding: 12px 18px; background: var(--surface); color: var(--text);
+  border: 1px dashed var(--border); border-radius: var(--r-sm);
+  cursor: pointer; font-family: inherit; font-size: 15px; text-align: right;
+  transition: border-color .15s, background .15s;
+}
+.shift-collapsed:hover { border-color: var(--primary); background: var(--primary-light); }
+.shift-collapsed:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.shift-collapsed-name  { font-weight: 800; }
+.shift-collapsed-hours { color: var(--text-muted); font-size: 13px; }
+.shift-collapsed-cta   { margin-inline-start: auto; color: var(--primary); font-weight: 700; font-size: 13.5px; white-space: nowrap; }
+
+/* שדה "כמה טיפים נגבו" — הפקד המרכזי במודאל. דרך טוקנים בלבד. */
+.shift-amt-input { background: var(--surface); color: var(--text); }
+.shift-amt-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+
 .shift-stat-col { flex: 1; text-align: center; padding: 15px 8px; border-right: 1px solid rgba(0,0,0,.07); transition: background .15s; }
 .shift-stat-col:hover { background: rgba(0,0,0,.03); }
 .shift-stat-col:last-child { border-right: none; }
@@ -848,8 +920,11 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 .srpt-hdr { padding:22px 26px;background:linear-gradient(135deg,#1C1917,#292524);display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap; }
 .srpt-badge-red { text-align:center;background:linear-gradient(135deg,#DC2626,#B91C1C);color:#fff;padding:12px 22px;border-radius:var(--r-sm);min-width:130px;box-shadow:0 4px 12px rgba(220,38,38,.4); }
 .srpt-badge-grn { display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#16A34A,#15803D);color:#fff;padding:12px 22px;border-radius:var(--r-sm);box-shadow:0 4px 12px rgba(22,163,74,.4);font-size:15px;font-weight:800; }
-.srpt-emp { background:#fff;border-bottom:2px solid rgba(0,0,0,.07); }
-.srpt-emp-hdr { padding:16px 22px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:linear-gradient(135deg,#FFF5F5,#FEE2E2);border-bottom:2px solid #FECACA;border-right:4px solid #DC2626; }
+/* כרטיס העובד היה צבוע כולו בוורוד-אדום, ולכן שם העובד "נראה" כמו שגיאה
+   והמספר החשוב לא בלט מתוך רקע שכולו אדום. עכשיו: רקע ניטרלי, ופס אדום
+   אחד בצד כסימן ההשתייכות. האדום נשאר רק על הסכום שבאמת צריך פעולה. */
+.srpt-emp { background:var(--surface);border-bottom:1px solid var(--border); }
+.srpt-emp-hdr { padding:16px 22px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--surface);border-bottom:1px solid var(--border);border-right:4px solid var(--error); }
 .srpt-tbl { width:100%;border-collapse:collapse; }
 .srpt-tbl th { padding:12px 16px;font-size:13px;font-weight:800;color:var(--text);background:rgba(0,0,0,.04);text-align:right;border-bottom:2px solid rgba(0,0,0,.1);white-space:nowrap; }
 .srpt-tbl td { padding:13px 16px;font-size:14.5px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;color:var(--text); }
@@ -996,7 +1071,12 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
   .modal-footer .btn { width: 100%; text-align: center; }
 
   .table-wrap { overflow-x: auto; }
-  table { min-width: 540px; }
+  /* היה min-width:540px — כלל גורף שהכריח *כל* טבלה לרוחב 540 גם כשהיא
+     נכנסת בנוחות למסך. נמדד בהשוואה חיה: הביטול מכווץ את קניות ל-360,
+     טבלת שליטה ל-336 ושעות ל-482 (כלומר בלי גלילה הצידה), ולא משנה כלום
+     בטבלאות שבאמת רחבות (משכורות 922, דוח Z 818) — הן ממשיכות לגלול
+     בתוך המעטפת שלהן כמו קודם. */
+  table { min-width: 0; }
   table th, table td { padding: 6px 7px; font-size: 12.5px; }
   .ti-w80 { width: 56px; }
   .ti-w70 { width: 52px; }
@@ -1004,6 +1084,65 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 
   .btn { padding: 9px 14px; font-size: 13px; }
   .btn-primary { font-size: 14px; }
+
+  /* ── דוח ההשלמות בטלפון: כרטיס לכל משמרת במקום טבלה ──
+     הטבלה הייתה רחבה מהמסך, כך שבעל העסק נדרש לגלול הצידה בכל אחת מארבע
+     הטבלאות כדי לראות את העמודה שמעניינת אותו — זו שאומרת כמה חסר.
+     כאן היא נפרסת לשורות: תווית מימין, ערך משמאל, בלי גלילה אופקית בכלל.
+     ה-thead מוסתר, ולכן כל תא נושא את התווית שלו ב-data-l. */
+  .srpt-tbl { min-width: 0; }
+  .srpt-tbl thead { display: none; }
+  .srpt-tbl tr {
+    display: grid; grid-template-columns: auto 1fr; gap: 2px 12px;
+    padding: 12px 14px; border-bottom: 1px solid var(--border);
+  }
+  .srpt-tbl td { padding: 2px 0; border: none; text-align: right !important; }
+  .srpt-tbl td::before {
+    content: attr(data-l); display: block;
+    font-size: 11.5px; font-weight: 700; color: var(--text-muted); margin-bottom: 1px;
+  }
+  .srpt-tbl td[data-l=""]::before { display: none; }
+  /* התא הראשון (תאריך) תופס את שתי העמודות ומשמש ככותרת הכרטיס */
+  .srpt-tbl td:first-child { grid-column: 1 / -1; margin-bottom: 4px; }
+  .srpt-tbl tfoot tr { background: var(--bg); }
+
+  /* ‏±5 דקות: 8 כפתורים נוספים בכל שורת עובד, בגובה 29px — מתחת ליעד המגע.
+     בורר הדקות עצמו כבר מאפשר את אותה בחירה, אז לא אובדת שום יכולת. */
+  .twc2-time-step-row { display: none; }
+
+  /* ── יעדי מגע במודאל הטיפים ──
+     נמדד: 39 מתוך 40 הפקדים היו בגובה 24-34px, כלומר מתחת ל-44px המומלצים
+     לאצבע. זו בדיוק התחושה של "תקוע" — צריך לכוון במקום פשוט ללחוץ.
+     ההגדלה חלה רק בטלפון; בדסקטופ עם עכבר הגדלים הנוכחיים תקינים. */
+  #tips-modal select,
+  #tips-modal input[type="number"],
+  #tips-modal input[type="text"] { min-height: 44px; font-size: 15px; }
+  #tips-modal .btn,
+  #tips-modal button:not(.twc2-adj-btn) { min-height: 44px; }
+  /* כפתורי ± של התיקון נשארים קומפקטיים אבל מקבלים שטח מגע סביר */
+  #tips-modal .twc2-adj-btn { min-height: 38px; min-width: 38px; }
+
+  /* ── שורת הניווט בהזנת שעות ──
+     חמישה פקדים בשורה אחת בלי גלישה: בטלפון הם נמעכו וכפתור היום-הקודם
+     יצא מחוץ למסך. עכשיו: החיצים והתאריך בשורה הראשונה (החיצים לא
+     מתכווצים), ושאר הפעולות עוברות לשורה שנייה. */
+  .hours-navbar { flex-wrap: wrap; padding: 12px 14px !important; gap: 10px !important; }
+  /* התאריך תופס שורה משלו ומופיע ראשון — אחרת הוא נדחס בין הפקדים
+     והכותרת הגדולה התנגשה בשדה התאריך.
+     ⚠️ `!important` נחוץ כאן: לאלמנט יש `style="flex:1"` inline שנוצר ב-JS
+     (ונכון לדסקטופ), וסגנון inline גובר על גיליון הסגנונות. בלי זה הכלל
+     נבלע בשקט — נמדד: הבלוק נשאר ברוחב 110px במקום לתפוס שורה. */
+  .hours-navbar .hours-nav-date { order: -1; flex: 1 0 100% !important; }
+  .hours-navbar .hours-nav-arrow { flex: 0 0 auto; min-height: 44px; min-width: 64px; }
+  .hours-navbar > input[type="date"],
+  .hours-navbar > .btn:not(.hours-nav-arrow) { flex: 1 1 140px; min-height: 44px; white-space: nowrap; }
+
+  /* ── בוררי השעה: כניסה ויציאה זה לצד זה נחתכו פיזית בטלפון ──
+     שני בלוקים + צ׳יפ השעות בשורה אחת לא נכנסים ל-390px, והתוויות
+     ("שעת כניסה" / "שעת יציאה") נגזרו בקצוות. כאן הם נערמים לשורות. */
+  .twc2-timezone { flex-direction: column; align-items: stretch; gap: 12px; padding: 14px 12px; }
+  .twc2-time-block { max-width: none; width: 100%; }
+  .twc2-hrs-chip { align-self: center; }
 }
 </style>
 </head>
@@ -1083,7 +1222,10 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 
 <!-- ═══ BACKUP BANNER ═══ -->
 <div id="backup-banner" class="backup-banner" style="display:none">
-  ⚠️ <strong>שים לב:</strong> הנתונים נשמרים בדפדפן בלבד. ניקוי דפדפן / מחשב אחר = איבוד נתונים.
+  <!-- הטקסט הקודם ("הנתונים נשמרים בדפדפן בלבד") נשאר מהתקופה שלפני הסנכרון לענן,
+       והיה **לא נכון**: הנתונים כן נשמרים ב-Firebase. למשתמש חדש זו הודעה מבהילה
+       שאומרת לו שהנתונים שלו שבירים, בזמן שהם מגובים בפועל. -->
+  💾 <strong>גיבוי:</strong> הנתונים שלך נשמרים אוטומטית בענן. מומלץ לשמור עותק גם אצלך — לרואה חשבון או לארכיון.
   <button class="hdr-btn green" onclick="exportBackup()" style="font-size:12px;padding:4px 10px">💾 גיבוי עכשיו</button>
   <button class="backup-banner-close" onclick="dismissBanner()" title="סגור">✕</button>
 </div>
@@ -1269,7 +1411,25 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-08-18b';
+var APP_VERSION  = '2026-09-03a';
+
+/* ⚠️⚠️⚠️ **מע"מ הוא 18% בישראל מ-1.1.2025.** הקוד החזיק 17 בשמונה
+   מקומות עד 21.8.2026 — כלומר חילוץ המע"מ בקניות וב-P&L היה שגוי
+   20 חודשים, בשקט. ⛔ כלי שמחשב כסף ומחשב מע"מ לא נכון הוא בעיית
+   אמון, לא באג קוסמטי.
+   ⚠️ הקבוע הזה הוא ברירת המחדל **לעסק חדש בלבד**. עסק קיים ששמור
+   אצלו 17 אינו משתנה מאליו — הוא מקבל הודעה חד-פעמית ומאשר בעצמו.
+   ⛔ שכתוב אוטומטי היה משנה לו P&L היסטורי בלי שביקש. */
+var VAT_DEFAULT  = 18;
+
+// ── שכר המינימום החוקי לשעה (בגיר, משרה מלאה) ──
+// מקור: החל מ-1.4.2026 — 35.40 ₪ לשעה (6,443.85 ₪ לחודש).
+// זהו **רצפה חוקית**, לא ברירת מחדל נוחה: אם המשתמש הגדיר ערך נמוך מזה,
+// המערכת מזהירה במפורש, כי חישוב השלמה מתחת לרצפה הזו מייצר בדיוק את
+// החשיפה המשפטית שהפיצ'ר נועד למנוע.
+// ⚠️ לעדכן בכל שינוי חקיקה, ולעדכן גם את LEGAL_MIN_WAGE_UPDATED.
+var LEGAL_MIN_WAGE_PER_HR  = 35.40;
+var LEGAL_MIN_WAGE_UPDATED = '1.4.2026';
 
 // בדיקת גרסה אוטומטית — טוען גרסה טרייה מכתובת הפריסה (עוקף browser cache וגם CDN cache)
 // ⚠️ בעבר הצביע ל-raw.githubusercontent של ריפו הפריסה הציבורי. הריפו עבר
@@ -1295,6 +1455,8 @@ var APP_VERSION  = '2026-08-18b';
 
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-09-03a', t: '📱 מסכי הטיפים וההשלמות סודרו לטלפון: משמרת בלי נתונים מקופלת לשורה אחת במקום מסך שלם, טבלת ההשלמות נכנסת למסך בלי לגלול הצידה, וההסבר מופיע פעם אחת במקום אצל כל עובד · 🔧 תוקנו: כפתור "יום קודם" בהזנת שעות שלא היה לחיץ בטלפון, ושדה סכום הטיפים שלא נקרא במצב כהה · 👆 כל הכפתורים במסך הטיפים הוגדלו לגודל נוח ללחיצה באצבע' },
+  { v: '2026-08-20a', t: 'חשבון אחד לכל הכתובות שלך: אם חיברת שני חשבונות Google לאותו משתמש, שניהם נכנסים לאותו עסק עם אותן הרשאות בדיוק — ושינוי הרשאה נעשה פעם אחת במקום פעמיים' },
   { v: '2026-08-18b', t: 'עדכון מערכת' },
   { v: '2026-08-18a', t: 'עדכון מערכת' },
   { v: '2026-07-15a', t: 'נוסף שדה "אימייל" בלוח הבקרה שלי — מאפשר לקשר לקוחות אוטומטית לנתוני השימוש שלהם, בלי צורך למלא UID ידנית' },
@@ -1517,7 +1679,7 @@ var S = {
   control: {},
   tasks: [],
   auditLog: [],
-  settings: {vat: 17}
+  settings: {vat: 18}
 };
 var editEmpId = null;
 var selectedTipsDay = null;
@@ -1660,7 +1822,7 @@ function removeShiftDef(id) {
   renderTips();
 }
 function getTipsMinPerHr() {
-  return toNum((S.settings || {}).tipsMinPerHr) || 35;
+  return toNum((S.settings || {}).tipsMinPerHr) || LEGAL_MIN_WAGE_PER_HR;
 }
 function getAdjNotes() {
   return (S.settings && S.settings.adjNotes) || [];
@@ -1690,9 +1852,16 @@ function applyAdjNote(ds, shift, wIdx, noteIdx) {
 }
 function saveTipsMinPerHr(val) {
   if (!S.settings) S.settings = {};
-  S.settings.tipsMinPerHr = Math.max(0, toNum(val)) || 35;
+  var v = Math.max(0, toNum(val)) || LEGAL_MIN_WAGE_PER_HR;
+  S.settings.tipsMinPerHr = v;
   persist();
   renderTips();
+  // הערך הזה קובע כמה כסף העסק חייב להשלים לעובד. אם הוא הוגדר מתחת לרצפה
+  // החוקית (למשל נשאר מעודכן משנה קודמת), כל ההשלמות במערכת יוצאות נמוכות מדי
+  // בשקט. מזהירים במפורש, אבל לא חוסמים — לנוער יש רצפה נמוכה יותר כחוק.
+  if (v < LEGAL_MIN_WAGE_PER_HR) {
+    toast('⚠️ ₪' + v + ' נמוך משכר המינימום החוקי (₪' + LEGAL_MIN_WAGE_PER_HR + ' מ-' + LEGAL_MIN_WAGE_UPDATED + ') — ההשלמות יחושבו חסר', 'warn');
+  }
 }
 function buildTimePicker(id, value, onchangeCode, minH, maxH) {
   if (minH === undefined) minH = 0;
@@ -1756,6 +1925,43 @@ function dateCell(d, wd, ds) {
     '</td>';
 }
 
+// ── שער כניסה יחיד לנתונים ──
+// כל הנתונים שנכנסים למערכת (מהאחסון המקומי או מהענן) עוברים כאן קודם.
+// הרקע: רשומה פגומה אחת — `employees` שהוא null, עובד שהוא null בתוך המערך,
+// או `shiftDefs` שאינו מערך — הפילה את **כל** הלשוניות במסך לבן. כלומר סנכרון
+// חלקי אחד או מיגרציה ישנה יכלו להשבית את המערכת אצל הלקוח לגמרי.
+// עדיף לנקות פעם אחת בגבול מאשר לפזר בדיקות בעשרות מקומות שכל אחד מהם עלול להישכח.
+function normalizeState(st) {
+  if (!st || typeof st !== 'object') return;
+
+  // הרשימות למטה **נגזרו מסריקת הקוד עצמו** (כל הופעה של S.<key> ואיך היא בשימוש),
+  // ולא מהזיכרון — אחרת מפתח שנשכח מחזיר בדיוק את אותה קריסה. כך התגלה ש-S.control
+  // חסר: משתמש חדש שלחץ על "טבלת שליטה" קיבל שגיאה במקום מסך.
+
+  // מפתחות שהקוד מריץ עליהם פעולות מערך (forEach/map/filter/push…)
+  ['employees', 'roles', 'tasks', 'suppliers', 'adminClients', 'auditLog'].forEach(function(k) {
+    if (!Array.isArray(st[k])) st[k] = [];
+  });
+  st.employees = st.employees.filter(function(e) { return e && typeof e === 'object' && e.id; });
+  st.roles     = st.roles.filter(function(r) { return typeof r === 'string' && r; });
+
+  // מפתחות שהקוד ניגש אליהם כמפה: S.<key>[ym] / S.<key>[ds]
+  ['tips', 'dailyHours', 'zReports', 'purchases', 'control', 'monthlyData', 'settings'].forEach(function(k) {
+    if (!st[k] || typeof st[k] !== 'object' || Array.isArray(st[k])) st[k] = {};
+  });
+
+  // הגדרות משמרות — הקוד מריץ עליהן forEach/find בכל מסך טיפים ומשכורות
+  if (!Array.isArray(st.settings.shiftDefs)) {
+    delete st.settings.shiftDefs; // getShiftDefs() ייצור מחדש מברירות המחדל
+  } else {
+    st.settings.shiftDefs = st.settings.shiftDefs.filter(function(d) {
+      return d && typeof d === 'object' && d.id;
+    });
+    if (!st.settings.shiftDefs.length) delete st.settings.shiftDefs;
+  }
+  if (!Array.isArray(st.settings.adjNotes)) st.settings.adjNotes = [];
+}
+
 function loadState() {
   try {
     var raw = localStorage.getItem(KEY);
@@ -1764,6 +1970,7 @@ function loadState() {
       Object.keys(parsed).forEach(function(k) { S[k] = parsed[k]; });
     }
   } catch(e) {}
+  normalizeState(S);
 }
 
 // debounce גנרי — מחזיר עטיפה עם המתנה של wait ms, ועם .flush() לכתיבה מיידית (בלי המתנה).
@@ -2033,8 +2240,14 @@ function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
+// שומר-הסף המספרי של כל המערכת (כסף, שעות, מע"מ) — כל קלט עובר דרכו.
+// היה כאן `parseFloat(x) || 0`, ש-NaN אמנם נבלם בו, אבל **אינסוף עבר**:
+// parseFloat(Infinity) הוא Infinity, וגם מחרוזת שמשתמש יכול להקליד בפועל
+// בשדה מספר — "1e999" — הופכת ל-Infinity. משם זה זלג לחלוקת הטיפים
+// (perHr=∞ → כל העובדים מקבלים ∞) ולסכומים בתלוש. עכשיו כל ערך לא-סופי הוא 0.
 function toNum(x) {
-  return parseFloat(x) || 0;
+  var n = parseFloat(x);
+  return isFinite(n) ? n : 0;
 }
 
 function ILSr(amount) {
@@ -2308,6 +2521,20 @@ async function saveEmp() {
   if (type === 'hourly' && hourlyRate <= 0) { toast('תעריף לשעה חייב להיות גדול מ-0', 'err'); return; }
   if (type === 'monthly' && monthlySalary <= 0) { toast('משכורת חודשית חייבת להיות גדולה מ-0', 'err'); return; }
   if (type === 'hourly' && hourlyRate > 500)  { if (!await customConfirm('תעריף ₪' + hourlyRate + ' לשעה — האם זה נכון?')) return; }
+  // המערכת כבר הזהירה על תעריף *גבוה* מדי (טעות שעולה לעסק כסף), אבל לא על תעריף
+  // *נמוך* מהמינימום החוקי — שהיא הטעות היקרה באמת, כי היא חשיפה משפטית.
+  // אזהרה ולא חסימה: לנוער יש שכר מינימום נמוך יותר כחוק (26.07 / 27.94 / 30.92 ₪).
+  if (type === 'hourly' && hourlyRate > 0 && hourlyRate < LEGAL_MIN_WAGE_PER_HR) {
+    var okLow = await customConfirm({
+      title: 'תעריף מתחת לשכר המינימום',
+      message: 'הזנת ₪' + hourlyRate + ' לשעה, ושכר המינימום לבגיר הוא ₪' + LEGAL_MIN_WAGE_PER_HR + ' לשעה (נכון ל-' + LEGAL_MIN_WAGE_UPDATED + ').\n\n' +
+               'לעובדי נוער מותר תעריף נמוך יותר לפי גיל. אם זה לא המקרה — התעריף הזה אינו חוקי.\n\nלשמור בכל זאת?',
+      confirmText: 'שמור בכל זאת',
+      cancelText: 'חזור לתקן',
+      danger: true
+    });
+    if (!okLow) return;
+  }
   if (type === 'monthly' && monthlySalary > 50000) { if (!await customConfirm('משכורת ₪' + monthlySalary + ' — האם זה נכון?')) return; }
 
   editEmpRoles.forEach(function(r) { if (S.roles.indexOf(r) === -1) S.roles.push(r); });
@@ -2397,7 +2624,7 @@ async function confirmReset() {
   if (!ok) return;
   localStorage.removeItem(KEY);
   localStorage.removeItem('cafeManager_setupDone');
-  S = {employees:[], roles:[], dailyHours:{}, monthlyData:{}, timeRecords:{}, zReports:{}, tips:{}, suppliers:[], purchases:{}, control:{}, tasks:[], auditLog:[], settings:{vat:17}};
+  S = {employees:[], roles:[], dailyHours:{}, monthlyData:{}, timeRecords:{}, zReports:{}, tips:{}, suppliers:[], purchases:{}, control:{}, tasks:[], auditLog:[], settings:{vat:18}};
   empRoleFilter = '';
   selectedTipsDay = null;
   persist();
@@ -3198,17 +3425,20 @@ function renderHoursDaily() {
   var dateDisp = parseInt(parts[2]) + '/' + parseInt(parts[1]) + '/' + parts[0];
   var today    = curDate();
 
+  // חמישה פקדים בשורת flex אחת בלי flex-wrap: בטלפון הם נמעכו זה על זה,
+  // "העתק מאתמול" התכווץ מ-123px ל-30px, וכפתור היום-הקודם (←) יצא לגמרי
+  // מחוץ למסך (left:-61) — כלומר לא היה אפשר ללחוץ עליו בכלל.
   var navBar =
-    '<div style="display:flex;align-items:center;gap:12px;background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:14px 22px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.07)">' +
-      '<button class="btn btn-secondary" onclick="stepDate(-1)" style="padding:10px 20px;font-size:16px;border-radius:10px;font-weight:700">→</button>' +
-      '<div style="flex:1;text-align:center">' +
+    '<div class="hours-navbar" style="display:flex;align-items:center;gap:12px;background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:14px 22px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.07)">' +
+      '<button class="btn btn-secondary hours-nav-arrow" onclick="stepDate(-1)" style="padding:10px 20px;font-size:16px;border-radius:10px;font-weight:700">→</button>' +
+      '<div class="hours-nav-date" style="flex:1;text-align:center">' +
         '<div style="font-size:21px;font-weight:900;color:var(--text)">' + dateDisp + '</div>' +
         '<div style="font-size:12px;font-weight:700;color:' + (wd===6?'var(--warning)':'var(--success)') + ';margin-top:5px">' + DHE[wd] + (wd===6?' 🔶':(ds===today?' · ✅ היום':'')) + '</div>' +
       '</div>' +
       '<input type="date" class="ti" style="padding:8px 10px;border-radius:8px" value="' + ds + '" onchange="setHoursDate(this.value)">' +
       (ds !== today ? '<button class="btn btn-sm" onclick="setHoursDate(\'' + today + '\')" style="border-radius:8px">📅 היום</button>' : '') +
       '<button class="btn btn-secondary" onclick="copyYesterdayHours()" style="border-radius:8px;font-size:12.5px" title="ימלא שעות לעובדים שעדיין אין להם נתון היום, על בסיס היום הקודם">📋 העתק מאתמול</button>' +
-      '<button class="btn btn-secondary" onclick="stepDate(1)" style="padding:10px 20px;font-size:16px;border-radius:10px;font-weight:700">←</button>' +
+      '<button class="btn btn-secondary hours-nav-arrow" onclick="stepDate(1)" style="padding:10px 20px;font-size:16px;border-radius:10px;font-weight:700">←</button>' +
     '</div>';
 
   var dayRecs = S.dailyHours[ds] || {};
@@ -3510,7 +3740,7 @@ function renderPayroll() {
         '<td>' + bonusCel + '</td>' +
         '<td>' + (suppl > 0 ? '<span style="color:#7C3AED;font-weight:800">+' + ILS(suppl) + '</span>' : '—') + '</td>' +
         '<td>' + (s.advance > 0 ? '<span style="color:var(--error);font-weight:700">−' + ILS(s.advance) + '</span>' : '—') + '</td>' +
-        '<td><strong style="color:var(--primary);font-size:15px">' + ILS(totalWithSupplM) + '</strong></td>' +
+        '<td><strong style="color:var(--primary-dark);font-size:15px">' + ILS(totalWithSupplM) + '</strong></td>' +
         '<td style="white-space:nowrap">' +
           '<button class="btn btn-secondary btn-icon btn-sm" onclick="openEmpDetail(\'' + emp.id + '\',\'' + ym + '\')" title="פרטים מלאים">🔍</button> ' +
           '<button class="btn btn-secondary btn-icon btn-sm" onclick="printPayslip(\'' + emp.id + '\',\'' + ym + '\')" title="הדפס תלוש שכר">🖨️</button>' +
@@ -3721,19 +3951,65 @@ function onZInput(inp) {
 /* ================================================================
    TAB 5 — TIPS
 ================================================================ */
+// נקודת הכניסה היחידה לנתוני טיפים — ולכן גם המקום הנכון לחסום נתונים פגומים.
+// קודם היא הניחה ש-S.tips קיים ושה-workers הוא מערך של אובייקטים. רשומה פגומה
+// אחת שהגיעה מהענן (סנכרון חלקי, מיגרציה ישנה) הפילה את **כל** לשונית הטיפים
+// עם שגיאה — כלומר נתון אחד יכול היה להשבית פיצ'ר שלם אצל הלקוח.
+// עכשיו כל צורה לא צפויה מנוקה כאן, ושאר הקוד יכול לסמוך על המבנה.
 function getTipRec(ds, shift) {
-  var sr = (S.tips[ds] || {})[shift];
-  if (!sr || typeof sr === 'number') return {amount: toNum(sr), workers: []};
-  return {amount: toNum(sr.amount), workers: sr.workers || []};
+  var all = (S && S.tips) || {};
+  var sr  = (all[ds] || {})[shift];
+  if (!sr || typeof sr !== 'object') return {amount: toNum(sr), workers: []};
+  var workers = Array.isArray(sr.workers)
+    ? sr.workers.filter(function(w) { return w && typeof w === 'object'; })
+    : [];
+  return {amount: toNum(sr.amount), workers: workers};
 }
 
+// מחזיר שעות בדיוק מלא — **בלי עיגול**.
+// היה כאן toFixed(2), וזה קיצץ כסף לעובד: משמרת 6 שעות ו-20 דקות (6.3333 ש')
+// נספרה כ-6.33, וההשלמה למינימום יצאה 221.55 ₪ במקום 221.67 ₪. תמיד לרעת העובד,
+// ובדיוק בחישוב שכל מטרתו למנוע חשיפה משפטית על אי-תשלום שכר מינימום.
+// העיגול נשאר היכן שהוא שייך — בתצוגה בלבד (כל אתרי התצוגה כבר קוראים toFixed).
 function timeDiff(from, to) {
   if (!from || !to) return 0;
   var fp = from.split(':').map(Number);
   var tp = to.split(':').map(Number);
+  if (!isFinite(fp[0]) || !isFinite(fp[1]) || !isFinite(tp[0]) || !isFinite(tp[1])) return 0;
   var mins = (tp[0]*60 + tp[1]) - (fp[0]*60 + fp[1]);
   if (mins < 0) mins += 24*60;
-  return parseFloat((mins / 60).toFixed(2));
+  return mins / 60;
+}
+
+// בונה את שורת ההתאמה בין הקופה לבין מה שחולק בפועל.
+// שלושה מצבים אפשריים, וכל אחד מהם מצריך תשובה אחרת מהמנהל:
+//   • יש כסף בקופה אבל אין שעות → הכסף לא הגיע לאף אחד (המצב המסוכן)
+//   • יש תיקונים ידניים → חולק סכום שונה מהקופה, וזה לגיטימי אבל צריך להיות גלוי
+//   • הכול תואם → אישור שקט שהחלוקה מלאה
+function tipsReconHtml(potRaw, totalHrs, totalAdj) {
+  var pot = toNum(potRaw);
+  if (pot <= 0 && totalAdj === 0) return '';
+  var distributedBase = totalHrs > 0 ? pot : 0;   // הבסיס מתחלק במלואו רק כשיש שעות
+  var handedOut = distributedBase + totalAdj;
+  var unclaimed = pot - distributedBase;
+  var box = 'display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;padding:10px 14px;font-size:12.5px;font-weight:700;border-top:1px solid var(--border);';
+
+  if (unclaimed > 0.005) {
+    return '<div style="' + box + 'background:var(--error-bg);color:var(--error)">' +
+      '<span>⛔ ' + ILS(unclaimed) + ' מהקופה לא חולקו לאף עובד</span>' +
+      '<span style="font-weight:600;opacity:.85">הזן שעות עבודה לעובדי המשמרת כדי שהסכום יתחלק</span>' +
+    '</div>';
+  }
+  if (totalAdj !== 0) {
+    return '<div style="' + box + 'background:var(--warning-bg);color:var(--warning)">' +
+      '<span>קופה ' + ILS(pot) + '</span><span>·</span>' +
+      '<span>תיקונים ידניים ' + (totalAdj > 0 ? '+' : '') + ILS(totalAdj) + '</span><span>·</span>' +
+      '<span>חולק בפועל ' + ILS(handedOut) + '</span>' +
+    '</div>';
+  }
+  return '<div style="' + box + 'background:var(--success-bg);color:var(--success)">' +
+    '<span>✓ כל הקופה חולקה — ' + ILS(pot) + '</span>' +
+  '</div>';
 }
 
 function monthTipTotals(ym) {
@@ -3795,6 +4071,34 @@ function nextTipsDay() {
   if (ds.slice(0, 7) === ym) { selectedTipsDay = ds; openTipsModal(ds); }
 }
 
+// האם למשמרת הזו יש בכלל מה להציג — סכום בקופה או עובדים משובצים.
+function tipsShiftHasData(ds, shiftId) {
+  var rec = getTipRec(ds, shiftId);
+  return toNum(rec.amount) > 0 || rec.workers.length > 0;
+}
+
+// שורה מקופלת למשמרת ריקה: שם המשמרת, השעות, וכפתור פתיחה אחד.
+// הפקד לא נעלם — הוא רק לא תופס מסך שלם עד שצריך אותו.
+function collapsedShiftRow(ds, def) {
+  var label = escHtml(def.name);
+  var hours = escHtml((def.from || '') + '–' + (def.to || ''));
+  return '<button type="button" class="shift-collapsed" ' +
+    'onclick="expandShiftSection(\'' + ds + '\',\'' + def.id + '\')" ' +
+    'aria-label="פתח הזנת טיפים למשמרת ' + label + '">' +
+      '<span class="shift-collapsed-name">' + label + '</span>' +
+      '<span class="shift-collapsed-hours">' + hours + '</span>' +
+      '<span class="shift-collapsed-cta">+ הזן טיפים</span>' +
+  '</button>';
+}
+
+function expandShiftSection(ds, shiftId) {
+  var host = document.getElementById('shift-section-' + shiftId);
+  if (!host) return;
+  host.innerHTML = renderShiftSection(ds, shiftId);
+  var amt = document.getElementById('tamt-' + shiftId);
+  if (amt) amt.focus();
+}
+
 function openTipsModal(ds) {
   var d  = parseInt(ds.slice(-2));
   var wd = getDow(ds);
@@ -3807,8 +4111,15 @@ function openTipsModal(ds) {
   var canNext = day < days;
   var navBtn  = 'background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:6px 12px;font-size:16px;font-weight:900;cursor:pointer;';
   var defs = getShiftDefs();
+  // משמרת בלי נתונים נפתחה קודם במלוא גובהה — בטלפון זה היה 604 פיקסלים של
+  // גלילה לפני שהגעת למשמרת שבה באמת יש מה לערוך. עכשיו היא מקופלת לשורה אחת
+  // שנפתחת בלחיצה, כך שהמודאל נפתח על מה שרלוונטי היום.
   var shiftSections = defs.map(function(def, i) {
-    return '<div id="shift-section-' + def.id + '"' + (i > 0 ? ' style="margin-top:18px"' : '') + '>' + renderShiftSection(ds, def.id) + '</div>';
+    var gap = i > 0 ? ' style="margin-top:18px"' : '';
+    var inner = tipsShiftHasData(ds, def.id)
+      ? renderShiftSection(ds, def.id)
+      : collapsedShiftRow(ds, def);
+    return '<div id="shift-section-' + def.id + '"' + gap + '>' + inner + '</div>';
   }).join('');
   var dowLabel = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'][wd];
   box.innerHTML =
@@ -3875,9 +4186,13 @@ function getDetailedSupplementReport(ym) {
       rec.workers.forEach(function(w) {
         if (!w.empId) return;
         var hrs = timeDiff(w.from||'00:00', w.to||'00:00');
-        if (hrs <= 0) return;
-        var base     = perHr > 0 ? hrs * perHr : 0;
-        var adj      = toNum(w.adjust);
+        var adj = toNum(w.adjust);
+        // שורה בלי שעות **ובלי** תיקון היא שורה ריקה — אין מה לרשום.
+        // אבל שורה בלי שעות שיש בה תיקון ידני היא כסף שהמנהל הקצה במפורש:
+        // קודם היא דולגה כאן לגמרי, וכך אותו עובד הופיע עם סכום אחד במסך הטיפים
+        // (getEmpTipsForMonth ספר את התיקון) וסכום אחר בדוח ההשלמות. עכשיו שניהם מסכימים.
+        if (hrs <= 0 && adj === 0) return;
+        var base     = (hrs > 0 && perHr > 0) ? hrs * perHr : 0;
         var final    = base + adj; // מה שהעובד בפועל "מקבל" כטיפ — כולל גם תיקונים שליליים
         var minGuar  = hrs * minPerHr;
         // suppBase (בסיס ההשלמה למינימום) מתעלם מתיקונים שליליים בכוונה: תיקון ידני שמוריד טיפ
@@ -4237,7 +4552,9 @@ function renderShiftSection(ds, shift) {
       '</div>' +
       '<div style="display:flex;flex-direction:column;align-items:center;gap:5px">' +
         '<div style="font-size:11px;font-weight:800;color:' + hdrTxt + ';opacity:.65;text-transform:uppercase;letter-spacing:.5px;text-align:center">💸 כמה טיפים נגבו?</div>' +
-        '<input type="number" class="ti" style="width:130px;font-size:20px;font-weight:900;text-align:center;border-color:' + borderClr + ';background:rgba(255,255,255,.8)" id="tamt-' + shift + '" min="0" step="1" value="' + (rec.amount || '') + '" placeholder="₪0" oninput="updateTipsCalc(\'' + ds + '\',\'' + shift + '\')">' +
+        // background לבן-קשיח הפך את השדה החשוב ביותר במסך לבלתי-קריא במצב כהה
+        // (טקסט בהיר על רקע כמעט-לבן). עכשיו דרך טוקנים, כך שהוא נכון בשני המצבים.
+        '<input type="number" class="ti shift-amt-input" style="width:130px;font-size:20px;font-weight:900;text-align:center;border-color:' + borderClr + '" id="tamt-' + shift + '" min="0" step="1" value="' + (rec.amount || '') + '" placeholder="₪0" oninput="updateTipsCalc(\'' + ds + '\',\'' + shift + '\')">' +
         '<div style="font-size:10.5px;color:' + hdrTxt + ';opacity:.5;text-align:center">הסכום הכולל בקופת הטיפים</div>' +
       '</div>' +
     '</div>' +
@@ -4250,6 +4567,11 @@ function renderShiftSection(ds, shift) {
       (totalAdj !== 0 ? '<div class="shift-stat-col"><div class="shift-stat-lbl">✏️ תיקונים</div><div class="shift-stat-val" style="color:' + (totalAdj > 0 ? 'var(--success)' : 'var(--error)') + '">' + (totalAdj > 0 ? '+' : '') + ILS(totalAdj) + '</div></div>' : '') +
       '<div class="shift-stat-col" style="border-right:none"><div class="shift-stat-lbl">💰 סה"כ לחלוקה</div><div class="shift-stat-val" id="shift-final-' + shift + '" style="color:var(--success);font-size:21px">' + (totalFinal > 0 ? ILS(totalFinal) : '—') + '</div></div>' +
     '</div>' +
+
+    // ── שורת התאמה: קופה מול מה שחולק בפועל ──
+    // עד עכשיו אפשר היה להזין 500 ₪ לקופה, לשכוח להזין שעות לעובדים, ו-500 ₪
+    // פשוט נעלמו בלי שום סימן על המסך. עכשיו הפער מוצג במפורש ובאדום.
+    '<div id="shift-recon-' + shift + '">' + tipsReconHtml(rec.amount, totalHrs, totalAdj) + '</div>' +
 
     // ── Workers ──
     '<div class="shift-workers-wrap">' +
@@ -4299,6 +4621,7 @@ function updateTipsCalc(ds, shift) {
   var totalHrs   = workers.reduce(function(s, w) { return s + timeDiff(w.from, w.to); }, 0);
   var perHr      = (totalHrs > 0 && amount > 0) ? amount / totalHrs : 0;
   var totalFinal = 0;
+  var totalAdj   = workers.reduce(function(s, w) { return s + toNum(w.adjust); }, 0);
 
   var minPerHr = getTipsMinPerHr();
   workers.forEach(function(w, idx) {
@@ -4370,6 +4693,10 @@ function updateTipsCalc(ds, shift) {
   if (thEl) thEl.textContent = totalHrs > 0 ? totalHrs.toFixed(1) : '—';
   if (phEl) phEl.textContent = perHr > 0 ? ILS(perHr) : '—';
   if (fnEl) fnEl.textContent = totalFinal > 0 ? ILS(totalFinal) : '—';
+  // שורת ההתאמה חייבת להתעדכן באותה נשימה — אחרת היא מציגה מצב ישן
+  // בזמן שהמנהל מקליד, וזה גרוע יותר מלא להציג אותה בכלל.
+  var rcEl = document.getElementById('shift-recon-' + shift);
+  if (rcEl) rcEl.innerHTML = tipsReconHtml(amount, totalHrs, totalAdj);
 
   if (!S.tips[ds]) S.tips[ds] = {};
   S.tips[ds][shift] = {amount: amount, workers: workers};
@@ -4486,6 +4813,28 @@ function toggleAdjBox(shift, idx) {
 function renderTips() {
   var ym    = document.getElementById('tips-month').value;
   var cont  = document.getElementById('tips-content');
+
+  // משתמש חדש שנחת כאן ראה רשימת חודשים ותו לא — בלי לדעת מה לעשות.
+  // שאר הלשוניות (שעות, משכורות) כבר מכוונות אותו; כאן זה היה חסר.
+  var activeEmps = S.employees.filter(function(e) { return e && e.active !== false; });
+  if (!activeEmps.length) {
+    cont.innerHTML =
+      '<div class="empty">' +
+        '<div class="empty-icon">💸</div>' +
+        '<div class="empty-title">אין עובדים פעילים עדיין</div>' +
+        '<div class="empty-text" style="max-width:360px;margin:0 auto 16px">' +
+          '<b>כדי לחלק טיפים צריך קודם עובדים:</b>' +
+          '<ol style="text-align:right;padding-right:20px;margin-top:8px;line-height:2">' +
+            '<li><b>הוסיפו עובד</b> בלשונית "עובדים"</li>' +
+            '<li><b>חזרו לכאן</b>, לחצו על יום בלוח, והזינו כמה טיפים נגבו</li>' +
+            '<li>המערכת תחלק לפי שעות ותבדוק אוטומטית שכל אחד הגיע לשכר מינימום ✅</li>' +
+          '</ol>' +
+        '</div>' +
+        '<button class="btn btn-primary" onclick="switchTab(\'employees\')">👥 שלב 1 — הוסף עובד ראשון</button>' +
+      '</div>';
+    return;
+  }
+
   var tots  = monthTipTotals(ym);
   var days  = daysInMonth(ym);
   var defs  = getShiftDefs();
@@ -4536,10 +4885,15 @@ function renderTips() {
         '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">' + shiftRows + '</div>' +
         '<button class="btn btn-secondary btn-sm" onclick="addShiftDef()" style="margin-bottom:16px">➕ הוסף משמרת</button>' +
         '<hr style="border:none;border-top:1px solid var(--border);margin:12px 0">' +
-        '<div style="display:flex;align-items:center;gap:10px">' +
+        // step="1" מנע בפועל הזנה של הרצפה החוקית עצמה (35.40) — עכשיו 0.01.
+        // בנוסף: מחוון חי שאומר אם הערך שהוגדר חוקי, במקום מספר בלי הקשר.
+        '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
           '<label style="font-size:12.5px;font-weight:700;color:var(--text-sec);white-space:nowrap">💰 מינימום השלמה לשעה (₪):</label>' +
-          '<input type="number" class="ti" style="width:80px;font-size:14px;font-weight:700;text-align:center" value="' + minPerHr + '" min="0" step="1" onchange="saveTipsMinPerHr(this.value)">' +
-          '<span style="font-size:12px;color:var(--text-muted)">אם עובד מרוויח פחות מסכום זה לשעה מטיפים, תחושב השלמה</span>' +
+          '<input type="number" class="ti" style="width:92px;font-size:14px;font-weight:700;text-align:center" value="' + minPerHr + '" min="0" step="0.01" onchange="saveTipsMinPerHr(this.value)">' +
+          (minPerHr < LEGAL_MIN_WAGE_PER_HR
+            ? '<span style="font-size:12px;font-weight:800;color:var(--error);background:var(--error-bg);padding:4px 10px;border-radius:20px">⚠️ מתחת לשכר המינימום החוקי (₪' + LEGAL_MIN_WAGE_PER_HR + ')</span>'
+            : '<span style="font-size:12px;font-weight:800;color:var(--success);background:var(--success-bg);padding:4px 10px;border-radius:20px">✓ עומד בשכר המינימום החוקי</span>') +
+          '<span style="font-size:12px;color:var(--text-muted);flex-basis:100%">אם עובד מרוויח פחות מסכום זה לשעה מטיפים, המערכת מחשבת השלמה. הרצפה החוקית לבגיר: ₪' + LEGAL_MIN_WAGE_PER_HR + ' (' + LEGAL_MIN_WAGE_UPDATED + ').</span>' +
         '</div>' +
       '</div>' +
     '</details>';
@@ -4574,7 +4928,7 @@ function renderTips() {
       '<tfoot><tr class="tr-total">' +
         '<td class="sticky-col"><strong>סה"כ חודשי</strong></td>' +
         tfShifts +
-        '<td><strong style="color:var(--primary);font-size:15px">' + ILS(tots.total) + '</strong></td>' +
+        '<td><strong style="color:var(--primary-dark);font-size:15px">' + ILS(tots.total) + '</strong></td>' +
         '<td></td>' +
       '</tr></tfoot>' +
     '</table></div>' +
@@ -4604,24 +4958,34 @@ function renderTips() {
         var empName = escHtml(emp ? emp.name : x.empId);
         var empRole = emp ? escHtml(getEmpRoleStr(emp)) : '';
 
+        // הטבלה הייתה 10 עמודות וברוחב 950px+ בטלפון — בעל העסק נדרש לגלול הצידה
+        // בכל אחת מ-4 הטבלאות. צומצמה לחמש עמודות שעונות על השאלה האמיתית:
+        // באיזה יום, כמה שעות, מה קיבל, מה מגיע לו, ומה חסר.
+        // הנתונים שהוסרו (₪/שעה, בסיס טיפים, כניסה-יציאה) לא אבדו — הם בכפתור
+        // "פירוט מלא" שכבר קיים, יחד עם ייצוא לאקסל.
+        // עמודת "תיקון" נשארת, אבל רק אם באמת יש תיקון באחת השורות.
+        var hasAnyAdj = x.shifts.some(function(sh) { return sh.adj !== 0; });
+
         var shiftRows = x.shifts.map(function(sh) {
           var dateLabel = sh.ds.slice(8) + '/' + sh.ds.slice(5,7);
           var dayLabel  = DHE[sh.wd];
-          var adjTxt = sh.adj !== 0
-            ? '<span style="font-size:14px;color:' + (sh.adj > 0 ? 'var(--success)' : 'var(--error)') + ';font-weight:800">' +
-                (sh.adj > 0 ? '+' : '') + ILS(sh.adj) + '</span>'
-            : '<span style="color:var(--text-muted);font-size:14px">—</span>';
+          // data-l נושא את שם העמודה, כדי שבטלפון (שם ה-thead מוסתר) כל ערך
+          // יופיע עם התווית שלו במקום להיות מספר מרחף בלי הקשר.
+          var adjCell = hasAnyAdj
+            ? '<td data-l="תיקון ידני" style="text-align:center">' + (sh.adj !== 0
+                ? '<span style="font-size:14px;font-weight:800;color:' + (sh.adj > 0 ? 'var(--success)' : 'var(--error)') + '">' +
+                    (sh.adj > 0 ? '+' : '') + ILS(sh.adj) + '</span>'
+                : '<span style="color:var(--text-muted)">—</span>') + '</td>'
+            : '';
           return '<tr>' +
-            '<td><strong style="font-size:15px">' + dateLabel + '</strong> <span style="font-size:13px;color:var(--text-sec);font-weight:700">' + dayLabel + '</span></td>' +
-            '<td><span style="font-size:13px;font-weight:800;padding:3px 10px;border-radius:10px;background:rgba(0,0,0,.07)">' + escHtml(sh.shiftName) + '</span></td>' +
-            '<td style="text-align:center;font-size:14px;font-weight:700">' + (sh.from ? sh.from : '—') + '–' + (sh.to ? sh.to : '—') + '</td>' +
-            '<td style="text-align:center;font-size:15px;font-weight:900">' + sh.hours.toFixed(1) + '</td>' +
-            '<td style="text-align:center;color:var(--text);font-size:14px;font-weight:700">' + (sh.perHr > 0 ? ILS(sh.perHr) : '—') + '</td>' +
-            '<td style="text-align:center;font-size:14px;font-weight:700">' + ILS(sh.base) + '</td>' +
-            '<td style="text-align:center">' + adjTxt + '</td>' +
-            '<td style="text-align:center;font-size:16px;font-weight:900;color:var(--success)">' + ILS(sh.final) + '</td>' +
-            '<td style="text-align:center;font-weight:800;color:#7C3AED;font-size:14px">' + ILS(sh.minGuar) + '</td>' +
-            '<td style="text-align:center"><strong style="color:#DC2626;font-size:16px;font-weight:900">' + ILS(sh.suppl) + '</strong></td>' +
+            '<td data-l=""><strong style="font-size:15px">' + dateLabel + '</strong> ' +
+              '<span style="font-size:12.5px;color:var(--text-muted);font-weight:700">' + dayLabel + '</span>' +
+              '<span style="font-size:12px;color:var(--text-muted)"> · ' + escHtml(sh.shiftName) + '</span></td>' +
+            '<td data-l="שעות" style="text-align:center;font-size:15px;font-weight:900">' + sh.hours.toFixed(1) + '</td>' +
+            '<td data-l="מה קיבל" style="text-align:center;font-size:15px;font-weight:800;color:var(--text)">' + ILS(sh.final) + '</td>' +
+            '<td data-l="מה מגיע לו" style="text-align:center;font-size:15px;font-weight:800;color:var(--text-sec)">' + ILS(sh.minGuar) + '</td>' +
+            adjCell +
+            '<td data-l="חסר להשלמה" style="text-align:center"><strong style="color:var(--error);font-size:16px;font-weight:900">' + ILS(sh.suppl) + '</strong></td>' +
           '</tr>';
         }).join('');
 
@@ -4631,24 +4995,28 @@ function renderTips() {
         return '<div class="srpt-emp">' +
           '<div class="srpt-emp-hdr">' +
             '<div style="display:flex;align-items:center;gap:12px">' +
-              '<div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#DC2626,#991B1B);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#fff;flex-shrink:0">' +
+              // צבעים קשיחים (#DC2626/#991B1B/#B91C1C) הוחלפו בטוקנים — הם יצרו
+              // 32 כשלי ניגודיות אמיתיים במצב כהה. בנוסף: קודם *הכול* כאן היה אדום,
+              // ולכן שום דבר לא בלט. עכשיו האדום שמור למספר אחד — הסכום להשלמה.
+              '<div style="width:40px;height:40px;border-radius:50%;background:var(--error-solid);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#fff;flex-shrink:0">' +
                 empName.charAt(0) + '</div>' +
               '<div>' +
-                '<div style="font-size:16px;font-weight:900;color:#991B1B">' + empName + '</div>' +
-                (empRole ? '<div style="font-size:12px;color:#B91C1C;margin-top:1px">' + empRole + '</div>' : '') +
+                '<div style="font-size:16px;font-weight:900;color:var(--text)">' + empName + '</div>' +
+                (empRole ? '<div style="font-size:12.5px;color:var(--text-muted);margin-top:1px">' + empRole + '</div>' : '') +
               '</div>' +
             '</div>' +
             '<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">' +
               '<div style="text-align:center">' +
-                '<div style="font-size:12px;font-weight:800;color:#B91C1C;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">שעות החודש</div>' +
-                '<div style="font-size:20px;font-weight:900;color:#991B1B">' + x.totalHours.toFixed(1) + '</div>' +
+                '<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:3px">שעות החודש</div>' +
+                '<div style="font-size:20px;font-weight:900;color:var(--text-sec)">' + x.totalHours.toFixed(1) + '</div>' +
               '</div>' +
               '<div style="text-align:center">' +
-                '<div style="font-size:12px;font-weight:800;color:#B91C1C;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">טיפים שקיבל</div>' +
-                '<div style="font-size:20px;font-weight:900;color:#991B1B">' + ILS(x.totalTips) + '</div>' +
+                '<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:3px">טיפים שקיבל</div>' +
+                '<div style="font-size:20px;font-weight:900;color:var(--text-sec)">' + ILS(x.totalTips) + '</div>' +
               '</div>' +
-              '<div style="text-align:center;background:linear-gradient(135deg,#DC2626,#B91C1C);color:#fff;padding:12px 24px;border-radius:var(--r-sm);box-shadow:0 3px 10px rgba(220,38,38,.4)">' +
-                '<div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;opacity:.9;margin-bottom:4px">⚠️ להוסיף למשכורת</div>' +
+              '<div style="text-align:center;background:var(--error-solid);color:#fff;padding:12px 24px;border-radius:var(--r-sm)">' +
+                // ה-opacity הוסר: הוא הוריד את ניגודיות הלבן מתחת לסף על תווית קטנה
+                '<div style="font-size:12.5px;font-weight:800;letter-spacing:.3px;margin-bottom:4px">להוסיף למשכורת</div>' +
                 '<div style="font-size:27px;font-weight:900;line-height:1">' + ILS(x.totalSuppl) + '</div>' +
               '</div>' +
             '</div>' +
@@ -4656,28 +5024,24 @@ function renderTips() {
           // Shift breakdown table
           '<div style="overflow-x:auto">' +
             '<table class="srpt-tbl">' +
+              // כותרות בשפה של בעל העסק, לא של רואה חשבון: "מה קיבל" במקום
+              // "קיבל בפועל", "מה מגיע לו" במקום "מינ' מובטח".
               '<thead><tr>' +
-                '<th>📅 תאריך</th>' +
-                '<th>משמרת</th>' +
-                '<th style="text-align:center">כניסה–יציאה</th>' +
+                '<th>תאריך</th>' +
                 '<th style="text-align:center">שעות</th>' +
-                '<th style="text-align:center">₪/שעה</th>' +
-                '<th style="text-align:center">בסיס טיפים</th>' +
-                '<th style="text-align:center">תיקון</th>' +
-                '<th style="text-align:center;color:var(--success)">✅ קיבל בפועל</th>' +
-                '<th style="text-align:center;color:#7C3AED">מינ\' מובטח</th>' +
-                '<th style="text-align:center;color:#DC2626">⚠️ להשלמה</th>' +
+                '<th style="text-align:center">מה קיבל</th>' +
+                '<th style="text-align:center">מה מגיע לו</th>' +
+                (hasAnyAdj ? '<th style="text-align:center">תיקון ידני</th>' : '') +
+                '<th style="text-align:center;color:var(--error)">חסר להשלמה</th>' +
               '</tr></thead>' +
               '<tbody>' + shiftRows + '</tbody>' +
-              '<tfoot><tr style="background:rgba(220,38,38,.06);font-weight:800">' +
-                '<td colspan="3"><strong style="font-size:15px">סה"כ לחודש</strong></td>' +
-                '<td style="text-align:center;font-size:15px;font-weight:900">' + x.totalHours.toFixed(1) + ' ש\'</td>' +
-                '<td style="text-align:center;font-size:14px;font-weight:800;color:var(--text)">' + ILS(perHrAvg) + '/ש\'</td>' +
-                '<td style="text-align:center"></td>' +
-                '<td style="text-align:center"></td>' +
-                '<td style="text-align:center;font-size:16px;font-weight:900;color:var(--success)">' + ILS(x.totalTips) + '</td>' +
-                '<td style="text-align:center;font-size:15px;font-weight:900;color:#7C3AED">' + ILS(x.totalHours * minPerHr) + '</td>' +
-                '<td style="text-align:center;font-size:18px;font-weight:900;color:#DC2626">' + ILS(x.totalSuppl) + '</td>' +
+              '<tfoot><tr style="font-weight:800">' +
+                '<td data-l=""><strong style="font-size:15px">סה"כ לחודש</strong></td>' +
+                '<td data-l="שעות" style="text-align:center;font-size:15px;font-weight:900">' + x.totalHours.toFixed(1) + ' ש\'</td>' +
+                '<td data-l="מה קיבל" style="text-align:center;font-size:15px;font-weight:900;color:var(--text)">' + ILS(x.totalTips) + '</td>' +
+                '<td data-l="מה מגיע לו" style="text-align:center;font-size:15px;font-weight:900;color:var(--text-sec)">' + ILS(x.totalHours * minPerHr) + '</td>' +
+                (hasAnyAdj ? '<td data-l=""></td>' : '') +
+                '<td data-l="חסר להשלמה" style="text-align:center;font-size:18px;font-weight:900;color:var(--error)">' + ILS(x.totalSuppl) + '</td>' +
               '</tr></tfoot>' +
             '</table>' +
           '</div>' +
@@ -4720,11 +5084,11 @@ function renderTips() {
               groupHtml +
             '</div>';
           })() +
-          // Explanation note
-          '<div style="padding:10px 18px;background:rgba(220,38,38,.04);border-top:1px solid rgba(220,38,38,.1);font-size:12.5px;color:#7F1D1D;display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
-            '<span>📐 <strong>איך מחשבים?</strong></span>' +
-            '<span>שעות × ₪' + minPerHr + '/ש\' = מינ\' מובטח · אם קיבל פחות מהטיפים — מוסיפים את ההפרש <strong>למשכורת החודשית</strong></span>' +
-            '<button class="btn btn-sm btn-secondary" style="margin-right:auto;font-size:12px;padding:4px 12px" onclick="openEmpTipsModal(\'' + x.empId + '\',\'' + ym + '\')">🔍 פירוט מלא</button>' +
+          // משפט ההסבר ישב כאן וחזר פעם אחת לכל עובד — בחודש עם 4 עובדים
+          // הוא הוצג 4 פעמים באותו מסך. הוא עבר להופעה אחת בכותרת הדוח.
+          // כפתור "פירוט מלא" נשאר כאן, כי הוא באמת שייך לעובד הספציפי.
+          '<div style="padding:10px 18px;border-top:1px solid var(--border);display:flex;justify-content:flex-end">' +
+            '<button class="btn btn-sm btn-secondary" style="font-size:12.5px;padding:6px 14px" onclick="openEmpTipsModal(\'' + x.empId + '\',\'' + ym + '\')">🔍 פירוט מלא</button>' +
           '</div>' +
         '</div>';
       }).join('');
@@ -4760,11 +5124,19 @@ function renderTips() {
         // ── Dark header ──
         '<div class="srpt-hdr">' +
           '<div>' +
-            '<div style="font-size:20px;font-weight:900;color:#fff;letter-spacing:-.4px">📊 דוח השלמות מינימום טיפים <span style="cursor:help;border:1px solid rgba(255,255,255,.5);border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;vertical-align:middle" title="לפי החוק בישראל, עובד שמתוגמל בטיפים זכאי לקבל לפחות שכר מינימום לשעה. אם במשמרת מסוימת הטיפים שהוא קיבל יוצאים נמוכים מהמינימום (לפי השעות שעבד), המערכת מחשבת אוטומטית את ההפרש — וזה מה שמופיע כאן כ&quot;השלמה&quot;.">?</span></div>' +
-            '<div style="font-size:13px;color:rgba(255,255,255,.6);margin-top:5px">' +
-              mn2 + ' &nbsp;·&nbsp; מינימום: ₪' + minPerHr + ' לשעה &nbsp;·&nbsp; חישוב נפרד לכל משמרת' +
+            // ההסבר האמיתי ישב ב-title של עיגול "?" — שלא נפתח כלל במגע, כלומר
+            // בטלפון הוא פשוט לא היה קיים. הוא הועבר לטקסט גלוי, פעם אחת,
+            // וכאן הוא מחליף גם את משפט ההסבר שחזר אצל כל עובד.
+            '<div style="font-size:20px;font-weight:900;color:#fff;letter-spacing:-.4px">📊 השלמות שכר מינימום</div>' +
+            '<div style="font-size:13px;color:rgba(255,255,255,.62);margin-top:6px;max-width:56ch;line-height:1.6">' +
+              'עובד שמתוגמל בטיפים חייב להגיע לשכר מינימום לשעה. המערכת בודקת כל משמרת בנפרד — ' +
+              'מי שלא הגיע, ההפרש מתווסף למשכורת החודשית שלו (לא מחולק במזומן).' +
             '</div>' +
-            '<div style="font-size:11.5px;color:rgba(255,255,255,.45);margin-top:5px;font-style:italic">💡 ההשלמות מתווספות למשכורת החודשית — לא מחולקות במעטפה</div>' +
+            // 45% לבן על הרקע הכהה יצא בדיוק על הגבול (~4.5:1) וזה הטקסט הקטן
+            // ביותר בכותרת — הועלה ל-62% כדי שלא יישב על הקו.
+            '<div style="font-size:12.5px;color:rgba(255,255,255,.62);margin-top:6px">' +
+              mn2 + ' &nbsp;·&nbsp; שעות × ₪' + minPerHr + ' = מה שמגיע לו' +
+            '</div>' +
           '</div>' +
           (totalSuppl > 0
             ? '<div class="srpt-badge-red">' +
@@ -4774,13 +5146,9 @@ function renderTips() {
               '</div>'
             : '<div class="srpt-badge-grn">✅ <span>כל העובדים מעל המינימום</span></div>') +
         '</div>' +
-        // ── Legend bar ──
-        (needSuppl.length > 0
-          ? '<div style="padding:10px 22px;background:rgba(220,38,38,.06);border-bottom:1px solid rgba(220,38,38,.1);font-size:12px;color:#7F1D1D;display:flex;align-items:center;gap:6px">' +
-              '<span style="font-size:14px">⚠️</span>' +
-              '<span><strong>' + needSuppl.length + ' עובד' + (needSuppl.length > 1 ? 'ים זקוקים' : ' זקוק') + ' להשלמת מינימום</strong> — הסכומים להלן מתווספים למשכורת החודשית שלהם</span>' +
-            '</div>'
-          : '') +
+        // פס האזהרה שהיה כאן חזר על שני דברים שכבר נאמרו במקום אחר באותו מסך:
+        // מספר העובדים (מופיע בתגית האדומה) ו"מתווסף למשכורת החודשית" (בהסבר למעלה).
+        // הוסר — שורה פחות לקרוא, בלי לאבד שום מידע.
         // ── Employee sections ──
         empSections +
         // ── OK employees ──
@@ -5674,18 +6042,18 @@ function removeExtra(i) {
 
 function getVat() {
   var v = (S.settings || {}).vat;
-  return (typeof v === 'number' && !isNaN(v)) ? v : 17;
+  return (typeof v === 'number' && !isNaN(v)) ? v : VAT_DEFAULT;
 }
 
 function saveVat(val) {
-  if (!S.settings) S.settings = {vat:17};
+  if (!S.settings) S.settings = {vat:VAT_DEFAULT};
   var n = parseFloat(val);
   S.settings.vat = isNaN(n) ? 17 : Math.min(Math.max(0, n), 100);
   persist();
   renderControl();
 }
 function toggleSalesTarget() {
-  if (!S.settings) S.settings = {vat:17};
+  if (!S.settings) S.settings = {vat:VAT_DEFAULT};
   var cur = S.settings.showSalesTarget !== false;
   S.settings.showSalesTarget = !cur;
   persist();
@@ -6843,7 +7211,9 @@ function _buildUpdateHTML(notes, title) {
 function _markVersionSeen(v) {
   currentSeenVersion = v;
   localStorage.setItem('cafeManager_seenVersion', v);
-  if (currentUid && currentBusinessId && window.fb) window.fb.updateSeenVersion(currentUid, currentBusinessId, v).catch(function() {});
+  // ⚠️ אל מסמך החברות **הקנוני**: אחרת "כבר ראיתי את העדכון הזה"
+  //    היה נשמר בנפרד לכל זהות, וזו בדיוק התחזוקה הכפולה שנסגרה כאן.
+  if (currentUid && currentBusinessId && window.fb) window.fb.updateSeenVersion(_effUid(), currentBusinessId, v).catch(function() {});
 }
 function _relevantUpdateNotes(notes) {
   if (isOwner()) return notes;
@@ -7207,7 +7577,7 @@ async function loadDemoData() {
     suppliers:   suppliers,
     purchases:   purchases,
     control:     control,
-    settings:    {vat:17, tipsMinPerHr:35, adjNotes:[], shiftDefs: S.settings && S.settings.shiftDefs ? S.settings.shiftDefs : null}
+    settings:    {vat:VAT_DEFAULT, tipsMinPerHr:LEGAL_MIN_WAGE_PER_HR, adjNotes:[], shiftDefs: S.settings && S.settings.shiftDefs ? S.settings.shiftDefs : null}
   };
   if (!S.settings.shiftDefs) delete S.settings.shiftDefs;
 
@@ -8267,11 +8637,22 @@ function isOwner() { return currentRole === 'owner'; }
 // שגם הם מקבלים role==='owner' בעסק שלהם). הנתונים חיים בתוך S.adminClients, שנטען מהעסק
 // האישי של המפעיל בלבד — כך שגם אם משתמש אחר יעקוף את הכפתור המוסתר, הוא יראה רק את
 // S.adminClients הריק/האישי שלו-עצמו, לעולם לא את נתוני הלקוחות האמיתיים.
-var SUPERADMIN_EMAIL = 'maromezra5@gmail.com';
+// ⚠️ רשימה, לא כתובת אחת — כדי שאפשר יהיה להרשות חשבון נוסף בשורה אחת,
+//    בלי להסיר את זה שעובד. היום פעילה רק maromezra5@: זה חשבון הגוגל שאיתו
+//    מרום מתחבר, ואותה כתובת מופיעה גם בכללי ה-Firestore.
+// ⛔ הוספת כתובת כאן לבדה אינה נותנת גישה. חייבים להוסיף אותה **גם** בשני
+//    קבצי הכללים — Business-Manager/firestore-rules-READY-TO-PASTE.txt
+//    ו-client-bot/firestore-rules-pingo.txt — ולהדביק אותם בקונסולת Firebase.
+//    שינוי בצד אחד בלבד = מסך שנראה תקין מול הרשאות שדוחות.
+var SUPERADMIN_EMAILS = [
+  'maromezra5@gmail.com',
+  // 'maromezra27@gmail.com',   // ← להסיר את הסלאשים כשגם החשבון הזה צריך גישה
+];
 function isSuperAdmin() {
   try {
     var u = window.fb && window.fb.currentUser && window.fb.currentUser();
-    return !!u && (u.email || '').toLowerCase() === SUPERADMIN_EMAIL;
+    var email = u && (u.email || '').toLowerCase();
+    return !!email && SUPERADMIN_EMAILS.indexOf(email) !== -1;
   } catch (e) { return false; }
 }
 
@@ -8393,12 +8774,147 @@ async function authGoogleSignIn() {
   }
 }
 
+/* ══ בחירת העסק הפעיל · מקור-הבחירה הוא הנתון הקובע ═══════════════
+ *
+ * ⚠️⚠️⚠️ **הבאג שהצדיק את כל זה, 18-19.8.26.** הקוד שמר ב-localStorage
+ *    גם בחירה ש**האפליקציה ניחשה**, לא רק בחירה של אדם. הניחוש הראשון
+ *    היה שגוי (סדר Firestore), הוא נשמר, ומאותו רגע כל כניסה חזרה
+ *    לעסק הריק — כולל אחרי שתיקנתי את המיון. הבחירה השמורה ניצחה את
+ *    התיקון, כי מבחינת הקוד היא נראתה בדיוק כמו בחירה מכוונת.
+ *
+ * ⛔ **ולכן: רק פעולה של אדם נשמרת.** החלפת עסק מהמחליף, ופדיון
+ *    הזמנה. ניחוש-ברירת-מחדל **אינו נשמר לעולם**.
+ *
+ * ⚠️ ערך ישן (מחרוזת גולמית, בלי מקור) נחשב **לא-מהימן**: אי אפשר
+ *    לדעת אם אדם בחר אותו או שהבאג כתב אותו. הוא אינו נמחק — הוא
+ *    פשוט אינו מכריע. ברגע שהאדם יבחר במפורש, הבחירה תיכתב כראוי.
+ */
+function _choiceKey(uid) { return 'activeBusinessId_' + uid; }
+function _canonKey(canonical) { return 'activeBusinessCanon_' + canonical; }
+
+/** ⚠️ הזהות הקנונית מ-HQ, אם יש. ⛔ לעולם אינה תנאי לגישה. */
+function _canonicalId() {
+  try { return (window.hqIdentity && window.hqIdentity.canonicalUserId()) || null; }
+  catch (e) { return null; }
+}
+
+/* ══ החברות הקנונית · אדם אחד, מסמך הרשאות אחד ════════════════════
+ *
+ * ⚠️⚠️⚠️ **הפער שזה סוגר.** לאדם עם שתי זהויות Google היו **שתי
+ *    חברויות נפרדות** באותו עסק, כל אחת עם `role` ו-`allowedTabs`
+ *    משלה. ⛔ כל שינוי הרשאה חייב תחזוקה כפולה, ושתי הכתובות
+ *    התפצלו שוב בכל שינוי.
+ *
+ * ⚠️ הפתרון: `identityMap/{uid}` — הקרנה מ-HQ — נושא `canonical_uid`,
+ *    וכל ההרשאות נקראות ונכתבות אל `memberships/{canonical_uid}_{biz}`.
+ *    אותו נתיב בדיוק נאכף בחוקי Firestore, ולכן הלקוח והחוקים אינם
+ *    יכולים להיפרד.
+ *
+ * ⚠️⚠️ **המצב היחיד שאינו שגיאה הוא "אין מיפוי".** לכל שאר הלקוחות
+ *    אין `identityMap` ולא יהיה — והם ממשיכים בדיוק כמו קודם.
+ * ⛔⛔ מיפוי **קיים ופגום** אינו נופל חזרה למסלול הישיר: זהות שבוטלה
+ *    הייתה מקבלת גישה דרך החברות של עצמה, כלומר הביטול היה נעקף.
+ *    לכן — `IDENTITY_BLOCKED`.
+ */
+var MAP_VERSION = 1;
+var _identity = {uid: null, canonicalUid: null, canonicalUserId: null, label: '', mapped: false};
+
+function _mapIsValid(uid, m) {
+  return !!m
+    && m.active === true
+    && m.uid === uid
+    && m.source === 'hq'
+    && m.map_version === MAP_VERSION
+    && typeof m.canonical_user_id === 'string' && m.canonical_user_id.length > 0
+    && typeof m.canonical_uid === 'string' && m.canonical_uid.length > 0;
+}
+
+/**
+ * קובע את ה-UID שממנו נגזרות ההרשאות.
+ * ⚠️ מחזיר `{effUid, mapped}`; זורק `IDENTITY_BLOCKED` על מיפוי פגום.
+ * ⛔ שגיאת **רשת** אינה מיפוי פגום — היא נזרקת כמו שהיא, כדי שמסלול
+ *    הטיפול בשגיאות הקיים יציג "נסה שוב" ולא "הגישה בוטלה".
+ */
+async function _resolveIdentity(user) {
+  _identity = {uid: user.uid, canonicalUid: user.uid, canonicalUserId: null, label: '', mapped: false};
+  if (!window.fb || !window.fb.getIdentityMap) return _identity;
+  var snap;
+  try {
+    snap = await window.fb.getIdentityMap(user.uid);
+  } catch (e) {
+    // ⚠️⚠️ **סירוב-הרשאה כאן פירושו "החוקים עדיין לא מכירים את
+    //    האוסף"** — כלומר הגרסה הזו של הלקוח עלתה לפני פריסת החוקים.
+    //    ⇒ ממשיכים במסלול הישיר, בדיוק כמו כל לקוח בלי מיפוי.
+    // ⛔ **וזה אינו חור.** ברגע שהחוקים החדשים חיים, קריאת המסמך של
+    //    עצמך **אינה** נדחית לעולם; ואם הלקוח בכל זאת ילך למסלול
+    //    הישיר, החוקים יחסמו את שאילתת החברויות שלו — כלומר הכשל
+    //    נשאר סגור. הסובלנות הזו קיימת אך ורק כדי שסדר הפריסה
+    //    "לקוח → הקרנות → חוקים" לא ייצור חלון שבור.
+    if (e && e.code === 'permission-denied') return _identity;
+    throw e;                                       // ⚠️ רשת/אחר — לא לבלוע
+  }
+  if (!snap.exists()) return _identity;            // ⚠️ המסלול הישיר, ללא שינוי
+  var m = snap.data();
+  if (!_mapIsValid(user.uid, m)) throw {message: 'IDENTITY_BLOCKED'};
+  _identity = {
+    uid: user.uid, canonicalUid: m.canonical_uid, canonicalUserId: m.canonical_user_id,
+    label: m.label || '', mapped: true
+  };
+  return _identity;
+}
+
+/** ⚠️ ה-UID שנושא את ההרשאות. בלי מיפוי — המשתמש עצמו. */
+function _effUid() { return (_identity && _identity.canonicalUid) || currentUid; }
+
+function _rememberChoice(uid, businessId) {
+  var rec = {v: 1, businessId: businessId, source: 'user', at: Date.now()};
+  try { localStorage.setItem(_choiceKey(uid), JSON.stringify(rec)); } catch (e) {}
+  // ⚠️ נשמר גם תחת המזהה הקנוני, כדי שהבחירה תעבור בין שתי הזהויות
+  //    של אותו אדם. ⛔ אם HQ אינו זמין — פשוט אין מפתח קנוני, והכל
+  //    ממשיך לעבוד לפי הזהות הנוכחית.
+  var c = _canonicalId();
+  if (c) { try { localStorage.setItem(_canonKey(c), JSON.stringify(rec)); } catch (e) {} }
+}
+
+/**
+ * מחזיר את הבחירה השמורה **רק אם היא מהימנה ותקפה**.
+ * ⚠️ תקפה = חברות פעילה ועדכנית **ברשימה שנטענה עכשיו**. חברות
+ *    שהוסרה או שהתיישנה נפסלת מאליה, בלי מחיקה ובלי ניחוש.
+ */
+function _trustedChoice(uid, memberships) {
+  function parse(raw) {
+    if (!raw) return null;
+    try {
+      var o = JSON.parse(raw);
+      // ⛔ רק `source: 'user'`. ניחוש ישן שנשמר כאובייקט לא יעבור.
+      return (o && o.businessId && o.source === 'user') ? o.businessId : null;
+    } catch (e) { return null; }   // ⚠️ מחרוזת גולמית ישנה = לא מהימן
+  }
+  var ids = [];
+  try { ids.push(parse(localStorage.getItem(_choiceKey(uid)))); } catch (e) {}
+  var c = _canonicalId();
+  if (c) { try { ids.push(parse(localStorage.getItem(_canonKey(c)))); } catch (e) {} }
+  for (var i = 0; i < ids.length; i++) {
+    if (!ids[i]) continue;
+    var m = memberships.find(function(x){ return x.businessId === ids[i]; });
+    if (m) return m;   // ⚠️ אומת מול חברות פעילה שנטענה עכשיו
+  }
+  return null;
+}
+
 async function _resolveBusinessAndRole(user) {
   var signupName = _pendingSignupName;
   _pendingSignupName = '';
   var _debugAllowed = (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
   if (_debugAllowed) window._resolveDebug = {email: user.email, uid: user.uid, steps: []};
   function _dbg(step, data) { if (_debugAllowed) window._resolveDebug.steps.push({step: step, data: data}); }
+
+  // 0) ⚠️⚠️ **מי אני, לפני הכל.** ההרשאות ייקראו מה-UID הקנוני ולא
+  //    בהכרח מזה שנכנס. ⛔ מיפוי פגום עוצר כאן ואינו ממשיך למסלול
+  //    הישיר — אחרת ביטול-זהות היה חסר-משמעות.
+  var idn = await _resolveIdentity(user);
+  var effUid = idn.canonicalUid;
+  _dbg('identity', idn);
 
   // 1) Were they invited (fresh, or re-invited after a previous removal)? Consume the invite if so —
   //    this creates an ADDITIONAL membership even if they already belong to other businesses.
@@ -8410,13 +8926,16 @@ async function _resolveBusinessAndRole(user) {
         var inv = inviteSnap.data();
         _dbg('inviteData', inv);
         // setDoc הוא overwrite בטוח — אין צורך לבדוק קיום מראש (ובדיקת קיום על מסמך שלא קיים נכשלת בכללי Firestore)
-        await window.fb.createMembership(user.uid, inv.businessId, inv.role, user.email, inv.allowedTabs || [], signupName, inv.businessName || '');
+        // ⚠️⚠️ תחת ה-UID **הקנוני**: זה הנתיב שאליו חוקי Firestore
+        //    מסתכלים. יצירה תחת ה-UID שנכנס הייתה משאירה את הנתיב
+        //    הקנוני ריק — כלומר חסימה מהעסק שהרגע הוזמנו אליו.
+        await window.fb.createMembership(effUid, inv.businessId, inv.role, user.email, inv.allowedTabs || [], signupName, inv.businessName || '');
         _dbg('createMembership', 'done');
         await window.fb.deleteInvite(user.email);
         _dbg('deleteInvite', 'done');
-        await window.fb.unblockUser(user.uid, inv.businessId); // legitimately re-invited — clear any prior block for this business
+        await window.fb.unblockUser(effUid, inv.businessId); // legitimately re-invited — clear any prior block for this business
         // קליק על קישור הזמנה אומר "תיכנס לעסק הזה כעת" — לא להשאיר את הבחירה לסדר אקראי של מסמכים
-        localStorage.setItem('activeBusinessId_' + user.uid, inv.businessId);
+        _rememberChoice(effUid, inv.businessId);   // ⚠️ קליק על הזמנה = בחירה מכוונת
       }
     } catch (e) {
       _dbg('inviteError', String((e && e.message) || e));
@@ -8425,7 +8944,10 @@ async function _resolveBusinessAndRole(user) {
   }
 
   // 2) Load every business this person belongs to
-  var membershipsSnap = await window.fb.getMemberships(user.uid);
+  // ⚠️⚠️ **מה-UID הקנוני.** לחשבון העבודה יש גם חברויות משלו — למשל
+  //    העסק הריק שנוצר בבאג "businessId == uid" — אך הן אינן ההרשאות
+  //    שלו. הגזירה מהקנוני היא גם מה שמונע בורר-עסק מיותר בכניסה.
+  var membershipsSnap = await window.fb.getMemberships(effUid);
   var memberships = [];
   membershipsSnap.forEach(function(d) { memberships.push(d.data()); });
   _dbg('memberships', memberships);
@@ -8433,22 +8955,35 @@ async function _resolveBusinessAndRole(user) {
   // 3) No memberships anywhere — either brand-new, or fully removed from their only business.
   if (!memberships.length) {
     try {
-      var blockedSnap = await window.fb.getBlockedDocsForUser(user.uid);
+      var blockedSnap = await window.fb.getBlockedDocsForUser(effUid);
       if (!blockedSnap.empty) throw { message: 'ACCESS_REVOKED' };
     } catch (e) {
       if (e && e.message === 'ACCESS_REVOKED') throw e;
       // any other error (e.g. offline) — don't block a legitimate new signup over a failed read
     }
     // Brand-new signup with no invite, not blocked — they own their own new business
-    await window.fb.createMembership(user.uid, user.uid, 'owner', user.email, [], signupName);
-    return {businessId: user.uid, role: 'owner', allowedTabs: [], name: signupName, seenVersion: '', allMemberships: [{businessId: user.uid, role: 'owner'}]};
+    // ⚠️ הרשמה חדשה לגמרי. ⛔ למשתמש כזה אין ולא יהיה `identityMap`,
+    //    ולכן `effUid === user.uid` וההתנהגות זהה לקודם בדיוק.
+    await window.fb.createMembership(effUid, effUid, 'owner', user.email, [], signupName);
+    return {businessId: effUid, role: 'owner', allowedTabs: [], name: signupName, seenVersion: '', allMemberships: [{businessId: effUid, role: 'owner'}]};
   }
 
-  // 4) Pick the active business — remembered choice for this device, or the only one, or the first
-  var chosenBizId = localStorage.getItem('activeBusinessId_' + user.uid);
-  var active = memberships.find(function(m){ return m.businessId === chosenBizId; }) || memberships[0];
-  localStorage.setItem('activeBusinessId_' + user.uid, active.businessId);
+  // 4) Pick the active business — בחירה מכוונת בלבד, אחרת שואלים.
+  //
+  // ⚠️⚠️ **אין כאן ניחוש שנשמר.** בחירה מהימנה מנצחת; חברות יחידה
+  //    ברורה מאליה; וכשיש כמה ואין בחירה — **שואלים את האדם** במקום
+  //    להחליט בשבילו. ⛔ בדיוק כאן נולד הבאג: ניחוש שהתחזה לבחירה.
+  var trusted = _trustedChoice(effUid, memberships);
+  var active = trusted || (memberships.length === 1 ? memberships[0] : null);
 
+  if (!active) {
+    // ⚠️ אין ברירת-מחדל בטוחה. מחזירים סימון ולא עסק — ו-
+    //    `authLoadAndShowApp` יציג בורר. ⛔ **לא** נפתח onboarding:
+    //    לאדם הזה יש עסקים, הוא רק לא אמר באיזה.
+    return {needsChoice: true, allMemberships: memberships};
+  }
+  // ⛔⛔ **אין `setItem` כאן.** זו הייתה השורה ששמרה ניחוש כאילו
+  //    היה בחירה, והחזירה את מרום לעסק הריק בכל כניסה.
   return {
     businessId: active.businessId, role: active.role, allowedTabs: active.allowedTabs || [],
     name: active.name || signupName || '', seenVersion: active.seenVersion || '',
@@ -8461,6 +8996,10 @@ async function authLoadAndShowApp(user) {
   var permUpdatedAt = 0, permSeenAt = 0;
   try {
     var resolved = await _withTimeout(_resolveBusinessAndRole(user), 12000, 'resolve');
+    // ⚠️⚠️ **יש עסקים, אין בחירה — שואלים.** ⛔ לא נופלים ל-onboarding
+    //    ולא בוחרים בשביל האדם. זה המסלול שהחזיר את מרום פעמיים
+    //    למסך "איזה עסק יש לך?" בזמן שכל הנתונים שלו היו קיימים.
+    if (resolved.needsChoice) { showBusinessChooser(user, resolved.allMemberships); return; }
     currentBusinessId = resolved.businessId;
     currentRole = resolved.role;
     currentAllowedTabs = resolved.allowedTabs || [];
@@ -8470,6 +9009,14 @@ async function authLoadAndShowApp(user) {
     permUpdatedAt = resolved.permissionsUpdatedAt || 0;
     permSeenAt = resolved.permissionsSeenAt || 0;
   } catch (e) {
+    // ⚠️⚠️ **מיפוי-זהות פגום = גישה שבוטלה, ולא תקלה זמנית.** ⛔ אסור
+    //    ליפול למסלול ה-cache שלמטה: הוא מעניק `role: 'owner'` על עסק
+    //    ששמו ה-UID, וזו בדיוק העקיפה שתנאי 5 אוסר.
+    if (e && e.message === 'IDENTITY_BLOCKED') {
+      try { localStorage.removeItem(KEY); localStorage.removeItem('cafeManager_cachedBizId'); } catch (e2) {}
+      showAccessRevokedScreen();
+      return;
+    }
     if (e && e.message === 'ACCESS_REVOKED') {
       try { localStorage.removeItem(KEY); localStorage.removeItem('cafeManager_cachedBizId'); } catch (e2) {}
       showAccessRevokedScreen();
@@ -8509,6 +9056,10 @@ async function authLoadAndShowApp(user) {
       var cloudData = snap.data();
       if (cloudData && Array.isArray(cloudData.employees)) {
         S = cloudData;
+        // הנתונים מהענן עוברים את אותו ניקוי כמו הנתונים המקומיים.
+        // זו נקודת הכניסה המסוכנת יותר: כאן מגיע מסמך שנכתב אולי בגרסה ישנה,
+        // או בסנכרון חלקי ממכשיר אחר — ובלי הניקוי הוא מפיל את כל המסכים.
+        normalizeState(S);
         window._cloudDataLoaded = true;
         _lastKnownUpdatedAt = cloudData.updatedAt || 0;
       }
@@ -8522,9 +9073,11 @@ async function authLoadAndShowApp(user) {
   applyBusinessType();
   renderUserGreeting();
   renderBusinessSwitcher();
-  _watchOwnPermissions(user.uid, currentBusinessId);
+  // ⚠️ המעקב הוא על מסמך החברות **הקנוני** — זה שמשתנה כששינוי
+  //    הרשאה נעשה פעם אחת ואמור לחול על שתי הזהויות.
+  _watchOwnPermissions(_effUid(), currentBusinessId);
   _watchSubscriptionStatus(currentBusinessId);
-  _startPresenceHeartbeat(user.uid, currentBusinessId);
+  _startPresenceHeartbeat(_effUid(), currentBusinessId);
   if (!isOwner() && permUpdatedAt > permSeenAt) {
     setTimeout(function() { showPermissionsChangedNotice(user.uid, permUpdatedAt); }, 1000);
   }
@@ -8548,9 +9101,42 @@ function renderBusinessSwitcher() {
   greetEl.insertAdjacentHTML('afterend', html);
 }
 
+/**
+ * בורר עסקים חוסם · מוצג רק כשיש כמה חברויות ואין בחירה מהימנה.
+ *
+ * ⚠️ אינו מציג onboarding ואינו יוצר דבר. הוא **שואל**, וברגע
+ *    שנבחר — הבחירה נשמרת כפעולה של אדם ומכאן היא מהימנה.
+ */
+function showBusinessChooser(user, memberships) {
+  var auth = document.getElementById('auth-screen');
+  var box = document.getElementById('auth-card') || auth.firstElementChild || auth;
+  var rows = memberships.map(function(m) {
+    var label = m.businessName || m.businessId;
+    var role = m.role === 'owner' ? 'בעל/ת העסק' : m.role === 'manager' ? 'מנהל/ת' : 'עובד/ת';
+    return '<button class="bizpick" data-biz="' + String(m.businessId).replace(/"/g, '&quot;') + '">' +
+           '<span>' + label.replace(/</g, '&lt;') + '</span><small>' + role + '</small></button>';
+  }).join('');
+  box.innerHTML =
+    '<h2 style="margin:0 0 6px">לאיזה עסק להיכנס?</h2>' +
+    '<p style="color:var(--text-sec);font-size:13.5px;margin:0 0 16px">' +
+    'יש לך גישה ליותר מעסק אחד. הבחירה תישמר במכשיר הזה.</p>' +
+    '<div style="display:flex;flex-direction:column;gap:8px">' + rows + '</div>';
+  auth.style.display = 'flex';
+  box.querySelectorAll('.bizpick').forEach(function(b) {
+    b.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:12px;' +
+      'padding:14px 16px;border:1px solid var(--border);border-radius:var(--r-sm);' +
+      'background:var(--surface);cursor:pointer;font:inherit;font-weight:600;text-align:right';
+    b.onclick = function() {
+      // ⚠️ **זו הפעולה המכוונת.** רק כאן נשמרת בחירה.
+      _rememberChoice(user.uid, b.dataset.biz);
+      location.reload();
+    };
+  });
+}
+
 function switchActiveBusiness(businessId) {
   if (businessId === currentBusinessId) return;
-  if (currentUid) localStorage.setItem('activeBusinessId_' + currentUid, businessId);
+  if (currentUid) _rememberChoice(currentUid, businessId);   // ⚠️ הפעולה המכוונת היחידה
   location.reload();
 }
 
@@ -8608,7 +9194,7 @@ function showPermissionsChangedNotice(uid, ts) {
     '<button onclick="document.getElementById(\'perm-notice-modal\').remove()" style="width:100%;padding:13px;background:#D97757;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer">הבנתי</button>' +
     '</div></div>';
   document.body.insertAdjacentHTML('beforeend', html);
-  if (window.fb && uid) window.fb.markPermissionsSeen(uid, currentBusinessId, ts).catch(function(){});
+  if (window.fb && uid) window.fb.markPermissionsSeen(_effUid(), currentBusinessId, ts).catch(function(){});
 }
 
 async function authForgotPassword() {
@@ -9128,6 +9714,44 @@ function appStart() {
   continueAppStart();
 }
 
+
+/* ══ מע"מ 17 → 18 · הודעה חד-פעמית ══════════════════════════════
+ *
+ * ⚠️⚠️ **לא משכתבים לאדם נתונים היסטוריים.** שיעור המע"מ עלה ל-18%
+ *    ב-1.1.2025, ועסקים שהוקמו לפני כן שמורים עם 17. שינוי אוטומטי
+ *    היה משנה להם רטרואקטיבית את חילוץ המע"מ בכל דוח קיים — כלומר
+ *    מספרים שהם כבר דיווחו עליהם.
+ * ⛔ לכן: מודיעים, מסבירים, ונותנים להם ללחוץ. מי שבוחר להשאיר —
+ *    נשאר, וההודעה לא תחזור.
+ */
+function maybeShowVatNotice() {
+  try {
+    if (!isOwner()) return;
+    if (localStorage.getItem('cafeManager_vatNotice2026')) return;
+    var cur = (S.settings || {}).vat;
+    if (cur !== 17) return;
+    var html = '<div id="vat-notice" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9997;display:flex;align-items:center;justify-content:center;direction:rtl;padding:16px">' +
+      '<div style="background:#fff;border-radius:20px;padding:30px;max-width:430px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:right">' +
+      '<div style="font-size:34px;margin-bottom:8px">&#128176;</div>' +
+      '<h2 style="margin:0 0 10px;font-size:20px;color:#1A1A1A">שיעור המע"מ השתנה</h2>' +
+      '<div style="font-size:14px;color:#374151;line-height:1.75;margin-bottom:20px">המע"מ בישראל עלה ל-<strong>18%</strong> בינואר 2025, ובעסק שלך רשום עדיין <strong>17%</strong>.<br><br>אם תעדכן, החישובים <strong>מכאן ואילך</strong> יהיו לפי 18%. דוחות שכבר הפקת <strong>לא ישתנו</strong>.</div>' +
+      '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
+      '<button onclick="acceptVat18()" style="flex:1 1 170px;padding:13px;background:#D97757;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer">עדכן ל-18%</button>' +
+      '<button onclick="dismissVatNotice()" style="flex:1 1 120px;padding:13px;background:#F3F4F6;color:#374151;border:none;border-radius:12px;font-size:15px;cursor:pointer">השאר 17%</button>' +
+      '</div></div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+  } catch (e) {}
+}
+function acceptVat18() {
+  saveVat(18);
+  dismissVatNotice();
+  toast('✅ המע"מ עודכן ל-18%', 'ok');
+}
+function dismissVatNotice() {
+  try { localStorage.setItem('cafeManager_vatNotice2026', '1'); } catch (e) {}
+  var el = document.getElementById('vat-notice');
+  if (el) el.remove();
+}
 function continueAppStart() {
   if (isFirstTimeSetup()) {
     localStorage.setItem('cafeManager_seenVersion', APP_VERSION);
@@ -9137,6 +9761,7 @@ function continueAppStart() {
   }
   _wtEvent('app_open', (typeof currentRole !== 'undefined' && currentRole) ? currentRole : 'owner');
   setTimeout(showTasksReminderIfNeeded, 1300);
+  setTimeout(maybeShowVatNotice, 900);
 }
 
 function _termsContentHtml() {
@@ -9315,14 +9940,14 @@ function addWizCustomRole() {
 }
 function wizStep(delta) {
   if (_wizStep === 0 && delta > 0) {
-    if (!S.settings) S.settings = {vat: 17};
+    if (!S.settings) S.settings = {vat: VAT_DEFAULT};
     S.settings.businessType = _wizBizType;
     S.settings.businessTypeLabel = _wizBizDesc || '';
     persist();
     applyBusinessType();
   }
   if (_wizStep === 1 && delta > 0) {
-    if (!S.settings) S.settings = {vat: 17};
+    if (!S.settings) S.settings = {vat: VAT_DEFAULT};
     if (!S.settings.biz) S.settings.biz = {};
     var nameInp = document.getElementById('wiz-biz-name');
     var vatInp  = document.getElementById('wiz-vat');
