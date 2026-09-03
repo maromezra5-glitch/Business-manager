@@ -1411,7 +1411,7 @@ thead .sticky-col { background: #F0EBE6; z-index: 11; }
 var KEY = 'cafeManager_v4';
 
 /* ── עדכון: שנה את שני הקווים האלה בכל פריסה חדשה ── */
-var APP_VERSION  = '2026-09-03a';
+var APP_VERSION  = '2026-09-03b';
 
 /* ⚠️⚠️⚠️ **מע"מ הוא 18% בישראל מ-1.1.2025.** הקוד החזיק 17 בשמונה
    מקומות עד 21.8.2026 — כלומר חילוץ המע"מ בקניות וב-P&L היה שגוי
@@ -1455,6 +1455,7 @@ var LEGAL_MIN_WAGE_UPDATED = '1.4.2026';
 
 var UPDATE_NOTES = [
   /* הכי חדש למעלה — { v: גרסה, t: טקסט } — חובה להוסיף שורה בכל פריסה! */
+  { v: '2026-09-03b', t: '🔑 התחברות עם Google באייפון: אם ספארי חוסם את ההתחברות (הגנת הפרטיות שלו), המערכת מנסה שוב אוטומטית — ואם עדיין לא הצליח, מסבירה בעברית מה לעשות במקום הודעת שגיאה באנגלית' },
   { v: '2026-09-03a', t: '📱 מסכי הטיפים וההשלמות סודרו לטלפון: משמרת בלי נתונים מקופלת לשורה אחת במקום מסך שלם, טבלת ההשלמות נכנסת למסך בלי לגלול הצידה, וההסבר מופיע פעם אחת במקום אצל כל עובד · 🔧 תוקנו: כפתור "יום קודם" בהזנת שעות שלא היה לחיץ בטלפון, ושדה סכום הטיפים שלא נקרא במצב כהה · 👆 כל הכפתורים במסך הטיפים הוגדלו לגודל נוח ללחיצה באצבע' },
   { v: '2026-08-20a', t: 'חשבון אחד לכל הכתובות שלך: אם חיברת שני חשבונות Google לאותו משתמש, שניהם נכנסים לאותו עסק עם אותן הרשאות בדיוק — ושינוי הרשאה נעשה פעם אחת במקום פעמיים' },
   { v: '2026-08-18b', t: 'עדכון מערכת' },
@@ -8757,6 +8758,12 @@ function _authErrMsg(e) {
   if (code === 'auth/network-request-failed') return 'אין חיבור לאינטרנט';
   if (code === 'auth/account-exists-with-different-credential') return 'כתובת האימייל הזו רשומה כבר עם סיסמה — התחבר עם אימייל וסיסמה במקום Google';
   if (code === 'auth/popup-blocked')         return 'הדפדפן חסם את חלון ההתחברות — אפשר חלונות קופצים ונסה שוב';
+  if (code === 'auth/unauthorized-domain')   return 'הכתובת הזו אינה מאושרת להתחברות עם Google. היכנס/י דרך הכתובת הרשמית של המערכת, או התחבר/י עם אימייל וסיסמה.';
+  // באג ידוע ב-Firebase בספארי/אייפון: הדפדפן מפריד את האחסון בין האתר לבין
+  // שרת ההתחברות של Google, וה"מצב ההתחלתי" של ההתחברות אובד בדרך.
+  // ההודעה המקורית מגיעה באנגלית ומדברת על sessionStorage — חסרת משמעות למשתמש.
+  if (/missing initial state|sessionStorage/i.test(e && e.message || ''))
+    return 'ההתחברות עם Google נחסמה בדפדפן של האייפון (הגנת פרטיות של ספארי). הדרך הבטוחה: התחבר/י עם אימייל וסיסמה — הכפתור נמצא למעלה.';
   return 'שגיאה: ' + (e && e.message || 'לא ידועה');
 }
 
@@ -8770,6 +8777,22 @@ async function authGoogleSignIn() {
     _pendingSignupName = (result.user && result.user.displayName) || '';
   } catch (e) {
     if (e && (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request')) return;
+    // ניסיון שני אחד לתקלת ה-sessionStorage של ספארי/אייפון. זהו העקיפה
+    // המתועדת לבאג הזה ב-Firebase: הניסיון השני לרוב מצליח, כי מצב
+    // ההתחברות כבר קיים ואין צורך בהפניה מחדש. אם גם הוא נכשל — מציגים
+    // הודעה בעברית שמפנה להתחברות עם אימייל, במקום שגיאה באנגלית.
+    if (/missing initial state|sessionStorage/i.test(e && e.message || '')) {
+      err.textContent = 'מנסה שוב…';
+      try {
+        var retry = await window.fb.signInWithGoogle();
+        _pendingSignupName = (retry.user && retry.user.displayName) || '';
+        err.textContent = '';
+        return;
+      } catch (e2) {
+        err.textContent = _authErrMsg(e2);
+        return;
+      }
+    }
     err.textContent = _authErrMsg(e);
   }
 }
